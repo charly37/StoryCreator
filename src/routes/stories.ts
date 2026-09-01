@@ -1,6 +1,9 @@
 import express, { Request, Response, NextFunction } from 'express';
 import Story from '../models/Story';
 import User from '../models/User';
+import { aiService } from '../services/aiService';
+
+const SENTENCES_PER_PAGE = 12;
 
 const router = express.Router();
 
@@ -99,6 +102,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       learningLanguage,
       level,
       topic: topic || '',
+      seed: req.body.seed || '',
+      targetPages: req.body.targetPages || 1,
       authorId: req.session.userId,
       authorName: author.username,
       published: false,
@@ -133,6 +138,8 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     if (learningLanguage) story.learningLanguage = learningLanguage;
     if (level) story.level = level;
     if (topic !== undefined) story.topic = topic;
+    if (req.body.seed !== undefined) story.seed = req.body.seed;
+    if (req.body.targetPages !== undefined) story.targetPages = req.body.targetPages;
 
     await story.save();
     res.json(story);
@@ -175,6 +182,41 @@ router.post('/:id/publish', requireAuth, async (req: Request, res: Response) => 
   } catch (error) {
     console.error('Error publishing story:', error);
     res.status(500).json({ message: 'Server error publishing story' });
+  }
+});
+
+// POST /api/stories/:id/generate — calls AI service to generate bilingual sentences
+router.post('/:id/generate', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const story = await Story.findById(req.params.id);
+    if (!story) return res.status(404).json({ message: 'Story not found' });
+    if (story.authorId.toString() !== req.session.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const { seed, targetPages } = req.body;
+    if (!seed || typeof seed !== 'string' || !seed.trim()) {
+      return res.status(400).json({ message: 'A story seed is required' });
+    }
+    const pages = Math.min(Math.max(parseInt(targetPages, 10) || 1, 1), 10);
+    const sentenceCount = pages * SENTENCES_PER_PAGE;
+
+    const generated = await aiService.generateStory(
+      seed.trim(),
+      story.nativeLanguage,
+      story.learningLanguage,
+      sentenceCount
+    );
+
+    story.seed = seed.trim();
+    story.targetPages = pages;
+    story.sentences = generated;
+    await story.save();
+
+    res.json(story);
+  } catch (error) {
+    console.error('Error generating story:', error);
+    res.status(500).json({ message: 'Server error generating story' });
   }
 });
 

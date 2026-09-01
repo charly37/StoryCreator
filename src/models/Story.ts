@@ -13,6 +13,8 @@ export interface IStory extends Document {
   learningLanguage: string;
   level: 'beginner' | 'intermediate' | 'advanced';
   topic: string;
+  seed: string;
+  targetPages: number;
   authorId: mongoose.Types.ObjectId;
   authorName: string;
   published: boolean;
@@ -37,6 +39,8 @@ const storySchema = new Schema<IStory>(
     learningLanguage: { type: String, required: true },
     level: { type: String, enum: ['beginner', 'intermediate', 'advanced'], required: true },
     topic: { type: String, default: '' },
+    seed: { type: String, default: '' },
+    targetPages: { type: Number, default: 1 },
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     authorName: { type: String, required: true },
     published: { type: Boolean, default: false },

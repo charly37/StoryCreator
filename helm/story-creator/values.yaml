@@ -16,13 +16,13 @@ app:
   port: 3000
 
 ingress:
-  host: storycreator.net
+  host: bilingualstory.net
   # Use letsencrypt-staging for first-time testing to avoid rate limits
   clusterIssuer: letsencrypt-prod
   tlsSecretName: storycreator-tls
 
 certManager:
-  email: admin@storycreator.net
+  email: admin@bilingualstory.net
   # Set to false for secondary releases to skip creating ClusterIssuers
   # that were already created by the primary (prod) release.
   createIssuers: true

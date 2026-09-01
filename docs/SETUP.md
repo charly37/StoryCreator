@@ -122,4 +122,4 @@ helm upgrade --install story-creator helm/story-creator \
   --namespace story-creator --create-namespace
 ```
 
-Update `helm/story-creator/values.yaml` (or pass `--set`) to change the domain (`storycreator.net` by default), image tag, or resource limits.
+Update `helm/story-creator/values.yaml` (or pass `--set`) to change the domain (`bilingualstory.net` by default), image tag, or resource limits.
