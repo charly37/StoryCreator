@@ -1,0 +1,11 @@
+apiVersion: v2
+name: story-creator
+description: Bilingual story reading platform for language learning
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - stories
+  - language-learning
+  - bilingual
+home: https://github.com/charly37/StoryCreator

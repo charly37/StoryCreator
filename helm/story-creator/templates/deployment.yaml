@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-app
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "story-creator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-app
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-app
+        {{- include "story-creator.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.app.port }}
+          env:
+            - name: NODE_ENV
+              value: {{ .Values.app.nodeEnv | quote }}
+            - name: PORT
+              value: {{ .Values.app.port | quote }}
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: story-creator-secrets
+                  key: mongodb-uri
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: story-creator-secrets
+                  key: session-secret
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.app.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.app.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources.app | nindent 12 }}

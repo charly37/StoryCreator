@@ -1,0 +1,37 @@
+# Default values for story-creator.
+# Override with values-prod.yaml for production deployments.
+
+# Namespace where all resources are deployed.
+namespace: story-creator
+
+image:
+  repository: charly37/storycreator
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+app:
+  nodeEnv: production
+  port: 3000
+
+ingress:
+  host: storycreator.net
+  # Use letsencrypt-staging for first-time testing to avoid rate limits
+  clusterIssuer: letsencrypt-prod
+  tlsSecretName: storycreator-tls
+
+certManager:
+  email: admin@storycreator.net
+  # Set to false for secondary releases to skip creating ClusterIssuers
+  # that were already created by the primary (prod) release.
+  createIssuers: true
+
+resources:
+  app:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"

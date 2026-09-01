@@ -75,3 +75,51 @@ The production server serves the compiled frontend bundle from `public/` and lis
 | `npm run build:server` | Compile server only |
 | `npm run build:client` | Bundle client only |
 | `npm start` | Start the compiled production server |
+
+## Deployment (Kubernetes / Helm)
+
+### GitHub Actions CI/CD
+
+Two workflows are defined in `.github/workflows/`:
+
+- **`ci-cd.yml`** — runs on every push to `master`. Builds the app, builds and integration-tests the Docker image, then lints and validates the Helm chart. Pushes `charly37/storycreator:<sha>` + `charly37/storycreator:latest` to Docker Hub.
+- **`release.yml`** — manual dispatch. Accepts a `version` input (e.g. `v1.2.0`), creates a git tag, pushes a versioned Docker image, packages the Helm chart, and publishes a GitHub Release with the chart attached to GHCR (`oci://ghcr.io/charly37`).
+
+**Required GitHub repository secrets/variables** (Settings → Secrets and variables → Actions):
+
+| Name | Type | Value |
+|---|---|---|
+| `DOCKER_USERNAME` | Variable | `charly37` |
+| `DOCKER_PASSWORD` | Secret | Docker Hub access token |
+
+`GITHUB_TOKEN` is provided automatically by GitHub Actions.
+
+### One-time Kubernetes secret
+
+Before the first `helm install`, create the secret that holds sensitive config in the target namespace:
+
+```bash
+kubectl create secret generic story-creator-secrets \
+  --namespace=story-creator \
+  --from-literal=mongodb-uri='<your-atlas-connection-string>' \
+  --from-literal=session-secret='<random-secret-key>'
+```
+
+This only needs to be done once per cluster. The Helm chart references it but never creates it (keeping credentials out of version control).
+
+### Install / upgrade with Helm
+
+```bash
+# From the GHCR OCI registry (after a release):
+helm upgrade --install story-creator \
+  oci://ghcr.io/charly37/story-creator \
+  --version 1.2.0 \
+  --namespace story-creator --create-namespace
+
+# From the local chart (development / staging):
+helm upgrade --install story-creator helm/story-creator \
+  --values helm/story-creator/values-prod.yaml \
+  --namespace story-creator --create-namespace
+```
+
+Update `helm/story-creator/values.yaml` (or pass `--set`) to change the domain (`storycreator.net` by default), image tag, or resource limits.

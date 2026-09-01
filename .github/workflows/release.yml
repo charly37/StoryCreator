@@ -1,0 +1,159 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v1.5.0)'
+        required: true
+        type: string
+      notes:
+        description: 'Extra release notes to prepend (optional)'
+        required: false
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    - name: Validate version format
+      run: |
+        if [[ ! "${{ github.event.inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$ ]]; then
+          echo "Invalid version format. Expected format: v1.2.3 or v1.2.3-beta or v1.2.3-rc.1"
+          exit 1
+        fi
+
+    - name: Check tag does not already exist
+      run: |
+        if git ls-remote --tags origin | grep -q "refs/tags/${{ github.event.inputs.version }}$"; then
+          echo "Tag ${{ github.event.inputs.version }} already exists"
+          exit 1
+        fi
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build server
+      run: npm run build:server
+
+    - name: Build client
+      run: npm run build:client
+      env:
+        APP_VERSION: ${{ github.event.inputs.version }}
+
+    - name: Create and push git tag
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag -a "${{ github.event.inputs.version }}" -m "Release ${{ github.event.inputs.version }}"
+        git push origin "${{ github.event.inputs.version }}"
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v4.6.0
+      with:
+        username: ${{ vars.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and push Docker image
+      run: |
+        docker build \
+          --build-arg APP_VERSION=${{ github.event.inputs.version }} \
+          -t ${{ vars.DOCKER_USERNAME }}/storycreator:${{ github.event.inputs.version }} .
+        docker tag ${{ vars.DOCKER_USERNAME }}/storycreator:${{ github.event.inputs.version }} \
+          ${{ vars.DOCKER_USERNAME }}/storycreator:latest
+        docker push ${{ vars.DOCKER_USERNAME }}/storycreator:${{ github.event.inputs.version }}
+        docker push ${{ vars.DOCKER_USERNAME }}/storycreator:latest
+
+    - name: Install Helm
+      run: curl -sSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+    - name: Lint Helm chart
+      run: helm lint helm/story-creator
+
+    - name: Update Helm chart default image tag
+      run: |
+        sed -i "s/^\(\s*tag:\s*\)latest$/\1${{ github.event.inputs.version }}/" helm/story-creator/values.yaml
+
+    - name: Package Helm chart
+      run: |
+        CHART_VERSION="${{ github.event.inputs.version }}"
+        CHART_VERSION="${CHART_VERSION#v}"
+        helm package helm/story-creator \
+          --version "$CHART_VERSION" \
+          --app-version ${{ github.event.inputs.version }} \
+          --destination .
+        echo "Helm chart packaged: $(ls story-creator-*.tgz)"
+
+    - name: Push Helm chart to GHCR
+      run: |
+        echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+        helm push story-creator-*.tgz oci://ghcr.io/${{ github.repository_owner }}
+
+    - name: Create GitHub Release
+      run: |
+        CHART_VERSION="${{ github.event.inputs.version }}"
+        CHART_VERSION="${CHART_VERSION#v}"
+        DOCKER_NOTES=$(printf '%s\n' \
+          '## Docker Image' \
+          '' \
+          "**App:** \`docker pull ${{ vars.DOCKER_USERNAME }}/storycreator:${{ github.event.inputs.version }}\`" \
+          "[View on Docker Hub](https://hub.docker.com/r/${{ vars.DOCKER_USERNAME }}/storycreator/tags)" \
+          '' \
+          '## Kubernetes Deployment' \
+          '' \
+          'Ensure the `story-creator-secrets` secret exists before installing (one-time setup):' \
+          '```bash' \
+          'kubectl create secret generic story-creator-secrets \' \
+          '  --namespace=story-creator \' \
+          "  --from-literal=mongodb-uri='<your-atlas-uri>' \\" \
+          "  --from-literal=session-secret='<your-secret-key>'" \
+          '```' \
+          '' \
+          'Then install or upgrade with Helm:' \
+          '```bash' \
+          "helm upgrade --install story-creator \\" \
+          '  oci://ghcr.io/charly37/story-creator \' \
+          "  --version $CHART_VERSION \\" \
+          '  --namespace story-creator --create-namespace' \
+          '```' \
+          '' \
+          'Or clone the repo and install from the local chart:' \
+          '```bash' \
+          "helm upgrade --install story-creator helm/story-creator \\" \
+          "  --values helm/story-creator/values-prod.yaml \\" \
+          '  --namespace story-creator --create-namespace' \
+          '```')
+
+        EXTRA="${{ github.event.inputs.notes }}"
+        if [ -n "$EXTRA" ]; then
+          NOTES=$(printf '%s\n\n%s' "$DOCKER_NOTES" "$EXTRA")
+        else
+          NOTES="$DOCKER_NOTES"
+        fi
+
+        gh release create "${{ github.event.inputs.version }}" \
+          story-creator-*.tgz \
+          --title "Release ${{ github.event.inputs.version }}" \
+          --notes "$NOTES" \
+          --generate-notes \
+          --latest
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

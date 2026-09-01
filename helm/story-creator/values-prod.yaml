@@ -1,0 +1,9 @@
+# Production overrides — apply alongside values.yaml:
+#   helm upgrade --install story-creator ./helm/story-creator \
+#     --values helm/story-creator/values-prod.yaml \
+#     --set image.tag=<version>
+
+replicaCount: 1
+
+ingress:
+  clusterIssuer: letsencrypt-prod

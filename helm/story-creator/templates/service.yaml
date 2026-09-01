@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-app
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "story-creator.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Release.Name }}-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: {{ .Values.app.port }}
+  type: ClusterIP
