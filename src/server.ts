@@ -3,9 +3,9 @@ import path from 'path';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import dotenv from 'dotenv';
-import connectDB from './config/database.js';
-import authRoutes from './routes/auth.js';
-import storyRoutes from './routes/stories.js';
+import connectDB from './config/database';
+import authRoutes from './routes/auth';
+import storyRoutes from './routes/stories';
 
 const envFile = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
 dotenv.config({ path: envFile });

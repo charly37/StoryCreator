@@ -127,10 +127,12 @@ const StoryReadPage: React.FC = () => {
                 />
                 {story.topic && <Chip label={story.topic} size="small" variant="outlined" />}
               </Box>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>{story.title.lang2}</Typography>
-              <Typography variant="subtitle1" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                {story.title.lang1}
-              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>{story.title.lang2 || story.title.lang1}</Typography>
+              {story.title.lang2 && (
+                <Typography variant="subtitle1" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                  {story.title.lang1}
+                </Typography>
+              )}
               <Typography variant="caption" color="text.secondary">
                 {t('stories.by')} {story.authorName} · {t('stories.sentences', { count: total })}
               </Typography>

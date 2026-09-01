@@ -127,9 +127,11 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
                     <Typography variant="h6" sx={{ fontWeight: 600 }} gutterBottom noWrap>
                       {story.title.lang1}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" noWrap sx={{ fontStyle: 'italic' }}>
-                      {story.title.lang2}
-                    </Typography>
+                    {story.title.lang2 && (
+                      <Typography variant="body2" color="text.secondary" noWrap sx={{ fontStyle: 'italic' }}>
+                        {story.title.lang2}
+                      </Typography>
+                    )}
                     {story.topic && (
                       <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
                         {story.topic}

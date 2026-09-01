@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
-import Story from '../models/Story.js';
-import User from '../models/User.js';
+import Story from '../models/Story';
+import User from '../models/User';
 
 const router = express.Router();
 
@@ -76,8 +76,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const { title, sentences, nativeLanguage, learningLanguage, level, topic } = req.body;
 
-    if (!title?.lang1 || !title?.lang2) {
-      return res.status(400).json({ message: 'Title in both languages is required' });
+    if (!title?.lang1) {
+      return res.status(400).json({ message: 'Title is required' });
     }
     if (!nativeLanguage || !learningLanguage) {
       return res.status(400).json({ message: 'Both languages are required' });

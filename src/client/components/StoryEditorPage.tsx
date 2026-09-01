@@ -80,8 +80,8 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
       return;
     }
     if (!validateLanguages(nativeLanguage, learningLanguage)) return;
-    if (!titleLang1 || !titleLang2) {
-      setError('Please fill in the title in both languages.');
+    if (!titleLang1) {
+      setError('Please fill in the story title.');
       return;
     }
 
@@ -234,11 +234,6 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
             <TextField
               label={t('editor.titleIn', { lang: nativeLanguage ? getLanguageName(nativeLanguage) : '…' })}
               value={titleLang1} onChange={(e) => setTitleLang1(e.target.value)}
-              sx={{ flex: 1, minWidth: 200 }} required
-            />
-            <TextField
-              label={t('editor.titleIn', { lang: learningLanguage ? getLanguageName(learningLanguage) : '…' })}
-              value={titleLang2} onChange={(e) => setTitleLang2(e.target.value)}
               sx={{ flex: 1, minWidth: 200 }} required
             />
           </Box>

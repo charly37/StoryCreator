@@ -29,7 +29,7 @@ const storySchema = new Schema<IStory>(
   {
     title: {
       lang1: { type: String, required: true },
-      lang2: { type: String, required: true },
+      lang2: { type: String, default: '' },
     },
     sentences: { type: [sentenceSchema], default: [] },
     sentenceCount: { type: Number, default: 0 },
