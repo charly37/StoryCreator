@@ -11,6 +11,8 @@ import StoryEditorPage from './components/StoryEditorPage';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import ProfilePage from './components/ProfilePage';
+import StoryPreviewPage from './components/StoryPreviewPage';
+import StoryReviewPage from './components/StoryReviewPage';
 
 const theme = createTheme({
   palette: {
@@ -113,6 +115,14 @@ const AppContent: React.FC = () => {
           <Route
             path="/profile"
             element={user ? <ProfilePage user={user} /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/preview/:id"
+            element={user ? <StoryPreviewPage /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/review/:id"
+            element={user ? <StoryReviewPage /> : <Navigate to="/login" replace />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

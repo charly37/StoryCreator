@@ -98,6 +98,7 @@
     "generating": "Génération en cours…",
     "generateStory": "Générer l'histoire",
     "generateSuccess": "Histoire générée ! Vous pouvez la consulter dans Mes histoires.",
+    "generateQueued": "Votre histoire va bientôt être générée ! Redirection vers vos histoires…",
     "generateError": "Erreur lors de la génération. Veuillez réessayer.",
     "saved": "Histoire enregistrée avec succès",
     "saveError": "Erreur lors de l'enregistrement. Veuillez réessayer.",
@@ -118,7 +119,31 @@
     "deleteSuccess": "Histoire supprimée",
     "publishSuccess": "Histoire publiée",
     "unpublishSuccess": "Histoire dépubliée",
-    "sentences": "{{count}} phrases"
+    "sentences": "{{count}} phrases",
+    "generating": "Génération en cours…",
+    "read": "Lire",
+    "review": "Relire",
+    "publishGated": "Approuvez l'histoire sur la page de relecture avant de la publier"
+  },
+  "preview": {
+    "goToReview": "Aller à la relecture"
+  },
+  "review": {
+    "title": "Relire l'histoire",
+    "generalFeedback": "Commentaire général",
+    "generalFeedbackPlaceholder": "Commentaire sur l'ensemble de l'histoire (optionnel si vous avez des notes sur des phrases)",
+    "sentences": "Phrases",
+    "addNote": "Ajouter une note à cette phrase",
+    "removeNote": "Supprimer la note",
+    "annotationPlaceholder": "Votre retour sur cette phrase…",
+    "applyFeedback": "Appliquer et regénérer",
+    "applying": "Application en cours…",
+    "approve": "Approuver l'histoire",
+    "approving": "Approbation en cours…",
+    "approveSuccess": "Histoire approuvée ! Vous pouvez maintenant la publier.",
+    "applyError": "Erreur lors de l'application du feedback. Veuillez réessayer.",
+    "approveError": "Erreur lors de l'approbation. Veuillez réessayer.",
+    "generatingBanner": "Génération en cours… La page se rafraîchira automatiquement."
   },
   "levels": {
     "beginner": "Débutant",

@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Card, CardContent, CardActions, Button,
   Chip, CircularProgress, Alert, Dialog, DialogTitle, DialogContent,
-  DialogContentText, DialogActions, Snackbar, Tab, Tabs,
+  DialogContentText, DialogActions, Snackbar, Tab, Tabs, Tooltip,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
 import { AppUser } from '../App';
@@ -21,6 +24,9 @@ interface StoryCard {
   topic: string;
   sentenceCount: number;
   published: boolean;
+  generating: boolean;
+  isAIGenerated: boolean;
+  approved: boolean;
 }
 
 const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
@@ -54,6 +60,13 @@ const ProfilePage: React.FC<{ user: AppUser }> = ({ user }) => {
   }, []);
 
   useEffect(() => { fetchStories(); }, [fetchStories]);
+
+  // Poll every 5s while any story is still being generated
+  useEffect(() => {
+    if (!stories.some((s) => s.generating)) return;
+    const interval = setInterval(fetchStories, 5000);
+    return () => clearInterval(interval);
+  }, [stories, fetchStories]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -139,6 +152,15 @@ const ProfilePage: React.FC<{ user: AppUser }> = ({ user }) => {
                     size="small"
                     variant={story.published ? 'filled' : 'outlined'}
                   />
+                  {story.generating && (
+                    <Chip
+                      icon={<AutoAwesomeIcon fontSize="small" />}
+                      label={t('profile.generating')}
+                      color="secondary"
+                      size="small"
+                      variant="outlined"
+                    />
+                  )}
                 </Box>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>{story.title.lang1}</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
@@ -153,20 +175,43 @@ const ProfilePage: React.FC<{ user: AppUser }> = ({ user }) => {
                   {t('profile.sentences', { count: story.sentenceCount })}
                 </Typography>
               </CardContent>
-              <CardActions sx={{ px: 2, pb: 2, gap: 1 }}>
+              <CardActions sx={{ px: 2, pb: 2, gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  size="small" startIcon={<AutoStoriesIcon />}
+                  onClick={() => navigate(`/preview/${story._id}`)}
+                  disabled={story.sentenceCount === 0}
+                >
+                  {t('profile.read')}
+                </Button>
+                {story.isAIGenerated && (
+                  <Button
+                    size="small" startIcon={<RateReviewIcon />}
+                    onClick={() => navigate(`/review/${story._id}`)}
+                    disabled={story.sentenceCount === 0 || story.generating}
+                  >
+                    {t('profile.review')}
+                  </Button>
+                )}
                 <Button
                   size="small" startIcon={<EditIcon />}
                   onClick={() => navigate(`/editor/${story._id}`)}
                 >
                   {t('common.edit')}
                 </Button>
-                <Button
-                  size="small"
-                  color={story.published ? 'warning' : 'success'}
-                  onClick={() => handleTogglePublish(story)}
+                <Tooltip
+                  title={story.isAIGenerated && !story.approved && !story.published ? t('profile.publishGated') : ''}
                 >
-                  {story.published ? t('common.unpublish') : t('common.publish')}
-                </Button>
+                  <span>
+                    <Button
+                      size="small"
+                      color={story.published ? 'warning' : 'success'}
+                      onClick={() => handleTogglePublish(story)}
+                      disabled={story.isAIGenerated && !story.approved && !story.published}
+                    >
+                      {story.published ? t('common.unpublish') : t('common.publish')}
+                    </Button>
+                  </span>
+                </Tooltip>
                 <Button
                   size="small" color="error" startIcon={<DeleteIcon />}
                   onClick={() => setDeleteTarget(story)}

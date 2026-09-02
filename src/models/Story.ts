@@ -18,6 +18,9 @@ export interface IStory extends Document {
   authorId: mongoose.Types.ObjectId;
   authorName: string;
   published: boolean;
+  generating: boolean;
+  isAIGenerated: boolean;
+  approved: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,6 +47,9 @@ const storySchema = new Schema<IStory>(
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     authorName: { type: String, required: true },
     published: { type: Boolean, default: false },
+    generating: { type: Boolean, default: false },
+    isAIGenerated: { type: Boolean, default: false },
+    approved: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

@@ -98,6 +98,7 @@
     "generating": "Generating…",
     "generateStory": "Generate Story",
     "generateSuccess": "Story generated! You can view it in My Stories.",
+    "generateQueued": "Your story will be generated soon! Redirecting to your stories…",
     "generateError": "Error generating story. Please try again.",
     "saved": "Story saved successfully",
     "saveError": "Error saving story. Please try again.",
@@ -118,7 +119,31 @@
     "deleteSuccess": "Story deleted",
     "publishSuccess": "Story published",
     "unpublishSuccess": "Story unpublished",
-    "sentences": "{{count}} sentences"
+    "sentences": "{{count}} sentences",
+    "generating": "Generating…",
+    "read": "Read",
+    "review": "Review",
+    "publishGated": "Approve the story on the Review page before publishing"
+  },
+  "preview": {
+    "goToReview": "Go to Review"
+  },
+  "review": {
+    "title": "Review Story",
+    "generalFeedback": "General feedback",
+    "generalFeedbackPlaceholder": "Overall feedback for the whole story (optional when you have sentence notes)",
+    "sentences": "Sentences",
+    "addNote": "Add a note to this sentence",
+    "removeNote": "Remove note",
+    "annotationPlaceholder": "Your feedback for this sentence…",
+    "applyFeedback": "Apply Feedback & Regenerate",
+    "applying": "Applying…",
+    "approve": "Approve Story",
+    "approving": "Approving…",
+    "approveSuccess": "Story approved! You can now publish it.",
+    "applyError": "Error applying feedback. Please try again.",
+    "approveError": "Error approving story. Please try again.",
+    "generatingBanner": "Generation in progress… The page will refresh automatically when done."
   },
   "levels": {
     "beginner": "Beginner",

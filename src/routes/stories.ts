@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import Story from '../models/Story';
 import User from '../models/User';
-import { aiService } from '../services/aiService';
+import { aiService, SentencePatch } from '../services/aiService';
 
 const SENTENCES_PER_PAGE = 12;
 
@@ -176,6 +176,9 @@ router.post('/:id/publish', requireAuth, async (req: Request, res: Response) => 
     if (!story.published && story.sentences.length === 0) {
       return res.status(400).json({ message: 'Cannot publish a story with no sentences' });
     }
+    if (!story.published && story.isAIGenerated && !story.approved) {
+      return res.status(400).json({ message: 'AI-generated stories must be reviewed and approved before publishing' });
+    }
     story.published = !story.published;
     await story.save();
     res.json({ published: story.published });
@@ -201,22 +204,121 @@ router.post('/:id/generate', requireAuth, async (req: Request, res: Response) =>
     const pages = Math.min(Math.max(parseInt(targetPages, 10) || 1, 1), 10);
     const sentenceCount = pages * SENTENCES_PER_PAGE;
 
-    const generated = await aiService.generateStory(
-      seed.trim(),
-      story.nativeLanguage,
-      story.learningLanguage,
-      sentenceCount
-    );
-
     story.seed = seed.trim();
     story.targetPages = pages;
-    story.sentences = generated;
+    story.generating = true;
     await story.save();
 
-    res.json(story);
+    res.status(202).json({ message: 'Story generation started', storyId: story._id });
+
+    // Run generation in background without blocking the response
+    setImmediate(async () => {
+      try {
+        const generated = await aiService.generateStory(
+          story.seed,
+          story.nativeLanguage,
+          story.learningLanguage,
+          sentenceCount,
+          story.level
+        );
+        story.sentences = generated.sentences;
+        story.title.lang2 = generated.title;
+        story.isAIGenerated = true;
+        story.generating = false;
+        await story.save();
+      } catch (error) {
+        console.error('Background story generation failed:', error);
+        story.generating = false;
+        await story.save();
+      }
+    });
   } catch (error) {
-    console.error('Error generating story:', error);
-    res.status(500).json({ message: 'Server error generating story' });
+    console.error('Error starting story generation:', error);
+    res.status(500).json({ message: 'Server error starting story generation' });
+  }
+});
+
+// POST /api/stories/:id/review — patch annotated sentences via AI (fire-and-forget)
+router.post('/:id/review', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const story = await Story.findById(req.params.id);
+    if (!story) return res.status(404).json({ message: 'Story not found' });
+    if (story.authorId.toString() !== req.session.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const { generalFeedback, annotations } = req.body as {
+      generalFeedback?: string;
+      annotations?: Array<{ sentenceIndex: number; feedback: string }>;
+    };
+
+    if (!Array.isArray(annotations) || annotations.length === 0) {
+      return res.status(400).json({ message: 'At least one sentence annotation is required' });
+    }
+
+    const patches: SentencePatch[] = annotations
+      .filter((a) => a.sentenceIndex >= 0 && a.sentenceIndex < story.sentences.length && a.feedback?.trim())
+      .map((a) => ({
+        index: a.sentenceIndex,
+        lang1: story.sentences[a.sentenceIndex].lang1,
+        lang2: story.sentences[a.sentenceIndex].lang2,
+        feedback: a.feedback.trim(),
+      }));
+
+    if (patches.length === 0) {
+      return res.status(400).json({ message: 'No valid sentence annotations found' });
+    }
+
+    story.generating = true;
+    await story.save();
+
+    res.status(202).json({ message: 'Review patch started', storyId: story._id });
+
+    setImmediate(async () => {
+      try {
+        const patched = await aiService.patchSentences(
+          patches,
+          generalFeedback?.trim() ?? '',
+          story.nativeLanguage,
+          story.learningLanguage,
+          story.level
+        );
+        for (const p of patched) {
+          if (p.index >= 0 && p.index < story.sentences.length) {
+            story.sentences[p.index] = { lang1: p.lang1, lang2: p.lang2 };
+          }
+        }
+        story.generating = false;
+        await story.save();
+      } catch (error) {
+        console.error('Background review patch failed:', error);
+        story.generating = false;
+        await story.save();
+      }
+    });
+  } catch (error) {
+    console.error('Error starting review patch:', error);
+    res.status(500).json({ message: 'Server error starting review patch' });
+  }
+});
+
+// POST /api/stories/:id/approve — marks story as reviewed and approved for publishing
+router.post('/:id/approve', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const story = await Story.findById(req.params.id);
+    if (!story) return res.status(404).json({ message: 'Story not found' });
+    if (story.authorId.toString() !== req.session.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (story.sentences.length === 0) {
+      return res.status(400).json({ message: 'Cannot approve a story with no sentences' });
+    }
+    story.approved = true;
+    await story.save();
+    res.json({ approved: story.approved });
+  } catch (error) {
+    console.error('Error approving story:', error);
+    res.status(500).json({ message: 'Server error approving story' });
   }
 });
 
