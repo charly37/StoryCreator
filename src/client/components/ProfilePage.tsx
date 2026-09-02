@@ -5,7 +5,6 @@ import {
   Chip, CircularProgress, Alert, Dialog, DialogTitle, DialogContent,
   DialogContentText, DialogActions, Snackbar, Tab, Tabs, Tooltip,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
@@ -27,6 +26,7 @@ interface StoryCard {
   generating: boolean;
   isAIGenerated: boolean;
   approved: boolean;
+  seed: string;
 }
 
 const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
@@ -183,30 +183,25 @@ const ProfilePage: React.FC<{ user: AppUser }> = ({ user }) => {
                 >
                   {t('profile.read')}
                 </Button>
-                {story.isAIGenerated && (
+                {/* seed is the fallback for stories generated before isAIGenerated was added */}
+                {(story.isAIGenerated || !!story.seed) && (
                   <Button
-                    size="small" startIcon={<RateReviewIcon />}
-                    onClick={() => navigate(`/review/${story._id}`)}
-                    disabled={story.sentenceCount === 0 || story.generating}
-                  >
-                    {t('profile.review')}
-                  </Button>
-                )}
-                <Button
-                  size="small" startIcon={<EditIcon />}
-                  onClick={() => navigate(`/editor/${story._id}`)}
+                  size="small" startIcon={<RateReviewIcon />}
+                  onClick={() => navigate(`/review/${story._id}`)}
+                  disabled={story.sentenceCount === 0 || story.generating}
                 >
-                  {t('common.edit')}
+                  {t('profile.review')}
                 </Button>
+                )}
                 <Tooltip
-                  title={story.isAIGenerated && !story.approved && !story.published ? t('profile.publishGated') : ''}
+                  title={(story.isAIGenerated || !!story.seed) && !story.approved && !story.published ? t('profile.publishGated') : ''}
                 >
                   <span>
                     <Button
                       size="small"
                       color={story.published ? 'warning' : 'success'}
                       onClick={() => handleTogglePublish(story)}
-                      disabled={story.isAIGenerated && !story.approved && !story.published}
+                      disabled={(story.isAIGenerated || !!story.seed) && !story.approved && !story.published}
                     >
                       {story.published ? t('common.unpublish') : t('common.publish')}
                     </Button>

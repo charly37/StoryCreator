@@ -95,6 +95,13 @@
     "seedLabel": "Décrivez votre histoire en {{lang}}",
     "seedPlaceholder": "Écrivez un court résumé ou une idée pour votre histoire. L'IA la développera en une histoire bilingue complète.",
     "targetPages": "Longueur de l'histoire (pages)",
+    "chapters": "Chapitres",
+    "chapterN": "Chapitre {{n}}",
+    "chapterSeed": "Idée du chapitre (optionnel)",
+    "chapterSeedPlaceholder": "Décrivez ce chapitre — laissez vide et l'IA décidera",
+    "targetSentences": "Phrases",
+    "addChapter": "Ajouter un chapitre",
+    "totalSentences": "≈ {{count}} phrases au total",
     "generating": "Génération en cours…",
     "generateStory": "Générer l'histoire",
     "generateSuccess": "Histoire générée ! Vous pouvez la consulter dans Mes histoires.",
@@ -126,7 +133,8 @@
     "publishGated": "Approuvez l'histoire sur la page de relecture avant de la publier"
   },
   "preview": {
-    "goToReview": "Aller à la relecture"
+    "goToReview": "Aller à la relecture",
+    "chapterN": "Chapitre {{n}}"
   },
   "review": {
     "title": "Relire l'histoire",
@@ -143,7 +151,16 @@
     "approveSuccess": "Histoire approuvée ! Vous pouvez maintenant la publier.",
     "applyError": "Erreur lors de l'application du feedback. Veuillez réessayer.",
     "approveError": "Erreur lors de l'approbation. Veuillez réessayer.",
-    "generatingBanner": "Génération en cours… La page se rafraîchira automatiquement."
+    "regenerateChapter": "Regénérer le chapitre",
+    "regenerateChapterWarning": "La regénération d'un chapitre peut modifier d'autres chapitres pour préserver la cohérence du récit.",
+    "chapterN": "Chapitre {{n}}",
+    "chapterSeed": "Idée du chapitre",
+    "chapterFeedback": "Retour sur le chapitre",
+    "chapterFeedbackPlaceholder": "Décrivez ce qu'il faut changer dans ce chapitre",
+    "chapterSentences": "{{count}} phrases",
+    "targetSentences": "Phrases cibles",
+    "generatingBanner": "Génération en cours… La page se rafraîchira automatiquement.",
+    "seedReadOnly": "Pour changer l'idée de départ, créez une nouvelle histoire"
   },
   "levels": {
     "beginner": "Débutant",

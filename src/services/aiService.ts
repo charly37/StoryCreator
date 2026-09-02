@@ -5,22 +5,40 @@ export interface GeneratedSentence {
   lang2: string;
 }
 
-export interface GeneratedStory {
-  title: string;
+export interface ChapterSpec {
+  seed: string;
+  targetSentences: number;
+}
+
+export interface GeneratedChapter {
+  seed: string;
   sentences: GeneratedSentence[];
 }
 
+export interface GeneratedStory {
+  title: string;
+  chapters: GeneratedChapter[];
+}
+
 export interface SentencePatch {
-  index: number;
+  chapterIndex: number;
+  sentenceIndex: number;
   lang1: string;
   lang2: string;
   feedback: string;
 }
 
 export interface PatchedSentence {
-  index: number;
+  chapterIndex: number;
+  sentenceIndex: number;
   lang1: string;
   lang2: string;
+}
+
+export interface RegeneratedChapter {
+  index: number;
+  seed: string;
+  sentences: GeneratedSentence[];
 }
 
 export interface IAIService {
@@ -28,7 +46,7 @@ export interface IAIService {
     seed: string,
     nativeLanguage: string,
     learningLanguage: string,
-    sentenceCount: number,
+    chapterSpecs: ChapterSpec[],
     level: string
   ): Promise<GeneratedStory>;
   patchSentences(
@@ -38,6 +56,16 @@ export interface IAIService {
     learningLanguage: string,
     level: string
   ): Promise<PatchedSentence[]>;
+  regenerateChapter(
+    chapterIndex: number,
+    newSeed: string,
+    generalFeedback: string,
+    allChapters: Array<{ seed: string; sentences: GeneratedSentence[] }>,
+    nativeLanguage: string,
+    learningLanguage: string,
+    level: string,
+    targetSentences: number
+  ): Promise<RegeneratedChapter[]>;
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -67,12 +95,13 @@ class OpenAIService implements IAIService {
     seed: string,
     nativeLanguage: string,
     learningLanguage: string,
-    sentenceCount: number,
+    chapterSpecs: ChapterSpec[],
     level: string
   ): Promise<GeneratedStory> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
     const levelGuidance = LEVEL_GUIDANCE[level] ?? LEVEL_GUIDANCE.intermediate;
+    const N = chapterSpecs.length;
 
     const systemPrompt = `You are a bilingual story writer creating parallel-text stories for language learners.
 Each story presents the same sentence in two languages side by side.
@@ -83,40 +112,57 @@ ${levelGuidance}
 Return a JSON object with exactly this structure — no extra text or markdown:
 {
   "title": "<story title in ${learningName}>",
-  "sentences": [
-    { "lang1": "<sentence in ${nativeName}>", "lang2": "<sentence in ${learningName}>" }
+  "chapters": [
+    {
+      "seed": "<brief chapter description in English>",
+      "sentences": [
+        { "lang1": "<sentence in ${nativeName}>", "lang2": "<sentence in ${learningName}>" }
+      ]
+    }
   ]
 }
 
 Rules:
-- Write exactly ${sentenceCount} sentence objects in the "sentences" array
+- Return exactly ${N} chapter objects in the "chapters" array
+- Chapter i must contain exactly the sentence count listed below
+- If a chapter has a provided seed, use it as the premise; if blank, invent a coherent one
+- The story must flow naturally across all chapters
 - lang1 is always ${nativeName}, lang2 is always ${learningName}
-- Each lang1/lang2 pair must express the same meaning in the respective language
-- The story must be coherent and follow the seed narrative from start to finish
+- Each sentence pair must express the same meaning in both languages
 - Apply the level guidance consistently throughout`;
+
+    const chapterList = chapterSpecs
+      .map((c, i) => `Chapter ${i + 1} (${c.targetSentences} sentences): ${c.seed || '(AI decides)'}`)
+      .join('\n');
+
+    const userContent = `Story seed: ${seed}\n\nChapters:\n${chapterList}`;
 
     const response = await this.client.chat.completions.create({
       model: 'gpt-4o-mini',
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Write a story based on this seed: ${seed}` },
+        { role: 'user', content: userContent },
       ],
     });
 
     const raw = response.choices[0]?.message?.content ?? '{}';
-    const parsed = JSON.parse(raw) as { title?: string; sentences?: GeneratedSentence[] };
+    const parsed = JSON.parse(raw) as { title?: string; chapters?: GeneratedChapter[] };
 
     const title = typeof parsed.title === 'string' ? parsed.title : '';
-    let sentences = Array.isArray(parsed.sentences) ? parsed.sentences : [];
+    const rawChapters = Array.isArray(parsed.chapters) ? parsed.chapters : [];
 
-    // Trim or pad to exactly sentenceCount if the model drifts
-    sentences = sentences.slice(0, sentenceCount);
-    while (sentences.length < sentenceCount) {
-      sentences.push({ lang1: '', lang2: '' });
-    }
+    // Ensure exactly N chapters, each trimmed/padded to target
+    const chapters: GeneratedChapter[] = chapterSpecs.map((spec, i) => {
+      const rawChapter = rawChapters[i];
+      const chapterSeed = rawChapter?.seed ?? `Chapter ${i + 1}`;
+      let sentences = Array.isArray(rawChapter?.sentences) ? rawChapter.sentences : [];
+      sentences = sentences.slice(0, spec.targetSentences);
+      while (sentences.length < spec.targetSentences) sentences.push({ lang1: '', lang2: '' });
+      return { seed: chapterSeed, sentences };
+    });
 
-    return { title, sentences };
+    return { title, chapters };
   }
 
   async patchSentences(
@@ -131,24 +177,23 @@ Rules:
     const levelGuidance = LEVEL_GUIDANCE[level] ?? LEVEL_GUIDANCE.intermediate;
 
     const sentenceList = patches
-      .map((p) => `Sentence ${p.index} — ${nativeName}: "${p.lang1}" | ${learningName}: "${p.lang2}"\nFeedback: ${p.feedback}`)
+      .map((p) => `Ch${p.chapterIndex + 1}/S${p.sentenceIndex + 1} — ${nativeName}: "${p.lang1}" | ${learningName}: "${p.lang2}"\nFeedback: ${p.feedback}`)
       .join('\n\n');
 
     const systemPrompt = `You are editing specific sentences of a bilingual story for a language learner.
 Level: ${level} — ${levelGuidance}
 
-You will receive sentences with individual feedback and optionally a general note.
-Revise only the sentences provided and return them improved in both languages.
+Revise only the sentences provided based on their feedback and return them improved in both languages.
 
 Return a JSON object with exactly this structure — no extra text:
 {
   "patches": [
-    { "index": <original index>, "lang1": "<revised sentence in ${nativeName}>", "lang2": "<revised sentence in ${learningName}>" }
+    { "chapterIndex": <0-based chapter index>, "sentenceIndex": <0-based sentence index>, "lang1": "<revised in ${nativeName}>", "lang2": "<revised in ${learningName}>" }
   ]
 }
 
 Rules:
-- Return exactly one object per input sentence, preserving the original index
+- Return exactly one object per input sentence, preserving chapterIndex and sentenceIndex
 - Apply the per-sentence feedback, using the general feedback as additional context
 - Ensure lang1 and lang2 express the same meaning
 - Maintain the story level throughout`;
@@ -171,6 +216,65 @@ Rules:
     const parsed = JSON.parse(raw) as { patches?: PatchedSentence[] };
     return Array.isArray(parsed.patches) ? parsed.patches : [];
   }
+
+  async regenerateChapter(
+    chapterIndex: number,
+    newSeed: string,
+    generalFeedback: string,
+    allChapters: Array<{ seed: string; sentences: GeneratedSentence[] }>,
+    nativeLanguage: string,
+    learningLanguage: string,
+    level: string,
+    targetSentences: number
+  ): Promise<RegeneratedChapter[]> {
+    const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
+    const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
+    const levelGuidance = LEVEL_GUIDANCE[level] ?? LEVEL_GUIDANCE.intermediate;
+
+    const contextSummary = allChapters
+      .map((c, i) => `Chapter ${i + 1} (${i === chapterIndex ? 'TARGET — regenerate this' : 'context only'}): ${c.seed}`)
+      .join('\n');
+
+    const systemPrompt = `You are revising a specific chapter of a bilingual parallel-text story.
+Level: ${level} — ${levelGuidance}
+
+You are given the full story context. Rewrite the TARGET chapter using the new seed.
+If the change affects story coherence in other chapters, you may also return updated versions of those chapters.
+
+Return a JSON object with exactly this structure — no extra text:
+{
+  "chapters": [
+    { "index": <0-based chapter index>, "seed": "<updated seed>", "sentences": [{ "lang1": "...", "lang2": "..." }] }
+  ]
+}
+
+Rules:
+- Always include the TARGET chapter (index ${chapterIndex}) with exactly ${targetSentences} sentences
+- Only include other chapters if coherence truly requires changes; minimize collateral edits
+- lang1 is always ${nativeName}, lang2 is always ${learningName}
+- Each sentence pair must express the same meaning
+- Maintain the story level throughout`;
+
+    const feedback = [
+      `New seed for chapter ${chapterIndex + 1}: ${newSeed}`,
+      generalFeedback ? `Additional feedback: ${generalFeedback}` : '',
+      `Story context:\n${contextSummary}`,
+    ].filter(Boolean).join('\n\n');
+
+    const response = await this.client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: feedback },
+      ],
+    });
+
+    const raw = response.choices[0]?.message?.content ?? '{}';
+    const parsed = JSON.parse(raw) as { chapters?: RegeneratedChapter[] };
+    return Array.isArray(parsed.chapters) ? parsed.chapters : [];
+  }
 }
 
 export const aiService: IAIService = new OpenAIService();
+

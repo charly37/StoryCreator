@@ -3,8 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Paper, TextField, Button, Alert, Snackbar,
   CircularProgress, Select, MenuItem, FormControl, InputLabel, Divider,
+  IconButton,
 } from '@mui/material';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, getLanguageName } from '../utils/languages';
 import { AppUser } from '../App';
@@ -13,7 +16,14 @@ interface StoryEditorPageProps {
   user: AppUser;
 }
 
+interface ChapterSpec {
+  seed: string;
+  targetSentences: number;
+}
+
 const LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
+const DEFAULT_SENTENCES = 12;
+const MAX_CHAPTERS = 10;
 
 const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const { id } = useParams<{ id?: string }>();
@@ -26,7 +36,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
   const [topic, setTopic] = useState('');
   const [seed, setSeed] = useState('');
-  const [targetPages, setTargetPages] = useState(1);
+  const [chapterSpecs, setChapterSpecs] = useState<ChapterSpec[]>([{ seed: '', targetSentences: DEFAULT_SENTENCES }]);
 
   const [loading, setLoading] = useState(!!id);
   const [generating, setGenerating] = useState(false);
@@ -45,7 +55,10 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         setLevel(data.level || 'beginner');
         setTopic(data.topic || '');
         setSeed(data.seed || '');
-        setTargetPages(data.targetPages || 1);
+        const loadedChapters = Array.isArray(data.chapters) && data.chapters.length > 0
+          ? data.chapters.map((c: ChapterSpec) => ({ seed: c.seed || '', targetSentences: c.targetSentences || DEFAULT_SENTENCES }))
+          : [{ seed: '', targetSentences: DEFAULT_SENTENCES }];
+        setChapterSpecs(loadedChapters);
       })
       .catch(() => setError('Failed to load story'))
       .finally(() => setLoading(false));
@@ -91,7 +104,8 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         level,
         topic,
         seed,
-        targetPages,
+        targetChapters: chapterSpecs.length,
+        chapters: chapterSpecs,
       };
 
       let storyId = id;
@@ -120,11 +134,11 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         }
       }
 
-      // Call the generate endpoint
+      // Generate — story.seed and story.chapters are already saved by PUT/POST above
       const genRes = await fetch(`/api/stories/${storyId}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seed, targetPages }),
+        body: JSON.stringify({}),
       });
       const genData = await genRes.json();
       if (!genRes.ok) {
@@ -259,15 +273,63 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
             fullWidth required sx={{ mb: 3 }}
           />
           <Divider sx={{ mb: 3 }} />
-          <TextField
-            label={t('editor.targetPages')}
-            type="number"
-            value={targetPages}
-            onChange={(e) => setTargetPages(Math.min(10, Math.max(1, parseInt(e.target.value, 10) || 1)))}
-            slotProps={{ htmlInput: { min: 1, max: 10 } }}
-            sx={{ width: 180 }}
-            helperText={`≈ ${targetPages * 12} sentences`}
-          />
+
+          {/* Chapter list */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              {t('editor.chapters')} ({chapterSpecs.length})
+            </Typography>
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => setChapterSpecs((prev) => [...prev, { seed: '', targetSentences: DEFAULT_SENTENCES }])}
+              disabled={chapterSpecs.length >= MAX_CHAPTERS}
+            >
+              {t('editor.addChapter')}
+            </Button>
+          </Box>
+
+          {chapterSpecs.map((chapter, i) => (
+            <Box key={i} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  {t('editor.chapterN', { n: i + 1 })}
+                </Typography>
+                {chapterSpecs.length > 1 && (
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => setChapterSpecs((prev) => prev.filter((_, idx) => idx !== i))}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                <TextField
+                  label={t('editor.chapterSeed')}
+                  placeholder={t('editor.chapterSeedPlaceholder')}
+                  value={chapter.seed}
+                  onChange={(e) => setChapterSpecs((prev) => prev.map((c, idx) => idx === i ? { ...c, seed: e.target.value } : c))}
+                  multiline
+                  minRows={2}
+                  sx={{ flex: 1, minWidth: 200 }}
+                />
+                <TextField
+                  label={t('editor.targetSentences')}
+                  type="number"
+                  value={chapter.targetSentences}
+                  onChange={(e) => setChapterSpecs((prev) => prev.map((c, idx) => idx === i ? { ...c, targetSentences: Math.min(100, Math.max(1, parseInt(e.target.value, 10) || DEFAULT_SENTENCES)) } : c))}
+                  slotProps={{ htmlInput: { min: 1, max: 100 } }}
+                  sx={{ width: 130 }}
+                />
+              </Box>
+            </Box>
+          ))}
+
+          <Typography variant="caption" color="text.secondary">
+            {t('editor.totalSentences', { count: chapterSpecs.reduce((s, c) => s + c.targetSentences, 0) })}
+          </Typography>
         </Paper>
 
         {/* Actions */}

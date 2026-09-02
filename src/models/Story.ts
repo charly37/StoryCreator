@@ -5,16 +5,22 @@ export interface ISentence {
   lang2: string;
 }
 
+export interface IChapter {
+  seed: string;
+  targetSentences: number;
+  sentences: ISentence[];
+}
+
 export interface IStory extends Document {
   title: { lang1: string; lang2: string };
-  sentences: ISentence[];
+  chapters: IChapter[];
   sentenceCount: number;
   nativeLanguage: string;
   learningLanguage: string;
   level: 'beginner' | 'intermediate' | 'advanced';
   topic: string;
   seed: string;
-  targetPages: number;
+  targetChapters: number;
   authorId: mongoose.Types.ObjectId;
   authorName: string;
   published: boolean;
@@ -30,20 +36,29 @@ const sentenceSchema = new Schema<ISentence>(
   { _id: false }
 );
 
+const chapterSchema = new Schema<IChapter>(
+  {
+    seed: { type: String, default: '' },
+    targetSentences: { type: Number, default: 12 },
+    sentences: { type: [sentenceSchema], default: [] },
+  },
+  { _id: false }
+);
+
 const storySchema = new Schema<IStory>(
   {
     title: {
       lang1: { type: String, required: true },
       lang2: { type: String, default: '' },
     },
-    sentences: { type: [sentenceSchema], default: [] },
+    chapters: { type: [chapterSchema], default: [] },
     sentenceCount: { type: Number, default: 0 },
     nativeLanguage: { type: String, required: true },
     learningLanguage: { type: String, required: true },
     level: { type: String, enum: ['beginner', 'intermediate', 'advanced'], required: true },
     topic: { type: String, default: '' },
     seed: { type: String, default: '' },
-    targetPages: { type: Number, default: 1 },
+    targetChapters: { type: Number, default: 1 },
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     authorName: { type: String, required: true },
     published: { type: Boolean, default: false },
@@ -54,9 +69,8 @@ const storySchema = new Schema<IStory>(
   { timestamps: true }
 );
 
-// Keep sentenceCount in sync automatically
 storySchema.pre('save', function () {
-  this.sentenceCount = this.sentences.length;
+  this.sentenceCount = this.chapters.reduce((sum, c) => sum + c.sentences.length, 0);
 });
 
 storySchema.index({ nativeLanguage: 1, learningLanguage: 1, published: 1 });

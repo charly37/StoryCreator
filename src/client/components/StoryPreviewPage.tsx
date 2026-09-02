@@ -19,16 +19,30 @@ interface Sentence {
   lang2: string;
 }
 
+interface Chapter {
+  seed: string;
+  sentences: Sentence[];
+}
+
 interface Story {
   _id: string;
   title: { lang1: string; lang2: string };
-  sentences: Sentence[];
+  chapters: Chapter[];
   nativeLanguage: string;
   learningLanguage: string;
   level: 'beginner' | 'intermediate' | 'advanced';
   topic: string;
   authorName: string;
   isAIGenerated: boolean;
+  sentenceCount: number;
+}
+
+interface FlatSentence {
+  chapterIndex: number;
+  lang1: string;
+  lang2: string;
+  isFirstInChapter: boolean;
+  chapterSeed: string;
 }
 
 const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
@@ -85,8 +99,19 @@ const StoryPreviewPage: React.FC = () => {
 
   if (!story) return null;
 
-  const total = story.sentences.length;
-  const sentence = story.sentences[currentIndex];
+  // Flatten chapters into a single navigable list
+  const flatSentences: FlatSentence[] = story.chapters.flatMap((chapter, ci) =>
+    chapter.sentences.map((s, si) => ({
+      chapterIndex: ci,
+      lang1: s.lang1,
+      lang2: s.lang2,
+      isFirstInChapter: si === 0,
+      chapterSeed: chapter.seed,
+    }))
+  );
+
+  const total = flatSentences.length;
+  const sentence = flatSentences[currentIndex];
   const isRevealed = revealed.has(currentIndex);
 
   const toggleReveal = (index: number) => {
@@ -101,7 +126,7 @@ const StoryPreviewPage: React.FC = () => {
     if (allRevealed) {
       setRevealed(new Set());
     } else {
-      setRevealed(new Set(story.sentences.map((_, i) => i)));
+      setRevealed(new Set(flatSentences.map((_, i) => i)));
     }
     setAllRevealed((v) => !v);
   };
@@ -144,7 +169,7 @@ const StoryPreviewPage: React.FC = () => {
                 </Typography>
               )}
               <Typography variant="caption" color="text.secondary">
-                {t('stories.by')} {story.authorName} · {t('stories.sentences', { count: total })}
+                {t('stories.by')} {story.authorName} · {t('stories.sentences', { count: story.sentenceCount })} · {story.chapters.length} {story.chapters.length === 1 ? 'chapter' : 'chapters'}
               </Typography>
             </Box>
           </Box>
@@ -166,6 +191,13 @@ const StoryPreviewPage: React.FC = () => {
         {/* Sentence card */}
         {total > 0 && sentence && (
           <Paper elevation={2} sx={{ p: 3, mb: 2, minHeight: 140 }}>
+            {/* Chapter header shown at the first sentence of each chapter */}
+            {sentence.isFirstInChapter && story.chapters.length > 1 && (
+              <Typography variant="overline" color="primary" sx={{ display: 'block', mb: 1, fontWeight: 700 }}>
+                {t('preview.chapterN', { n: sentence.chapterIndex + 1 })}
+                {sentence.chapterSeed ? ` — ${sentence.chapterSeed}` : ''}
+              </Typography>
+            )}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="body1" sx={{ fontSize: '1.15rem', fontWeight: 600, lineHeight: 1.6, mb: 1.5 }}>

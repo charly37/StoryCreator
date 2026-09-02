@@ -95,6 +95,13 @@
     "seedLabel": "Describe your story in {{lang}}",
     "seedPlaceholder": "Write a short summary or idea for your story. The AI will expand it into a full bilingual story.",
     "targetPages": "Story length (pages)",
+    "chapters": "Chapters",
+    "chapterN": "Chapter {{n}}",
+    "chapterSeed": "Chapter premise (optional)",
+    "chapterSeedPlaceholder": "Describe what this chapter is about — leave blank and AI will decide",
+    "targetSentences": "Sentences",
+    "addChapter": "Add chapter",
+    "totalSentences": "≈ {{count}} total sentences",
     "generating": "Generating…",
     "generateStory": "Generate Story",
     "generateSuccess": "Story generated! You can view it in My Stories.",
@@ -126,7 +133,8 @@
     "publishGated": "Approve the story on the Review page before publishing"
   },
   "preview": {
-    "goToReview": "Go to Review"
+    "goToReview": "Go to Review",
+    "chapterN": "Chapter {{n}}"
   },
   "review": {
     "title": "Review Story",
@@ -143,7 +151,16 @@
     "approveSuccess": "Story approved! You can now publish it.",
     "applyError": "Error applying feedback. Please try again.",
     "approveError": "Error approving story. Please try again.",
-    "generatingBanner": "Generation in progress… The page will refresh automatically when done."
+    "regenerateChapter": "Regenerate Chapter",
+    "regenerateChapterWarning": "Regenerating a chapter may also update other chapters to preserve story coherence.",
+    "chapterN": "Chapter {{n}}",
+    "chapterSeed": "Chapter premise",
+    "chapterFeedback": "Chapter feedback",
+    "chapterFeedbackPlaceholder": "Describe what to change in this chapter",
+    "chapterSentences": "{{count}} sentences",
+    "targetSentences": "Target sentences",
+    "generatingBanner": "Generation in progress… The page will refresh automatically when done.",
+    "seedReadOnly": "To use a different premise, create a new story"
   },
   "levels": {
     "beginner": "Beginner",
