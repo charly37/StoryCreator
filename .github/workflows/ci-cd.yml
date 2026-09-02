@@ -91,11 +91,20 @@ jobs:
           -e SESSION_SECRET=test-secret-key \
           storycreator:${{ steps.tags.outputs.app_tag }}
 
-        # Wait for app to start
-        sleep 10
-
-        # Test health endpoint
-        curl -f http://localhost:3000/api/health || exit 1
+        # Wait for app to be ready (retry up to 60s)
+        for i in $(seq 1 30); do
+          if curl -sf http://localhost:3000/api/health; then
+            echo "App is ready"
+            break
+          fi
+          if [ "$i" -eq 30 ]; then
+            echo "App failed to start after 60s"
+            docker logs test-app
+            exit 1
+          fi
+          echo "Waiting for app... attempt $i"
+          sleep 2
+        done
 
         # Cleanup
         docker stop test-app test-mongo
