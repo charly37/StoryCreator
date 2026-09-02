@@ -54,10 +54,13 @@ const LEVEL_GUIDANCE: Record<string, string> = {
 };
 
 class OpenAIService implements IAIService {
-  private client: OpenAI;
+  private _client: OpenAI | null = null;
 
-  constructor() {
-    this.client = new OpenAI({ apiKey: process.env.OPEN_AI_KEY });
+  private get client(): OpenAI {
+    if (!this._client) {
+      this._client = new OpenAI({ apiKey: process.env.OPEN_AI_KEY });
+    }
+    return this._client;
   }
 
   async generateStory(
