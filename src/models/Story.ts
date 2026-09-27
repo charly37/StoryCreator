@@ -5,6 +5,13 @@ export interface ISentence {
   lang2: string;
 }
 
+export interface ICharacter {
+  name: string;
+  role: string;
+  description: string;
+  appearance: string;
+}
+
 export interface IChapter {
   seed: string;
   targetSentences: number;
@@ -14,6 +21,7 @@ export interface IChapter {
 export interface IStory extends Document {
   title: { lang1: string; lang2: string };
   chapters: IChapter[];
+  characters: ICharacter[];
   sentenceCount: number;
   nativeLanguage: string;
   learningLanguage: string;
@@ -45,6 +53,16 @@ const chapterSchema = new Schema<IChapter>(
   { _id: false }
 );
 
+const characterSchema = new Schema<ICharacter>(
+  {
+    name: { type: String, default: '' },
+    role: { type: String, default: '' },
+    description: { type: String, default: '' },
+    appearance: { type: String, default: '' },
+  },
+  { _id: false }
+);
+
 const storySchema = new Schema<IStory>(
   {
     title: {
@@ -52,6 +70,7 @@ const storySchema = new Schema<IStory>(
       lang2: { type: String, default: '' },
     },
     chapters: { type: [chapterSchema], default: [] },
+    characters: { type: [characterSchema], default: [] },
     sentenceCount: { type: Number, default: 0 },
     nativeLanguage: { type: String, required: true },
     learningLanguage: { type: String, required: true },

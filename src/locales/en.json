@@ -95,6 +95,18 @@
     "seedLabel": "Describe your story in {{lang}}",
     "seedPlaceholder": "Write a short summary or idea for your story. The AI will expand it into a full bilingual story.",
     "targetPages": "Story length (pages)",
+    "charactersSection": "Story Characters",
+    "charactersHint": "Define the cast the AI should use. Leave empty and the AI will invent the characters (they will appear here after generation).",
+    "charactersEmpty": "No characters yet — add one below or let the AI create the cast.",
+    "characterN": "Character {{n}}",
+    "characterName": "Name",
+    "characterRole": "Role",
+    "characterRolePlaceholder": "e.g. protagonist, mentor, rival",
+    "characterDescription": "Description",
+    "characterDescriptionPlaceholder": "Background, personality and motivations",
+    "characterAppearance": "Appearance / traits",
+    "characterAppearancePlaceholder": "Physical appearance and distinctive traits",
+    "addCharacter": "Add character",
     "chapters": "Chapters",
     "chapterN": "Chapter {{n}}",
     "chapterSeed": "Chapter premise (optional)",
@@ -160,7 +172,8 @@
     "chapterSentences": "{{count}} sentences",
     "targetSentences": "Target sentences",
     "generatingBanner": "Generation in progress… The page will refresh automatically when done.",
-    "seedReadOnly": "To use a different premise, create a new story"
+    "seedReadOnly": "To use a different premise, create a new story",
+    "charactersHint": "Edit the cast and save — changes are applied the next time you regenerate a chapter or apply feedback."
   },
   "levels": {
     "beginner": "Beginner",

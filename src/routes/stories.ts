@@ -4,6 +4,29 @@ import User from '../models/User';
 import { aiService, SentencePatch } from '../services/aiService';
 
 const DEFAULT_SENTENCES_PER_CHAPTER = 12;
+const MAX_CHARACTERS = 20;
+
+interface CharacterInput {
+  name?: unknown;
+  role?: unknown;
+  description?: unknown;
+  appearance?: unknown;
+}
+
+/** Trims character fields, drops nameless entries, and caps the cast size. */
+function sanitizeCharacters(input: unknown): Array<{ name: string; role: string; description: string; appearance: string }> {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((c): c is CharacterInput => !!c && typeof c === 'object')
+    .map((c) => ({
+      name: typeof c.name === 'string' ? c.name.trim() : '',
+      role: typeof c.role === 'string' ? c.role.trim() : '',
+      description: typeof c.description === 'string' ? c.description.trim() : '',
+      appearance: typeof c.appearance === 'string' ? c.appearance.trim() : '',
+    }))
+    .filter((c) => c.name !== '')
+    .slice(0, MAX_CHARACTERS);
+}
 
 const router = express.Router();
 
@@ -110,6 +133,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       title,
       chapters,
       targetChapters,
+      characters: sanitizeCharacters(req.body.characters),
       nativeLanguage,
       learningLanguage,
       level,
@@ -149,6 +173,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     if (level) story.level = level;
     if (topic !== undefined) story.topic = topic;
     if (req.body.seed !== undefined) story.seed = req.body.seed;
+    if (req.body.characters !== undefined) story.characters = sanitizeCharacters(req.body.characters);
     if (req.body.targetChapters !== undefined) {
       story.targetChapters = Math.min(Math.max(parseInt(req.body.targetChapters, 10) || 1, 1), 10);
     }
@@ -234,6 +259,13 @@ router.post('/:id/generate', requireAuth, async (req: Request, res: Response) =>
       seed: c.seed,
       targetSentences: c.targetSentences,
     }));
+    const characters = story.characters.map((c) => ({
+      name: c.name,
+      role: c.role,
+      description: c.description,
+      appearance: c.appearance,
+    }));
+    const hadCharacters = characters.length > 0;
 
     story.generating = true;
     await story.save();
@@ -247,6 +279,7 @@ router.post('/:id/generate', requireAuth, async (req: Request, res: Response) =>
           story.nativeLanguage,
           story.learningLanguage,
           chapterSpecs,
+          characters,
           story.level
         );
         story.chapters = generated.chapters.map((c, i) => ({
@@ -254,6 +287,10 @@ router.post('/:id/generate', requireAuth, async (req: Request, res: Response) =>
           targetSentences: chapterSpecs[i]?.targetSentences ?? c.sentences.length,
           sentences: c.sentences,
         }));
+        // Auto-populate the cast only when the author had not defined one
+        if (!hadCharacters && generated.characters.length > 0) {
+          story.characters = generated.characters;
+        }
         story.title.lang2 = generated.title;
         story.isAIGenerated = true;
         story.generating = false;
@@ -318,7 +355,13 @@ router.post('/:id/review', requireAuth, async (req: Request, res: Response) => {
           generalFeedback?.trim() ?? '',
           story.nativeLanguage,
           story.learningLanguage,
-          story.level
+          story.level,
+          story.characters.map((c) => ({
+            name: c.name,
+            role: c.role,
+            description: c.description,
+            appearance: c.appearance,
+          }))
         );
         for (const p of patched) {
           if (p.chapterIndex >= 0 && p.chapterIndex < story.chapters.length &&
@@ -375,7 +418,13 @@ router.post('/:id/regenerate-chapter', requireAuth, async (req: Request, res: Re
           story.nativeLanguage,
           story.learningLanguage,
           story.level,
-          chapter.targetSentences
+          chapter.targetSentences,
+          story.characters.map((c) => ({
+            name: c.name,
+            role: c.role,
+            description: c.description,
+            appearance: c.appearance,
+          }))
         );
         for (const r of results) {
           if (r.index >= 0 && r.index < story.chapters.length) {

@@ -8,6 +8,7 @@ import {
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import GroupsIcon from '@mui/icons-material/Groups';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, getLanguageName } from '../utils/languages';
 import { AppUser } from '../App';
@@ -21,9 +22,17 @@ interface ChapterSpec {
   targetSentences: number;
 }
 
+interface Character {
+  name: string;
+  role: string;
+  description: string;
+  appearance: string;
+}
+
 const LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
 const DEFAULT_SENTENCES = 12;
 const MAX_CHAPTERS = 10;
+const MAX_CHARACTERS = 20;
 
 const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const { id } = useParams<{ id?: string }>();
@@ -37,6 +46,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const [topic, setTopic] = useState('');
   const [seed, setSeed] = useState('');
   const [chapterSpecs, setChapterSpecs] = useState<ChapterSpec[]>([{ seed: '', targetSentences: DEFAULT_SENTENCES }]);
+  const [characters, setCharacters] = useState<Character[]>([]);
 
   const [loading, setLoading] = useState(!!id);
   const [generating, setGenerating] = useState(false);
@@ -55,6 +65,16 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         setLevel(data.level || 'beginner');
         setTopic(data.topic || '');
         setSeed(data.seed || '');
+        setCharacters(
+          Array.isArray(data.characters)
+            ? data.characters.map((c: Partial<Character>) => ({
+                name: c.name || '',
+                role: c.role || '',
+                description: c.description || '',
+                appearance: c.appearance || '',
+              }))
+            : []
+        );
         const loadedChapters = Array.isArray(data.chapters) && data.chapters.length > 0
           ? data.chapters.map((c: ChapterSpec) => ({ seed: c.seed || '', targetSentences: c.targetSentences || DEFAULT_SENTENCES }))
           : [{ seed: '', targetSentences: DEFAULT_SENTENCES }];
@@ -104,6 +124,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         level,
         topic,
         seed,
+        characters,
         targetChapters: chapterSpecs.length,
         chapters: chapterSpecs,
       };
@@ -252,6 +273,80 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
               </Select>
             </FormControl>
           </Box>
+        </Paper>
+
+        {/* Story characters */}
+        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <GroupsIcon color="secondary" fontSize="small" />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              {t('editor.charactersSection')}
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('editor.charactersHint')}
+          </Typography>
+
+          {characters.length === 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+              {t('editor.charactersEmpty')}
+            </Typography>
+          )}
+
+          {characters.map((character, i) => (
+            <Box key={i} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  {t('editor.characterN', { n: i + 1 })}
+                </Typography>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => setCharacters((prev) => prev.filter((_, idx) => idx !== i))}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                <TextField
+                  label={t('editor.characterName')}
+                  value={character.name}
+                  onChange={(e) => setCharacters((prev) => prev.map((c, idx) => idx === i ? { ...c, name: e.target.value } : c))}
+                  sx={{ flex: 1, minWidth: 200 }}
+                />
+                <TextField
+                  label={t('editor.characterRole')}
+                  placeholder={t('editor.characterRolePlaceholder')}
+                  value={character.role}
+                  onChange={(e) => setCharacters((prev) => prev.map((c, idx) => idx === i ? { ...c, role: e.target.value } : c))}
+                  sx={{ flex: 1, minWidth: 200 }}
+                />
+              </Box>
+              <TextField
+                label={t('editor.characterDescription')}
+                placeholder={t('editor.characterDescriptionPlaceholder')}
+                value={character.description}
+                onChange={(e) => setCharacters((prev) => prev.map((c, idx) => idx === i ? { ...c, description: e.target.value } : c))}
+                multiline minRows={2} fullWidth sx={{ mb: 2 }}
+              />
+              <TextField
+                label={t('editor.characterAppearance')}
+                placeholder={t('editor.characterAppearancePlaceholder')}
+                value={character.appearance}
+                onChange={(e) => setCharacters((prev) => prev.map((c, idx) => idx === i ? { ...c, appearance: e.target.value } : c))}
+                multiline minRows={2} fullWidth
+              />
+            </Box>
+          ))}
+
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => setCharacters((prev) => [...prev, { name: '', role: '', description: '', appearance: '' }])}
+            disabled={characters.length >= MAX_CHARACTERS}
+          >
+            {t('editor.addCharacter')}
+          </Button>
         </Paper>
 
         {/* Seed section */}

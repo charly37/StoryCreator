@@ -95,6 +95,18 @@
     "seedLabel": "Décrivez votre histoire en {{lang}}",
     "seedPlaceholder": "Écrivez un court résumé ou une idée pour votre histoire. L'IA la développera en une histoire bilingue complète.",
     "targetPages": "Longueur de l'histoire (pages)",
+    "charactersSection": "Personnages de l'histoire",
+    "charactersHint": "Définissez la distribution que l'IA doit utiliser. Laissez vide et l'IA inventera les personnages (ils apparaîtront ici après la génération).",
+    "charactersEmpty": "Aucun personnage — ajoutez-en un ci-dessous ou laissez l'IA créer la distribution.",
+    "characterN": "Personnage {{n}}",
+    "characterName": "Nom",
+    "characterRole": "Rôle",
+    "characterRolePlaceholder": "ex. protagoniste, mentor, rival",
+    "characterDescription": "Description",
+    "characterDescriptionPlaceholder": "Contexte, personnalité et motivations",
+    "characterAppearance": "Apparence / traits",
+    "characterAppearancePlaceholder": "Apparence physique et traits distinctifs",
+    "addCharacter": "Ajouter un personnage",
     "chapters": "Chapitres",
     "chapterN": "Chapitre {{n}}",
     "chapterSeed": "Idée du chapitre (optionnel)",
@@ -160,7 +172,8 @@
     "chapterSentences": "{{count}} phrases",
     "targetSentences": "Phrases cibles",
     "generatingBanner": "Génération en cours… La page se rafraîchira automatiquement.",
-    "seedReadOnly": "Pour changer l'idée de départ, créez une nouvelle histoire"
+    "seedReadOnly": "Pour changer l'idée de départ, créez une nouvelle histoire",
+    "charactersHint": "Modifiez la distribution et enregistrez — les changements seront appliqués lors de la prochaine regénération d'un chapitre ou application du feedback."
   },
   "levels": {
     "beginner": "Débutant",

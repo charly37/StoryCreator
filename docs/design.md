@@ -38,6 +38,14 @@ Browser
 - Passwords hashed with bcryptjs (salt rounds: 12).
 - Each user has a `uiLanguage` preference (`en` | `fr`).
 
+### 6. **AI Story Generation & Review**
+- Authors write a **story seed** and optional per-chapter premises in the Story Editor.
+- An optional **Story Characters** panel lets authors define the cast. Each entry has `name`, `role`, `description` and `appearance`. The cast is injected into every AI prompt (generation, chapter regeneration, and feedback patching) to keep characterization consistent.
+- If the cast is left empty, the AI invents one and it is written back to the story after generation, so the author can review and refine it. Author-entered characters are never overwritten.
+- `POST /api/stories/:id/generate` runs asynchronously (`generating: true`); the client polls `GET /api/stories/:id` until it completes.
+- The Review page (`StoryReviewPage`) allows editing metadata, chapter premises and the cast, annotating individual sentences, applying feedback, regenerating a single chapter, and approving the story.
+- AI-generated stories must be approved before they can be published.
+
 ---
 
 ## Data Models
@@ -47,8 +55,11 @@ Browser
 | Field | Type | Notes |
 |---|---|---|
 | `title.lang1` | String | Title in native language |
-| `title.lang2` | String | Title in learning language |
-| `sentences` | `[{ lang1, lang2 }]` | Ordered sentence pairs |
+| `title.lang2` | String | Title in learning language (filled in by AI generation) |
+| `chapters` | `[{ seed, targetSentences, sentences: [{ lang1, lang2 }] }]` | Ordered chapters, each holding parallel sentence pairs |
+| `characters` | `[{ name, role, description, appearance }]` | Author-defined cast used to keep AI output consistent |
+| `seed` | String | Story premise used for AI generation (read-only during review) |
+| `targetChapters` | Number | Planned chapter count (1–10) |
 | `sentenceCount` | Number | Auto-computed pre-save hook |
 | `nativeLanguage` | String | e.g. `"en"`, `"fr"` |
 | `learningLanguage` | String | Must differ from `nativeLanguage` |
@@ -57,6 +68,9 @@ Browser
 | `authorId` | ObjectId → User | |
 | `authorName` | String | Denormalized for read performance |
 | `published` | Boolean | Default `false` |
+| `generating` | Boolean | True while an async AI job is running |
+| `isAIGenerated` | Boolean | Set once AI generation completes |
+| `approved` | Boolean | Author approved the story after review |
 | `createdAt` / `updatedAt` | Date | Managed by Mongoose `timestamps` |
 
 Indexes: `{ nativeLanguage, learningLanguage, published }` (compound for browse queries), `{ authorId }` (for "my stories").
@@ -83,7 +97,9 @@ src/client/
     Header.tsx       — Top navigation bar
     LandingPage.tsx  — Home / hero page
     StoriesPage.tsx  — Public browse with filters
-    StoryEditorPage.tsx — Draft editor (sentence CRUD)
+    StoryEditorPage.tsx — Story editor (seed, chapters, characters)
+    StoryReviewPage.tsx — AI review (feedback, regenerate, approve)
+    StoryPreviewPage.tsx — Pre-publish preview
     StoryReadPage.tsx   — Bilingual reading view
     LoginPage.tsx
     RegisterPage.tsx
@@ -105,6 +121,8 @@ src/
   routes/
     auth.ts           — /api/auth/* endpoints
     stories.ts        — /api/stories/* endpoints
+  services/
+    aiService.ts      — OpenAI prompts (generate / patch / regenerate)
   i18n.ts             — i18next config (client-side)
   locales/
     en.json

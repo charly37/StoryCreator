@@ -16,16 +16,20 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import SaveIcon from '@mui/icons-material/Save';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import GroupsIcon from '@mui/icons-material/Groups';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, getLanguageName } from '../utils/languages';
 
 interface Sentence { lang1: string; lang2: string; }
 interface Chapter { seed: string; targetSentences: number; sentences: Sentence[]; }
+interface Character { name: string; role: string; description: string; appearance: string; }
 
 interface Story {
   _id: string;
   title: { lang1: string; lang2: string };
   chapters: Chapter[];
+  characters: Character[];
   nativeLanguage: string;
   learningLanguage: string;
   level: 'beginner' | 'intermediate' | 'advanced';
@@ -37,6 +41,7 @@ interface Story {
 }
 
 const LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
+const MAX_CHARACTERS = 20;
 
 const StoryReviewPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -54,6 +59,7 @@ const StoryReviewPage: React.FC = () => {
   const [learningLanguage, setLearningLanguage] = useState('');
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
   const [topic, setTopic] = useState('');
+  const [characters, setCharacters] = useState<Character[]>([]);
 
   // Per-chapter editable seeds and feedback; keyed by chapter index
   const [chapterSeeds, setChapterSeeds] = useState<Record<number, string>>({});
@@ -101,6 +107,16 @@ const StoryReviewPage: React.FC = () => {
     story.chapters.forEach((c, i) => { seeds[i] = c.seed; targets[i] = c.targetSentences; });
     setChapterSeeds(seeds);
     setChapterTargets(targets);
+    setCharacters(
+      Array.isArray(story.characters)
+        ? story.characters.map((c) => ({
+            name: c.name || '',
+            role: c.role || '',
+            description: c.description || '',
+            appearance: c.appearance || '',
+          }))
+        : []
+    );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story?._id]);
 
@@ -127,6 +143,7 @@ const StoryReviewPage: React.FC = () => {
         level,
         topic,
         chapters,
+        characters,
       }),
     });
     if (!res.ok) {
@@ -338,6 +355,81 @@ const StoryReviewPage: React.FC = () => {
               {saving ? t('common.loading') : t('editor.saveChanges')}
             </Button>
           </Box>
+        </Paper>
+
+        {/* ── Editable story characters ── */}
+        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <GroupsIcon color="secondary" fontSize="small" />
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              {t('editor.charactersSection')}
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('review.charactersHint')}
+          </Typography>
+
+          {characters.length === 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+              {t('editor.charactersEmpty')}
+            </Typography>
+          )}
+
+          {characters.map((character, i) => (
+            <Box key={i} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  {t('editor.characterN', { n: i + 1 })}
+                </Typography>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => setCharacters((prev) => prev.filter((_, idx) => idx !== i))}
+                  disabled={busy}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                <TextField
+                  label={t('editor.characterName')}
+                  value={character.name}
+                  onChange={(e) => setCharacters((prev) => prev.map((c, idx) => idx === i ? { ...c, name: e.target.value } : c))}
+                  disabled={busy} sx={{ flex: 1, minWidth: 200 }}
+                />
+                <TextField
+                  label={t('editor.characterRole')}
+                  placeholder={t('editor.characterRolePlaceholder')}
+                  value={character.role}
+                  onChange={(e) => setCharacters((prev) => prev.map((c, idx) => idx === i ? { ...c, role: e.target.value } : c))}
+                  disabled={busy} sx={{ flex: 1, minWidth: 200 }}
+                />
+              </Box>
+              <TextField
+                label={t('editor.characterDescription')}
+                placeholder={t('editor.characterDescriptionPlaceholder')}
+                value={character.description}
+                onChange={(e) => setCharacters((prev) => prev.map((c, idx) => idx === i ? { ...c, description: e.target.value } : c))}
+                multiline minRows={2} fullWidth disabled={busy} sx={{ mb: 2 }}
+              />
+              <TextField
+                label={t('editor.characterAppearance')}
+                placeholder={t('editor.characterAppearancePlaceholder')}
+                value={character.appearance}
+                onChange={(e) => setCharacters((prev) => prev.map((c, idx) => idx === i ? { ...c, appearance: e.target.value } : c))}
+                multiline minRows={2} fullWidth disabled={busy}
+              />
+            </Box>
+          ))}
+
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => setCharacters((prev) => [...prev, { name: '', role: '', description: '', appearance: '' }])}
+            disabled={busy || characters.length >= MAX_CHARACTERS}
+          >
+            {t('editor.addCharacter')}
+          </Button>
         </Paper>
 
         {/* ── Story-level general feedback ── */}

@@ -10,6 +10,13 @@ export interface ChapterSpec {
   targetSentences: number;
 }
 
+export interface CharacterSpec {
+  name: string;
+  role: string;
+  description: string;
+  appearance: string;
+}
+
 export interface GeneratedChapter {
   seed: string;
   sentences: GeneratedSentence[];
@@ -17,6 +24,7 @@ export interface GeneratedChapter {
 
 export interface GeneratedStory {
   title: string;
+  characters: CharacterSpec[];
   chapters: GeneratedChapter[];
 }
 
@@ -47,6 +55,7 @@ export interface IAIService {
     nativeLanguage: string,
     learningLanguage: string,
     chapterSpecs: ChapterSpec[],
+    characters: CharacterSpec[],
     level: string
   ): Promise<GeneratedStory>;
   patchSentences(
@@ -54,7 +63,8 @@ export interface IAIService {
     generalFeedback: string,
     nativeLanguage: string,
     learningLanguage: string,
-    level: string
+    level: string,
+    characters: CharacterSpec[]
   ): Promise<PatchedSentence[]>;
   regenerateChapter(
     chapterIndex: number,
@@ -64,7 +74,8 @@ export interface IAIService {
     nativeLanguage: string,
     learningLanguage: string,
     level: string,
-    targetSentences: number
+    targetSentences: number,
+    characters: CharacterSpec[]
   ): Promise<RegeneratedChapter[]>;
 }
 
@@ -81,6 +92,19 @@ const LEVEL_GUIDANCE: Record<string, string> = {
   advanced: 'Use rich vocabulary, complex sentence structures, native-like expressions, abstract concepts, and idiomatic language.',
 };
 
+/** Renders a character list as prompt lines (empty string when no named characters). */
+function characterLines(characters: CharacterSpec[]): string {
+  return characters
+    .filter((c) => c.name?.trim())
+    .map((c) => {
+      const role = c.role?.trim() ? ` (${c.role.trim()})` : '';
+      const description = c.description?.trim() ? `: ${c.description.trim()}` : '';
+      const appearance = c.appearance?.trim() ? ` Appearance: ${c.appearance.trim()}` : '';
+      return `- ${c.name.trim()}${role}${description}${appearance}`;
+    })
+    .join('\n');
+}
+
 class OpenAIService implements IAIService {
   private _client: OpenAI | null = null;
 
@@ -96,6 +120,7 @@ class OpenAIService implements IAIService {
     nativeLanguage: string,
     learningLanguage: string,
     chapterSpecs: ChapterSpec[],
+    characters: CharacterSpec[],
     level: string
   ): Promise<GeneratedStory> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
@@ -112,6 +137,14 @@ ${levelGuidance}
 Return a JSON object with exactly this structure — no extra text or markdown:
 {
   "title": "<story title in ${learningName}>",
+  "characters": [
+    {
+      "name": "<character name>",
+      "role": "<e.g. protagonist, mentor, rival>",
+      "description": "<background, personality and motivations, in English>",
+      "appearance": "<physical appearance and distinctive traits, in English>"
+    }
+  ],
   "chapters": [
     {
       "seed": "<brief chapter description in English>",
@@ -129,13 +162,16 @@ Rules:
 - The story must flow naturally across all chapters
 - lang1 is always ${nativeName}, lang2 is always ${learningName}
 - Each sentence pair must express the same meaning in both languages
-- Apply the level guidance consistently throughout`;
+- Apply the level guidance consistently throughout
+- Characters: if a cast is provided below, use exactly those characters (same names) as the cast and keep them consistent across all chapters, filling in any missing details; if no cast is provided, invent a coherent cast and return it in the "characters" array`;
 
     const chapterList = chapterSpecs
       .map((c, i) => `Chapter ${i + 1} (${c.targetSentences} sentences): ${c.seed || '(AI decides)'}`)
       .join('\n');
 
-    const userContent = `Story seed: ${seed}\n\nChapters:\n${chapterList}`;
+    const castList = characterLines(characters) || '(none provided — invent a coherent cast)';
+
+    const userContent = `Story seed: ${seed}\n\nCharacters:\n${castList}\n\nChapters:\n${chapterList}`;
 
     const response = await this.client.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -147,10 +183,21 @@ Rules:
     });
 
     const raw = response.choices[0]?.message?.content ?? '{}';
-    const parsed = JSON.parse(raw) as { title?: string; chapters?: GeneratedChapter[] };
+    const parsed = JSON.parse(raw) as { title?: string; characters?: unknown[]; chapters?: GeneratedChapter[] };
 
     const title = typeof parsed.title === 'string' ? parsed.title : '';
     const rawChapters = Array.isArray(parsed.chapters) ? parsed.chapters : [];
+    const rawCharacters = Array.isArray(parsed.characters) ? parsed.characters : [];
+
+    const generatedCharacters: CharacterSpec[] = rawCharacters
+      .filter((c): c is Record<string, unknown> => !!c && typeof c === 'object')
+      .map((c) => ({
+        name: typeof c.name === 'string' ? c.name : '',
+        role: typeof c.role === 'string' ? c.role : '',
+        description: typeof c.description === 'string' ? c.description : '',
+        appearance: typeof c.appearance === 'string' ? c.appearance : '',
+      }))
+      .filter((c) => c.name.trim() !== '');
 
     // Ensure exactly N chapters, each trimmed/padded to target
     const chapters: GeneratedChapter[] = chapterSpecs.map((spec, i) => {
@@ -162,7 +209,7 @@ Rules:
       return { seed: chapterSeed, sentences };
     });
 
-    return { title, chapters };
+    return { title, characters: generatedCharacters, chapters };
   }
 
   async patchSentences(
@@ -170,7 +217,8 @@ Rules:
     generalFeedback: string,
     nativeLanguage: string,
     learningLanguage: string,
-    level: string
+    level: string,
+    characters: CharacterSpec[]
   ): Promise<PatchedSentence[]> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
@@ -200,6 +248,7 @@ Rules:
 
     const userContent = [
       generalFeedback ? `General feedback: ${generalFeedback}` : '',
+      characterLines(characters) ? `Keep the cast consistent with:\n${characterLines(characters)}` : '',
       sentenceList,
     ].filter(Boolean).join('\n\n');
 
@@ -225,7 +274,8 @@ Rules:
     nativeLanguage: string,
     learningLanguage: string,
     level: string,
-    targetSentences: number
+    targetSentences: number,
+    characters: CharacterSpec[]
   ): Promise<RegeneratedChapter[]> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
@@ -258,6 +308,7 @@ Rules:
     const feedback = [
       `New seed for chapter ${chapterIndex + 1}: ${newSeed}`,
       generalFeedback ? `Additional feedback: ${generalFeedback}` : '',
+      characterLines(characters) ? `Keep the cast consistent with:\n${characterLines(characters)}` : '',
       `Story context:\n${contextSummary}`,
     ].filter(Boolean).join('\n\n');
 

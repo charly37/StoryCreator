@@ -139,8 +139,18 @@ Returns a single story including all sentences.
   "learningLanguage": "fr",
   "level": "beginner",
   "topic": "animals",
-  "sentences": [
-    { "lang1": "The cat sat on the mat.", "lang2": "Le chat était assis sur le tapis." }
+  "seed": "A cat who learns to sail.",
+  "characters": [
+    {
+      "name": "Milo",
+      "role": "protagonist",
+      "description": "A curious young cat who dreams of the sea",
+      "appearance": "Ginger tabby with a white paw and a chipped ear"
+    }
+  ],
+  "targetChapters": 2,
+  "chapters": [
+    { "seed": "Milo discovers the harbour", "targetSentences": 12 }
   ]
 }
 ```
@@ -148,12 +158,15 @@ Returns a single story including all sentences.
 | Field | Required | Notes |
 |---|---|---|
 | `title.lang1` | yes | |
-| `title.lang2` | yes | |
+| `title.lang2` | no | Usually filled in by AI generation |
 | `nativeLanguage` | yes | Must differ from `learningLanguage` |
 | `learningLanguage` | yes | |
 | `level` | yes | `beginner` / `intermediate` / `advanced` |
 | `topic` | no | Free-text tag |
-| `sentences` | no | Array of `{ lang1, lang2 }` pairs; defaults to `[]` |
+| `seed` | no | Story premise used for AI generation |
+| `characters` | no | Array of `{ name, role, description, appearance }`; blank names are dropped, max 20 |
+| `targetChapters` | no | Planned chapter count (1–10, default 1) |
+| `chapters` | no | Array of `{ seed, targetSentences }`; defaults to `targetChapters` empty chapters |
 
 **Response `201`:** The created story object.
 
@@ -184,6 +197,47 @@ Returns a single story including all sentences.
 - Returns `400` if attempting to publish a story with no sentences.
 
 **Response `200`:** `{ published: true | false }`
+
+---
+
+### `POST /api/stories/:id/generate`
+
+*Auth required. Author only.* Start asynchronous AI generation of the story's chapters.
+
+- Requires a non-empty `seed`; returns `400` otherwise.
+- Responds immediately with `202`; the job runs in the background and sets `generating: true` while running.
+- The story's `characters` are sent to the AI as the cast. If the cast was empty, the AI's invented cast is written back to `characters` after generation; author-entered characters are preserved.
+
+**Response `202`:** `{ message, storyId }`
+
+### `POST /api/stories/:id/review`
+
+*Auth required. Author only.* Apply per-sentence feedback via AI.
+
+**Body:** `{ generalFeedback?, annotations: [{ chapterIndex, sentenceIndex, feedback }] }`
+
+- Requires at least one annotation with non-empty `feedback`.
+- Story `characters` are included as consistency context.
+- Responds `202` and runs the patch job in the background.
+
+### `POST /api/stories/:id/regenerate-chapter`
+
+*Auth required. Author only.* Regenerate a single chapter, optionally updating other chapters for coherence.
+
+**Body:** `{ chapterIndex, generalFeedback? }`
+
+- Returns `400` for an invalid `chapterIndex`.
+- Story `characters` are included as consistency context.
+- Responds `202` and runs the job in the background.
+
+### `POST /api/stories/:id/approve`
+
+*Auth required. Author only.* Mark an AI-generated story as reviewed.
+
+- Returns `400` if the story has no sentences.
+- AI-generated stories must be approved before `POST /:id/publish` succeeds.
+
+**Response `200`:** `{ approved: true }`
 
 ---
 

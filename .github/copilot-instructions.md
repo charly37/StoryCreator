@@ -24,7 +24,8 @@ Full-stack bilingual story platform with **separated build systems**:
 
 Key architectural patterns:
 - Backend serves static frontend from `public/` directory after both are built.
-- **Bilingual content model**: every `Story` stores parallel-text pairs — `title.lang1`/`title.lang2` and `sentences[].lang1`/`sentences[].lang2`.
+- **Bilingual content model**: every `Story` stores parallel-text pairs — `title.lang1`/`title.lang2` and `chapters[].sentences[].lang1`/`chapters[].sentences[].lang2`.
+- **Authoring aids**: `seed` (story premise) and `characters[]` (`{ name, role, description, appearance }`) guide AI generation; both are editable in the editor and the cast is editable in the review page.
 - **Draft/Published separation**: stories default to `published: false`; explicit publish action required (must have ≥1 sentence).
 - **Author denormalization**: `authorName` stored on `Story` for efficient browse queries without joins.
 
@@ -68,9 +69,13 @@ Stories store parallel sentences in two languages (`lang1` and `lang2`):
 ```typescript
 // src/models/Story.ts
 interface ISentence { lang1: string; lang2: string; }
+interface IChapter { seed: string; targetSentences: number; sentences: ISentence[]; }
+interface ICharacter { name: string; role: string; description: string; appearance: string; }
 interface IStory {
   title: { lang1: string; lang2: string };
-  sentences: ISentence[];
+  chapters: IChapter[];
+  characters: ICharacter[];   // author-defined cast guiding AI generation
+  seed: string;               // story premise used for AI generation
   nativeLanguage: string;   // author's native language
   learningLanguage: string; // language being learned
   level: 'beginner' | 'intermediate' | 'advanced';
@@ -80,7 +85,7 @@ interface IStory {
   published: boolean;
 }
 ```
-`sentenceCount` is auto-computed via a `pre('save')` hook — never set it manually.
+`sentenceCount` is auto-computed via a `pre('save')` hook — never set it manually. Characters are sanitized on save (trimmed, nameless entries dropped, capped at 20); when the cast is empty at generation time the AI-invented cast is written back.
 
 ### Supported Content Languages
 17 languages defined in `src/client/utils/languages.ts` (LANGUAGES array):
@@ -111,7 +116,7 @@ Key routes:
 - `/stories` — Browse with filters (language pair, level, search)
 - `/stories/mine` — User's drafts + published stories (auth required)
 - `/stories/:id` — Read a story (bilingual toggle)
-- `/stories/:id/edit` — Story editor (CRUD sentences, publish/unpublish)
+- `/stories/:id/edit` — Story editor (seed, chapters, characters, publish/unpublish)
 - `*` → redirects to `/`
 
 Express catch-all `app.get('/{*path}', ...)` serves `public/index.html` for all non-API routes — must be declared **last** in `server.ts`.
@@ -127,11 +132,15 @@ Express catch-all `app.get('/{*path}', ...)` serves `public/index.html` for all 
 ### Stories (`/api/stories`)
 - `GET /` — Browse published stories (filters: `nativeLang`, `learningLang`, `level`, `search`; pagination 12/page)
 - `GET /mine` — User's own drafts + published (auth required)
-- `GET /:id` — Full story with sentences (403 if draft and not author)
-- `POST /` — Create new draft (auth required)
-- `PUT /:id` — Update story (auth + author check)
+- `GET /:id` — Full story with chapters + sentences (403 if draft and not author)
+- `POST /` — Create new draft (auth required; accepts `seed`, `characters`, `chapters`)
+- `PUT /:id` — Update story (auth + author check; accepts `seed`, `characters`, chapter metadata)
 - `DELETE /:id` — Delete story (auth + author check)
-- `POST /:id/publish` — Toggle published flag (auth + author check; requires ≥1 sentence)
+- `POST /:id/publish` — Toggle published flag (auth + author check; requires ≥1 sentence and approval if AI-generated)
+- `POST /:id/generate` — Start async AI generation (auth + author; requires a `seed`; auto-populates an empty cast)
+- `POST /:id/review` — Apply per-sentence AI patches (auth + author; body `{ generalFeedback, annotations[] }`)
+- `POST /:id/regenerate-chapter` — Regenerate one chapter via AI (auth + author; body `{ chapterIndex, generalFeedback? }`)
+- `POST /:id/approve` — Mark an AI-generated story reviewed (auth + author; requires ≥1 sentence)
 
 ### Health
 - `GET /api/health` — Returns `{ status: "ok" }`
@@ -144,7 +153,7 @@ Key fields: `username` (unique, 3–30 chars), `email` (unique, lowercase), `pas
 `comparePassword(candidate)` method available on the model instance.
 
 ### Story (`src/models/Story.ts`)
-Key fields: `title.{lang1,lang2}`, `sentences[].{lang1,lang2}`, `sentenceCount` (auto), `nativeLanguage`, `learningLanguage`, `level`, `topic`, `authorId`, `authorName`, `published`, timestamps
+Key fields: `title.{lang1,lang2}`, `chapters[].{seed,targetSentences,sentences[]{lang1,lang2}}`, `characters[].{name,role,description,appearance}`, `seed`, `targetChapters`, `sentenceCount` (auto), `nativeLanguage`, `learningLanguage`, `level`, `topic`, `authorId`, `authorName`, `published`, `generating`, `isAIGenerated`, `approved`, timestamps
 
 **Indexes:**
 - `{ nativeLanguage, learningLanguage, published }` — compound index for browse queries
