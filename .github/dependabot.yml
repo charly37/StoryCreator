@@ -23,4 +23,16 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - "dependencies"
-
+    # @mui/material and @mui/icons-material must move in lockstep: icons-material
+    # declares a peer of @mui/material@^<same-minor>, so bumping one alone breaks
+    # `npm ci` with ERESOLVE.
+    groups:
+      mui:
+        patterns:
+          - "@mui/*"
+    ignore:
+      # typescript 7 is not compatible with ts-loader 9.x, which the client build
+      # uses (ts-loader crashes: "Cannot read properties of undefined (reading
+      # 'fileExists')"). Revisit once ts-loader supports the TS 7 compiler API.
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
