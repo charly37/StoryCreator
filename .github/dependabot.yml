@@ -30,9 +30,3 @@ updates:
       mui:
         patterns:
           - "@mui/*"
-    ignore:
-      # typescript 7 is not compatible with ts-loader 9.x, which the client build
-      # uses (ts-loader crashes: "Cannot read properties of undefined (reading
-      # 'fileExists')"). Revisit once ts-loader supports the TS 7 compiler API.
-      - dependency-name: "typescript"
-        versions: [">=7.0.0"]

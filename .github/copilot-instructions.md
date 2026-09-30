@@ -18,7 +18,8 @@ This project follows a **lean README + detailed docs** pattern:
 
 Full-stack bilingual story platform with **separated build systems**:
 - **Backend**: Express.js 5 + TypeScript (compiled with `tsc` to `dist/`)
-- **Frontend**: React 19 + TypeScript (bundled with webpack to `public/`)
+- **Frontend**: React 19 + TypeScript (webpack + `esbuild-loader` → `public/`; esbuild only transpiles,
+  so type errors are caught by `npm run typecheck`, which CI runs as a separate step)
 - **Database**: MongoDB Atlas (cloud-hosted, connection via `MONGODB_URI`)
 - **Deployment**: Docker multi-stage builds + Kubernetes/k3s via Helm (planned; mirrors PortugueseLearning)
 
@@ -35,7 +36,7 @@ Key architectural patterns:
 ```bash
 npm run dev          # Runs BOTH: backend (port 3000) + webpack-dev-server (port 8080)
                      # webpack proxies /api/* requests to backend
-npm run dev:server   # Backend only (ts-node-dev, auto-restart)
+npm run dev:server   # Backend only (tsx watch, auto-restart)
 npm run dev:client   # webpack-dev-server only
 ```
 
@@ -43,8 +44,9 @@ npm run dev:client   # webpack-dev-server only
 ```bash
 npm run build        # Sequentially: build:server THEN build:client
 npm run build:server # tsc -p tsconfig.server.json → dist/
-npm run build:client # webpack --mode production → public/bundle.js
+npm run build:client # webpack --mode production → public/bundle.js (esbuild-loader, no type-check)
 npm start            # node dist/server.js (production)
+npm run typecheck    # tsc --noEmit (client) + tsc -p tsconfig.server.json --noEmit
 ```
 
 ### Testing

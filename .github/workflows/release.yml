@@ -48,6 +48,10 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    # esbuild-loader only transpiles; type errors are caught here instead.
+    - name: Typecheck
+      run: npm run typecheck
+
     - name: Build server
       run: npm run build:server
 

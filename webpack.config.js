@@ -16,7 +16,11 @@ module.exports = {
     rules: [
       {
         test: /\.tsx?$/,
-        use: 'ts-loader',
+        loader: 'esbuild-loader',
+        // `jsx: 'automatic'` mirrors `jsx: "react-jsx"` in tsconfig.json so no
+        // explicit React import is needed in each file. esbuild does NOT
+        // type-check - `npm run typecheck` covers that (run in CI).
+        options: { target: 'es2020', jsx: 'automatic' },
         exclude: /node_modules/,
       },
       {

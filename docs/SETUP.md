@@ -98,11 +98,12 @@ The production server serves the compiled frontend bundle from `public/` and lis
 | Script | Description |
 |---|---|
 | `npm run dev` | Run server and client concurrently in watch mode |
-| `npm run dev:server` | Run only the Express server with hot-reload |
+| `npm run dev:server` | Run only the Express server with hot-reload (`tsx watch`) |
 | `npm run dev:client` | Run only the Webpack dev server |
 | `npm run build` | Compile server (TypeScript → `dist/`) and bundle client (`public/`) |
 | `npm run build:server` | Compile server only |
 | `npm run build:client` | Bundle client only |
+| `npm run typecheck` | Type-check client and server without emitting files |
 | `npm start` | Start the compiled production server |
 
 ## Deployment (Kubernetes / Helm)
