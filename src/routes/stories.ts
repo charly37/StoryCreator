@@ -38,6 +38,21 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+/** Gates story creation and AI authoring endpoints behind the per-user creator permission. */
+async function requireCreatePermission(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const user = await User.findById(req.session.userId).select('canCreateStories');
+    if (!user || !user.canCreateStories) {
+      res.status(403).json({ message: 'Creator access required', code: 'CREATOR_ACCESS_REQUIRED' });
+      return;
+    }
+    next();
+  } catch (error) {
+    console.error('Error checking creator permission:', error);
+    res.status(500).json({ message: 'Server error checking permissions' });
+  }
+}
+
 // GET /api/stories/mine — must be before /:id
 router.get('/mine', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -98,7 +113,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /api/stories
-router.post('/', requireAuth, async (req: Request, res: Response) => {
+router.post('/', requireAuth, requireCreatePermission, async (req: Request, res: Response) => {
   try {
     const { title, nativeLanguage, learningLanguage, level, topic } = req.body;
 
@@ -244,7 +259,7 @@ router.post('/:id/publish', requireAuth, async (req: Request, res: Response) => 
 });
 
 // POST /api/stories/:id/generate — calls AI service to generate all chapters
-router.post('/:id/generate', requireAuth, async (req: Request, res: Response) => {
+router.post('/:id/generate', requireAuth, requireCreatePermission, async (req: Request, res: Response) => {
   try {
     const story = await Story.findById(req.params.id);
     if (!story) return res.status(404).json({ message: 'Story not found' });
@@ -308,7 +323,7 @@ router.post('/:id/generate', requireAuth, async (req: Request, res: Response) =>
 });
 
 // POST /api/stories/:id/review — patch annotated sentences via AI (fire-and-forget)
-router.post('/:id/review', requireAuth, async (req: Request, res: Response) => {
+router.post('/:id/review', requireAuth, requireCreatePermission, async (req: Request, res: Response) => {
   try {
     const story = await Story.findById(req.params.id);
     if (!story) return res.status(404).json({ message: 'Story not found' });
@@ -384,7 +399,7 @@ router.post('/:id/review', requireAuth, async (req: Request, res: Response) => {
 });
 
 // POST /api/stories/:id/regenerate-chapter — regenerates one chapter, may touch others for coherence
-router.post('/:id/regenerate-chapter', requireAuth, async (req: Request, res: Response) => {
+router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, async (req: Request, res: Response) => {
   try {
     const story = await Story.findById(req.params.id);
     if (!story) return res.status(404).json({ message: 'Story not found' });

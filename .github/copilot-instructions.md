@@ -133,14 +133,19 @@ Express catch-all `app.get('/{*path}', ...)` serves `public/index.html` for all 
 - `GET /` — Browse published stories (filters: `nativeLang`, `learningLang`, `level`, `search`; pagination 12/page)
 - `GET /mine` — User's own drafts + published (auth required)
 - `GET /:id` — Full story with chapters + sentences (403 if draft and not author)
-- `POST /` — Create new draft (auth required; accepts `seed`, `characters`, `chapters`)
+- `POST /` — Create new draft (auth + creator access; accepts `seed`, `characters`, `chapters`)
 - `PUT /:id` — Update story (auth + author check; accepts `seed`, `characters`, chapter metadata)
 - `DELETE /:id` — Delete story (auth + author check)
 - `POST /:id/publish` — Toggle published flag (auth + author check; requires ≥1 sentence and approval if AI-generated)
-- `POST /:id/generate` — Start async AI generation (auth + author; requires a `seed`; auto-populates an empty cast)
-- `POST /:id/review` — Apply per-sentence AI patches (auth + author; body `{ generalFeedback, annotations[] }`)
-- `POST /:id/regenerate-chapter` — Regenerate one chapter via AI (auth + author; body `{ chapterIndex, generalFeedback? }`)
+- `POST /:id/generate` — Start async AI generation (auth + author + creator access; requires a `seed`; auto-populates an empty cast)
+- `POST /:id/review` — Apply per-sentence AI patches (auth + author + creator access; body `{ generalFeedback, annotations[] }`)
+- `POST /:id/regenerate-chapter` — Regenerate one chapter via AI (auth + author + creator access; body `{ chapterIndex, generalFeedback? }`)
 - `POST /:id/approve` — Mark an AI-generated story reviewed (auth + author; requires ≥1 sentence)
+
+**Creator access**: story creation and all three AI endpoints sit behind the
+`requireCreatePermission` middleware in `src/routes/stories.ts`, which returns
+`403 { code: 'CREATOR_ACCESS_REQUIRED' }` unless the user has `canCreateStories: true`.
+Editing, publishing, deleting, approving and reading existing stories are **not** gated.
 
 ### Health
 - `GET /api/health` — Returns `{ status: "ok" }`
@@ -148,7 +153,11 @@ Express catch-all `app.get('/{*path}', ...)` serves `public/index.html` for all 
 ## Database Models
 
 ### User (`src/models/User.ts`)
-Key fields: `username` (unique, 3–30 chars), `email` (unique, lowercase), `password` (bcrypt hash), `uiLanguage` ('en' | 'fr'), `createdAt`
+Key fields: `username` (unique, 3–30 chars), `email` (unique, lowercase), `password` (bcrypt hash), `uiLanguage` ('en' | 'fr'), `canCreateStories` (Boolean, default `false` — gates story creation + AI endpoints; granted via mongosh, see `docs/SETUP.md`), `createdAt`
+
+Auth payloads (`register`, `login`, `check-auth`) return `{ id, username, email, uiLanguage, canCreateStories, createdAt }`;
+the client mirrors this as `AppUser` in `src/client/App.tsx` (note `src/client/components/Header.tsx` declares its own
+local subset interface that must be kept in sync).
 
 `comparePassword(candidate)` method available on the model instance.
 

@@ -42,6 +42,7 @@ router.post('/register', async (req: Request, res: Response) => {
         username: user.username,
         email: user.email,
         uiLanguage: user.uiLanguage,
+        canCreateStories: user.canCreateStories,
         createdAt: user.createdAt,
       },
     });
@@ -78,6 +79,7 @@ router.post('/login', async (req: Request, res: Response) => {
         username: user.username,
         email: user.email,
         uiLanguage: user.uiLanguage,
+        canCreateStories: user.canCreateStories,
         createdAt: user.createdAt,
       },
     });
@@ -115,6 +117,7 @@ router.get('/check-auth', async (req: Request, res: Response) => {
         username: user.username,
         email: user.email,
         uiLanguage: user.uiLanguage,
+        canCreateStories: user.canCreateStories,
         createdAt: user.createdAt,
       },
     });

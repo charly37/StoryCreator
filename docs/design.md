@@ -37,6 +37,7 @@ Browser
 - Session-based authentication (express-session backed by MongoDB via connect-mongo).
 - Passwords hashed with bcryptjs (salt rounds: 12).
 - Each user has a `uiLanguage` preference (`en` | `fr`).
+- Story creation is restricted to accounts with `canCreateStories: true`. New accounts default to `false`; an administrator grants access directly in MongoDB (see [Granting creator access](SETUP.md#granting-creator-access)) — there is no self-service upgrade.
 
 ### 6. **AI Story Generation & Review**
 - Authors write a **story seed** and optional per-chapter premises in the Story Editor.
@@ -83,6 +84,7 @@ Indexes: `{ nativeLanguage, learningLanguage, published }` (compound for browse 
 | `email` | String | Unique, lowercased |
 | `password` | String | bcrypt hash |
 | `uiLanguage` | Enum | `en` \| `fr`, default `en` |
+| `canCreateStories` | Boolean | Default `false`; grants access to story creation and the AI authoring endpoints |
 | `createdAt` | Date | |
 
 ---

@@ -19,6 +19,11 @@
     "or": "ou",
     "language": "Langue"
   },
+  "creatorAccess": {
+    "tooltip": "Accès créateur requis pour écrire des histoires",
+    "title": "Accès créateur requis",
+    "message": "Votre compte n'est pas autorisé à créer des histoires. Contactez un administrateur pour demander l'accès créateur."
+  },
   "landing": {
     "hero": {
       "title": "Apprenez les langues grâce aux histoires",
@@ -119,6 +124,7 @@
     "generateSuccess": "Histoire générée ! Vous pouvez la consulter dans Mes histoires.",
     "generateQueued": "Votre histoire va bientôt être générée ! Redirection vers vos histoires…",
     "generateError": "Erreur lors de la génération. Veuillez réessayer.",
+    "noCreatorAccessError": "Vous avez besoin de l'accès créateur pour générer des histoires avec l'IA.",
     "saved": "Histoire enregistrée avec succès",
     "saveError": "Erreur lors de l'enregistrement. Veuillez réessayer.",
     "selectLanguage": "Sélectionner une langue",

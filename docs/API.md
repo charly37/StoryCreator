@@ -4,9 +4,30 @@ All endpoints are prefixed with `/api`. The server returns JSON for all response
 
 Authentication is session-based — the browser cookie is sent automatically. Endpoints marked **Auth required** return `401` if the session has no `userId`.
 
+Some endpoints additionally require **creator access** — the user document must have `canCreateStories: true`. These endpoints return:
+
+| Status | Body | Description |
+|---|---|---|
+| `403` | `{ "message": "Creator access required", "code": "CREATOR_ACCESS_REQUIRED" }` | The account lacks the `canCreateStories` permission |
+
+New accounts default to `canCreateStories: false`. The permission is granted out-of-band — see [Granting creator access](SETUP.md#granting-creator-access). It is checked against the database on every gated request, so revocation takes effect immediately (no re-login required).
+
 ---
 
 ## Authentication — `/api/auth`
+
+All auth responses that return a `user` use the same shape:
+
+```json
+{
+  "id": "...",
+  "username": "alice",
+  "email": "alice@example.com",
+  "uiLanguage": "en",
+  "canCreateStories": false,
+  "createdAt": "..."
+}
+```
 
 ### `POST /api/auth/register`
 
@@ -128,7 +149,7 @@ Returns a single story including all sentences.
 
 ### `POST /api/stories`
 
-*Auth required.* Create a new story.
+*Auth required. Creator access required.* Create a new story.
 
 **Body**
 
@@ -170,6 +191,8 @@ Returns a single story including all sentences.
 
 **Response `201`:** The created story object.
 
+Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `canCreateStories`.
+
 ---
 
 ### `PUT /api/stories/:id`
@@ -202,9 +225,10 @@ Returns a single story including all sentences.
 
 ### `POST /api/stories/:id/generate`
 
-*Auth required. Author only.* Start asynchronous AI generation of the story's chapters.
+*Auth required. Author only. Creator access required.* Start asynchronous AI generation of the story's chapters.
 
 - Requires a non-empty `seed`; returns `400` otherwise.
+- Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `canCreateStories`.
 - Responds immediately with `202`; the job runs in the background and sets `generating: true` while running.
 - The story's `characters` are sent to the AI as the cast. If the cast was empty, the AI's invented cast is written back to `characters` after generation; author-entered characters are preserved.
 
@@ -212,21 +236,23 @@ Returns a single story including all sentences.
 
 ### `POST /api/stories/:id/review`
 
-*Auth required. Author only.* Apply per-sentence feedback via AI.
+*Auth required. Author only. Creator access required.* Apply per-sentence feedback via AI.
 
 **Body:** `{ generalFeedback?, annotations: [{ chapterIndex, sentenceIndex, feedback }] }`
 
 - Requires at least one annotation with non-empty `feedback`.
+- Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `canCreateStories`.
 - Story `characters` are included as consistency context.
 - Responds `202` and runs the patch job in the background.
 
 ### `POST /api/stories/:id/regenerate-chapter`
 
-*Auth required. Author only.* Regenerate a single chapter, optionally updating other chapters for coherence.
+*Auth required. Author only. Creator access required.* Regenerate a single chapter, optionally updating other chapters for coherence.
 
 **Body:** `{ chapterIndex, generalFeedback? }`
 
 - Returns `400` for an invalid `chapterIndex`.
+- Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `canCreateStories`.
 - Story `characters` are included as consistency context.
 - Responds `202` and runs the job in the background.
 

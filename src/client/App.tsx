@@ -13,6 +13,7 @@ import RegisterPage from './components/RegisterPage';
 import ProfilePage from './components/ProfilePage';
 import StoryPreviewPage from './components/StoryPreviewPage';
 import StoryReviewPage from './components/StoryReviewPage';
+import CreatorAccessNotice from './components/CreatorAccessNotice';
 
 const theme = createTheme({
   palette: {
@@ -43,6 +44,7 @@ export interface AppUser {
   username: string;
   email?: string;
   uiLanguage?: 'en' | 'fr';
+  canCreateStories?: boolean;
   createdAt?: string;
 }
 
@@ -98,7 +100,13 @@ const AppContent: React.FC = () => {
           <Route path="/stories/:id" element={<StoryReadPage />} />
           <Route
             path="/editor"
-            element={user ? <StoryEditorPage user={user} /> : <Navigate to="/login" replace />}
+            element={
+              !user
+                ? <Navigate to="/login" replace />
+                : user.canCreateStories
+                  ? <StoryEditorPage user={user} />
+                  : <CreatorAccessNotice />
+            }
           />
           <Route
             path="/editor/:id"

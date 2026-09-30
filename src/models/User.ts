@@ -6,6 +6,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   uiLanguage: 'en' | 'fr';
+  canCreateStories: boolean;
   createdAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
@@ -35,6 +36,10 @@ const userSchema = new Schema<IUser>({
     type: String,
     enum: ['en', 'fr'],
     default: 'en',
+  },
+  canCreateStories: {
+    type: Boolean,
+    default: false,
   },
   createdAt: {
     type: Date,

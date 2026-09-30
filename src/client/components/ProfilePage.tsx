@@ -112,10 +112,23 @@ const ProfilePage: React.FC<{ user: AppUser }> = ({ user }) => {
             <Typography variant="h4" sx={{ fontWeight: 700 }}>{t('profile.title')}</Typography>
             <Typography variant="body2" color="text.secondary">{user.username}</Typography>
           </Box>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/editor')}>
-            {t('common.writeStory')}
-          </Button>
+          <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+            <span>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/editor')}
+                disabled={!user.canCreateStories}
+              >
+                {t('common.writeStory')}
+              </Button>
+            </span>
+          </Tooltip>
         </Box>
+
+        {!user.canCreateStories && (
+          <Alert severity="info" sx={{ mb: 2 }}>{t('creatorAccess.message')}</Alert>
+        )}
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
@@ -132,9 +145,18 @@ const ProfilePage: React.FC<{ user: AppUser }> = ({ user }) => {
         ) : filtered.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 6 }}>
             <Typography color="text.secondary" gutterBottom>{t('profile.noStories')}</Typography>
-            <Button variant="contained" onClick={() => navigate('/editor')} sx={{ mt: 1 }}>
-              {t('profile.writeFirst')}
-            </Button>
+            <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+              <span>
+                <Button
+                  variant="contained"
+                  onClick={() => navigate('/editor')}
+                  disabled={!user.canCreateStories}
+                  sx={{ mt: 1 }}
+                >
+                  {t('profile.writeFirst')}
+                </Button>
+              </span>
+            </Tooltip>
           </Box>
         ) : (
           filtered.map((story) => (

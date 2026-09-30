@@ -35,6 +35,35 @@ Replace `<db_username>` and `<db_password>` with your actual MongoDB Atlas crede
 
 No manual collection or index creation is required — Mongoose creates the schema and indexes on first run.
 
+## Granting creator access
+
+Story creation (and the AI endpoints that support it) is restricted to accounts with the
+`canCreateStories` permission. New accounts default to `false`, so every new user is a
+read-only user until an administrator grants access.
+
+There is no admin UI or CLI script — grant (or revoke) the permission directly in MongoDB,
+either with `mongosh` or the Atlas web shell:
+
+```js
+// Grant creator access to a single user
+db.users.updateOne({ email: "user@example.com" }, { $set: { canCreateStories: true } });
+
+// Revoke it
+db.users.updateOne({ email: "user@example.com" }, { $set: { canCreateStories: false } });
+```
+
+Because the permission is read from the database on every gated request, a grant or
+revocation takes effect on the user's next action — they do not need to log out.
+
+### Backfill
+
+The field was introduced after launch and defaults to `false`. To make the value explicit on
+pre-existing documents (optional — a missing field behaves as `false`):
+
+```js
+db.users.updateMany({ canCreateStories: { $exists: false } }, { $set: { canCreateStories: false } });
+```
+
 ## Development
 
 Run both the server and client in development mode:

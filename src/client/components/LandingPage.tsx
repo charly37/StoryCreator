@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Button, Grid, Card, CardContent,
-  CardActions, Chip, CircularProgress,
+  CardActions, Chip, CircularProgress, Tooltip,
 } from '@mui/material';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import EditIcon from '@mui/icons-material/Edit';
@@ -69,13 +69,18 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
             {t('landing.browseStories')}
           </Button>
           {user ? (
-            <Button
-              variant="outlined" size="large" startIcon={<EditIcon />}
-              onClick={() => navigate('/editor')}
-              sx={{ borderColor: 'white', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
-            >
-              {t('landing.startWriting')}
-            </Button>
+            <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+              <span>
+                <Button
+                  variant="outlined" size="large" startIcon={<EditIcon />}
+                  onClick={() => navigate('/editor')}
+                  disabled={!user.canCreateStories}
+                  sx={{ borderColor: 'white', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+                >
+                  {t('landing.startWriting')}
+                </Button>
+              </span>
+            </Tooltip>
           ) : (
             <Button
               variant="outlined" size="large"
@@ -102,9 +107,18 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
           <Box sx={{ textAlign: 'center', py: 6 }}>
             <Typography color="text.secondary" gutterBottom>{t('landing.noStories')}</Typography>
             {user && (
-              <Button variant="contained" onClick={() => navigate('/editor')} sx={{ mt: 2 }}>
-                {t('landing.startWriting')}
-              </Button>
+              <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+                <span>
+                  <Button
+                    variant="contained"
+                    onClick={() => navigate('/editor')}
+                    disabled={!user.canCreateStories}
+                    sx={{ mt: 2 }}
+                  >
+                    {t('landing.startWriting')}
+                  </Button>
+                </span>
+              </Tooltip>
             )}
           </Box>
         ) : (

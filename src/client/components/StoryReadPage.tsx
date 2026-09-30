@@ -18,15 +18,27 @@ interface Sentence {
   lang2: string;
 }
 
+interface Chapter {
+  seed: string;
+  sentences: Sentence[];
+}
+
+interface FlatSentence extends Sentence {
+  chapterIndex: number;
+  isFirstInChapter: boolean;
+  chapterSeed: string;
+}
+
 interface Story {
   _id: string;
   title: { lang1: string; lang2: string };
-  sentences: Sentence[];
+  chapters: Chapter[];
   nativeLanguage: string;
   learningLanguage: string;
   level: 'beginner' | 'intermediate' | 'advanced';
   topic: string;
   authorName: string;
+  sentenceCount: number;
 }
 
 const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
@@ -86,8 +98,19 @@ const StoryReadPage: React.FC = () => {
 
   if (!story) return null;
 
-  const total = story.sentences.length;
-  const sentence = story.sentences[currentIndex];
+  // Flatten chapters into a single navigable list
+  const flatSentences: FlatSentence[] = (story.chapters ?? []).flatMap((chapter, ci) =>
+    (chapter.sentences ?? []).map((s, si) => ({
+      chapterIndex: ci,
+      lang1: s.lang1,
+      lang2: s.lang2,
+      isFirstInChapter: si === 0,
+      chapterSeed: chapter.seed,
+    }))
+  );
+
+  const total = flatSentences.length;
+  const sentence = flatSentences[currentIndex];
   const isRevealed = revealed.has(currentIndex);
 
   const toggleReveal = (index: number) => {
@@ -102,7 +125,7 @@ const StoryReadPage: React.FC = () => {
     if (allRevealed) {
       setRevealed(new Set());
     } else {
-      setRevealed(new Set(story.sentences.map((_, i) => i)));
+      setRevealed(new Set(flatSentences.map((_, i) => i)));
     }
     setAllRevealed((v) => !v);
   };
@@ -150,12 +173,19 @@ const StoryReadPage: React.FC = () => {
               {allRevealed ? t('reader.hideAll') : t('reader.showAll')}
             </Button>
           </Box>
-          <LinearProgress variant="determinate" value={((currentIndex + 1) / total) * 100} sx={{ borderRadius: 2 }} />
+          <LinearProgress variant="determinate" value={total > 0 ? ((currentIndex + 1) / total) * 100 : 0} sx={{ borderRadius: 2 }} />
         </Box>
 
         {/* Sentence card */}
         {total > 0 && sentence && (
           <Paper elevation={2} sx={{ p: 3, mb: 2, minHeight: 140 }}>
+            {/* Chapter header shown at the first sentence of each chapter */}
+            {sentence.isFirstInChapter && story.chapters.length > 1 && (
+              <Typography variant="overline" color="primary" sx={{ display: 'block', mb: 1, fontWeight: 700 }}>
+                {t('preview.chapterN', { n: sentence.chapterIndex + 1 })}
+                {sentence.chapterSeed ? ` — ${sentence.chapterSeed}` : ''}
+              </Typography>
+            )}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <Box sx={{ flexGrow: 1 }}>
                 {/* Learning language (lang2) shown prominently */}
@@ -194,7 +224,7 @@ const StoryReadPage: React.FC = () => {
           <Button
             endIcon={<ArrowForwardIosIcon />}
             onClick={() => setCurrentIndex((i) => Math.min(total - 1, i + 1))}
-            disabled={currentIndex === total - 1}
+            disabled={total === 0 || currentIndex >= total - 1}
           >
             {t('reader.next')}
           </Button>

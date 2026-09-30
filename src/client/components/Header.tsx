@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 interface User {
   id: string;
   username: string;
+  canCreateStories?: boolean;
 }
 
 interface HeaderProps {
@@ -58,14 +59,19 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
 
         {user ? (
           <>
-            <Button
-              variant="contained"
-              startIcon={<CreateIcon />}
-              onClick={() => navigate('/editor')}
-              sx={{ mr: 1 }}
-            >
-              {t('common.writeStory')}
-            </Button>
+            <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+              <span>
+                <Button
+                  variant="contained"
+                  startIcon={<CreateIcon />}
+                  onClick={() => navigate('/editor')}
+                  disabled={!user.canCreateStories}
+                  sx={{ mr: 1 }}
+                >
+                  {t('common.writeStory')}
+                </Button>
+              </span>
+            </Tooltip>
             <Tooltip title={user.username}>
               <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} size="small">
                 <Avatar sx={{ bgcolor: 'primary.main', width: 34, height: 34, fontSize: '0.9rem' }}>

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Paper, TextField, Button, Alert, Snackbar,
   CircularProgress, Select, MenuItem, FormControl, InputLabel, Divider,
-  IconButton,
+  IconButton, Tooltip,
 } from '@mui/material';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AddIcon from '@mui/icons-material/Add';
@@ -38,6 +38,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const canCreate = !!user.canCreateStories;
 
   const [titleLang1, setTitleLang1] = useState('');
   const [nativeLanguage, setNativeLanguage] = useState('');
@@ -111,6 +112,10 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   };
 
   const handleGenerate = async () => {
+    if (!canCreate) {
+      setError(t('editor.noCreatorAccessError'));
+      return;
+    }
     if (!validate()) return;
     setGenerating(true);
     setError('');
@@ -138,7 +143,8 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         });
         const createData = await createRes.json();
         if (!createRes.ok) {
-          setError(createData.message || t('editor.saveError'));
+          const denied = createData.code === 'CREATOR_ACCESS_REQUIRED';
+          setError(denied ? t('editor.noCreatorAccessError') : createData.message || t('editor.saveError'));
           return;
         }
         storyId = createData._id;
@@ -150,7 +156,8 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         });
         if (!updateRes.ok) {
           const updateData = await updateRes.json();
-          setError(updateData.message || t('editor.saveError'));
+          const denied = updateData.code === 'CREATOR_ACCESS_REQUIRED';
+          setError(denied ? t('editor.noCreatorAccessError') : updateData.message || t('editor.saveError'));
           return;
         }
       }
@@ -163,7 +170,8 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
       });
       const genData = await genRes.json();
       if (!genRes.ok) {
-        setError(genData.message || t('editor.generateError'));
+        const denied = genData.code === 'CREATOR_ACCESS_REQUIRED';
+        setError(denied ? t('editor.noCreatorAccessError') : genData.message || t('editor.generateError'));
         return;
       }
 
@@ -192,6 +200,10 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 3 }}>
           {t('editor.createTitle')}
         </Typography>
+
+        {!canCreate && (
+          <Alert severity="info" sx={{ mb: 2 }}>{t('editor.noCreatorAccessError')}</Alert>
+        )}
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
@@ -429,15 +441,19 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
 
         {/* Actions */}
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={generating ? <CircularProgress size={18} color="inherit" /> : <AutoAwesomeIcon />}
-            onClick={handleGenerate}
-            disabled={generating}
-          >
-            {generating ? t('editor.generating') : t('editor.generateStory')}
-          </Button>
+          <Tooltip title={canCreate ? '' : t('creatorAccess.tooltip')}>
+            <span>
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={generating ? <CircularProgress size={18} color="inherit" /> : <AutoAwesomeIcon />}
+                onClick={handleGenerate}
+                disabled={generating || !canCreate}
+              >
+                {generating ? t('editor.generating') : t('editor.generateStory')}
+              </Button>
+            </span>
+          </Tooltip>
           <Button variant="text" onClick={() => navigate(-1)} disabled={generating}>
             {t('common.cancel')}
           </Button>
