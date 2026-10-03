@@ -10,8 +10,11 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
+import { cloneStory } from '../utils/cloneStory';
+import { AppUser } from '../App';
 
 interface Sentence {
   lang1: string;
@@ -47,7 +50,7 @@ const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
   advanced: 'error',
 };
 
-const StoryReadPage: React.FC = () => {
+const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -59,6 +62,8 @@ const StoryReadPage: React.FC = () => {
   // tracks which sentences have their translation revealed
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const [allRevealed, setAllRevealed] = useState(false);
+  const [cloning, setCloning] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -130,12 +135,44 @@ const StoryReadPage: React.FC = () => {
     setAllRevealed((v) => !v);
   };
 
+  const handleClone = async () => {
+    setCloning(true);
+    setActionError('');
+    const result = await cloneStory(story._id);
+    setCloning(false);
+    if (!result.ok || !result.id) {
+      setActionError(
+        result.code === 'CREATOR_ACCESS_REQUIRED'
+          ? t('editor.noCreatorAccessError')
+          : result.message || t('common.cloneError')
+      );
+      return;
+    }
+    navigate(`/editor/${result.id}`);
+  };
+
   return (
     <Box sx={{ pt: 10, pb: 6, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="md">
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/stories')} sx={{ mb: 3 }}>
-          {t('reader.backToStories')}
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/stories')}>
+            {t('reader.backToStories')}
+          </Button>
+          {user?.canCreateStories && (
+            <Button
+              variant="outlined"
+              startIcon={<ContentCopyIcon />}
+              onClick={handleClone}
+              disabled={cloning}
+            >
+              {t('common.clone')}
+            </Button>
+          )}
+        </Box>
+
+        {actionError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError('')}>{actionError}</Alert>
+        )}
 
         {/* Story header */}
         <Paper elevation={2} sx={{ p: 3, mb: 3, borderLeft: '4px solid', borderColor: 'primary.main' }}>

@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import Story from '../models/Story';
 import User from '../models/User';
-import { aiService, SentencePatch } from '../services/aiService';
+import { aiService, SentencePatch, sanitizeSentences } from '../services/aiService';
 
 const DEFAULT_SENTENCES_PER_CHAPTER = 12;
 const MAX_CHARACTERS = 20;
@@ -308,12 +308,15 @@ router.post('/:id/generate', requireAuth, requireCreatePermission, async (req: R
         }
         story.title.lang2 = generated.title;
         story.isAIGenerated = true;
+        // Content changed — a previous approval no longer applies.
+        story.approved = false;
         story.generating = false;
         await story.save();
       } catch (error) {
         console.error('Background story generation failed:', error);
-        story.generating = false;
-        await story.save();
+        // Use updateOne (no document validation) so a partially-populated in-memory
+        // story cannot throw again and crash the process.
+        await Story.updateOne({ _id: story._id }, { $set: { generating: false } });
       }
     });
   } catch (error) {
@@ -379,17 +382,19 @@ router.post('/:id/review', requireAuth, requireCreatePermission, async (req: Req
           }))
         );
         for (const p of patched) {
+          const lang1 = typeof p.lang1 === 'string' ? p.lang1.trim() : '';
+          const lang2 = typeof p.lang2 === 'string' ? p.lang2.trim() : '';
+          if (lang1 === '' || lang2 === '') continue;
           if (p.chapterIndex >= 0 && p.chapterIndex < story.chapters.length &&
               p.sentenceIndex >= 0 && p.sentenceIndex < story.chapters[p.chapterIndex].sentences.length) {
-            story.chapters[p.chapterIndex].sentences[p.sentenceIndex] = { lang1: p.lang1, lang2: p.lang2 };
+            story.chapters[p.chapterIndex].sentences[p.sentenceIndex] = { lang1, lang2 };
           }
         }
         story.generating = false;
         await story.save();
       } catch (error) {
         console.error('Background review patch failed:', error);
-        story.generating = false;
-        await story.save();
+        await Story.updateOne({ _id: story._id }, { $set: { generating: false } });
       }
     });
   } catch (error) {
@@ -429,6 +434,7 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
           chapterIndex,
           chapter.seed,
           req.body.generalFeedback?.trim() ?? '',
+          story.seed,
           allChapters,
           story.nativeLanguage,
           story.learningLanguage,
@@ -443,19 +449,21 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
         );
         for (const r of results) {
           if (r.index >= 0 && r.index < story.chapters.length) {
-            story.chapters[r.index].seed = r.seed;
-            // trim/pad to targetSentences
-            let sents = r.sentences.slice(0, story.chapters[r.index].targetSentences);
-            while (sents.length < story.chapters[r.index].targetSentences) sents.push({ lang1: '', lang2: '' });
-            story.chapters[r.index].sentences = sents;
+            if (typeof r.seed === 'string' && r.seed.trim()) {
+              story.chapters[r.index].seed = r.seed.trim();
+            }
+            // Keep only valid pairs; never pad with empty strings (fails required validation)
+            story.chapters[r.index].sentences = sanitizeSentences(
+              r.sentences,
+              story.chapters[r.index].targetSentences
+            );
           }
         }
         story.generating = false;
         await story.save();
       } catch (error) {
         console.error('Background chapter regeneration failed:', error);
-        story.generating = false;
-        await story.save();
+        await Story.updateOne({ _id: story._id }, { $set: { generating: false } });
       }
     });
   } catch (error) {
@@ -481,6 +489,62 @@ router.post('/:id/approve', requireAuth, async (req: Request, res: Response) => 
   } catch (error) {
     console.error('Error approving story:', error);
     res.status(500).json({ message: 'Server error approving story' });
+  }
+});
+
+// POST /api/stories/:id/clone — deep-copy a story into a new draft owned by the requester
+router.post('/:id/clone', requireAuth, requireCreatePermission, async (req: Request, res: Response) => {
+  try {
+    const source = await Story.findById(req.params.id);
+    if (!source) return res.status(404).json({ message: 'Story not found' });
+
+    // You may clone your own stories (drafts or published) or any published story
+    const isOwner = source.authorId.toString() === req.session.userId;
+    if (!isOwner && !source.published) {
+      return res.status(403).json({ message: 'Story not published' });
+    }
+    if (source.generating) {
+      return res.status(400).json({ message: 'Story is still generating' });
+    }
+
+    const author = await User.findById(req.session.userId).select('username');
+    if (!author) return res.status(401).json({ message: 'User not found' });
+
+    const clone = new Story({
+      title: {
+        lang1: `${source.title.lang1} (copy)`,
+        lang2: source.title.lang2,
+      },
+      chapters: source.chapters.map((c) => ({
+        seed: c.seed,
+        targetSentences: c.targetSentences,
+        sentences: c.sentences.map((s) => ({ lang1: s.lang1, lang2: s.lang2 })),
+      })),
+      characters: source.characters.map((c) => ({
+        name: c.name,
+        role: c.role,
+        description: c.description,
+        appearance: c.appearance,
+      })),
+      nativeLanguage: source.nativeLanguage,
+      learningLanguage: source.learningLanguage,
+      level: source.level,
+      topic: source.topic,
+      seed: source.seed,
+      targetChapters: source.targetChapters,
+      authorId: req.session.userId,
+      authorName: author.username,
+      published: false,
+      generating: false,
+      isAIGenerated: source.isAIGenerated,
+      approved: false,
+    });
+
+    await clone.save();
+    res.status(201).json(clone);
+  } catch (error) {
+    console.error('Error cloning story:', error);
+    res.status(500).json({ message: 'Server error cloning story' });
   }
 });
 

@@ -105,7 +105,8 @@ src/client/
     StoryReadPage.tsx   — Bilingual reading view
     LoginPage.tsx
     RegisterPage.tsx
-    ProfilePage.tsx
+    ProfilePage.tsx     — Account details (username, email, member since, creator access)
+    MyStoriesPage.tsx   — User's drafts + published stories
   utils/
     languages.ts     — Supported language list
 ```

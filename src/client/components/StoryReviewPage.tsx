@@ -5,6 +5,7 @@ import {
   Alert, TextField, IconButton, Tooltip, Divider, Snackbar,
   Select, MenuItem, FormControl, InputLabel,
   Accordion, AccordionSummary, AccordionDetails,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -18,8 +19,12 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import GroupsIcon from '@mui/icons-material/Groups';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, getLanguageName } from '../utils/languages';
+import { cloneStory } from '../utils/cloneStory';
+import { AppUser } from '../App';
 
 interface Sentence { lang1: string; lang2: string; }
 interface Chapter { seed: string; targetSentences: number; sentences: Sentence[]; }
@@ -43,7 +48,7 @@ interface Story {
 const LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
 const MAX_CHARACTERS = 20;
 
-const StoryReviewPage: React.FC = () => {
+const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -52,6 +57,7 @@ const StoryReviewPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState('');
+  const [cloning, setCloning] = useState(false);
 
   // Editable metadata fields
   const [titleLang1, setTitleLang1] = useState('');
@@ -59,6 +65,7 @@ const StoryReviewPage: React.FC = () => {
   const [learningLanguage, setLearningLanguage] = useState('');
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
   const [topic, setTopic] = useState('');
+  const [seed, setSeed] = useState('');
   const [characters, setCharacters] = useState<Character[]>([]);
 
   // Per-chapter editable seeds and feedback; keyed by chapter index
@@ -78,6 +85,8 @@ const StoryReviewPage: React.FC = () => {
   const [approving, setApproving] = useState(false);
   // track which chapter is being regenerated
   const [regeneratingChapter, setRegeneratingChapter] = useState<number | null>(null);
+  const [regenerateAllOpen, setRegenerateAllOpen] = useState(false);
+  const [regeneratingAll, setRegeneratingAll] = useState(false);
 
   const fetchStory = useCallback(async () => {
     if (!id) return;
@@ -94,6 +103,23 @@ const StoryReviewPage: React.FC = () => {
 
   useEffect(() => { fetchStory(); }, [fetchStory]);
 
+  const handleClone = async () => {
+    if (!id) return;
+    setCloning(true);
+    setError('');
+    const result = await cloneStory(id);
+    setCloning(false);
+    if (!result.ok || !result.id) {
+      setError(
+        result.code === 'CREATOR_ACCESS_REQUIRED'
+          ? t('editor.noCreatorAccessError')
+          : result.message || t('common.cloneError')
+      );
+      return;
+    }
+    navigate(`/editor/${result.id}`);
+  };
+
   // Populate editable fields once when the story first loads
   useEffect(() => {
     if (!story) return;
@@ -102,6 +128,7 @@ const StoryReviewPage: React.FC = () => {
     setLearningLanguage(story.learningLanguage);
     setLevel(story.level);
     setTopic(story.topic);
+    setSeed(story.seed || '');
     const seeds: Record<number, string> = {};
     const targets: Record<number, number> = {};
     story.chapters.forEach((c, i) => { seeds[i] = c.seed; targets[i] = c.targetSentences; });
@@ -142,6 +169,7 @@ const StoryReviewPage: React.FC = () => {
         learningLanguage,
         level,
         topic,
+        seed,
         chapters,
         characters,
       }),
@@ -204,7 +232,7 @@ const StoryReviewPage: React.FC = () => {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || t('review.applyError')); return; }
-      navigate('/profile');
+      navigate('/my-stories');
     } catch {
       setError(t('review.applyError'));
     } finally {
@@ -227,11 +255,33 @@ const StoryReviewPage: React.FC = () => {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || t('review.applyError')); return; }
-      navigate('/profile');
+      navigate('/my-stories');
     } catch {
       setError(t('review.applyError'));
     } finally {
       setRegeneratingChapter(null);
+    }
+  };
+
+  const handleRegenerateAll = async () => {
+    if (!story || !id) return;
+    setRegenerateAllOpen(false);
+    setRegeneratingAll(true);
+    try {
+      if (!(await saveMetadata())) return;
+      const res = await fetch(`/api/stories/${id}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.message || t('editor.generateError')); return; }
+      setSnackbar(t('editor.generateQueued'));
+      navigate('/my-stories');
+    } catch {
+      setError(t('editor.generateError'));
+    } finally {
+      setRegeneratingAll(false);
     }
   };
 
@@ -244,7 +294,7 @@ const StoryReviewPage: React.FC = () => {
       const data = await res.json();
       if (!res.ok) { setError(data.message || t('review.approveError')); return; }
       setSnackbar(t('review.approveSuccess'));
-      navigate('/profile');
+      navigate('/my-stories');
     } catch {
       setError(t('review.approveError'));
     } finally {
@@ -252,7 +302,7 @@ const StoryReviewPage: React.FC = () => {
     }
   };
 
-  const busy = saving || submitting || approving || (story?.generating ?? false) || regeneratingChapter !== null;
+  const busy = saving || submitting || approving || regeneratingAll || (story?.generating ?? false) || regeneratingChapter !== null;
 
   if (loading) {
     return (
@@ -266,8 +316,8 @@ const StoryReviewPage: React.FC = () => {
     return (
       <Box sx={{ pt: 12, pb: 6 }}>
         <Container maxWidth="md">
-          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/profile')} sx={{ mb: 2 }}>
-            {t('common.profile')}
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/my-stories')} sx={{ mb: 2 }}>
+            {t('common.myStories')}
           </Button>
           <Alert severity="error">{error}</Alert>
         </Container>
@@ -282,13 +332,25 @@ const StoryReviewPage: React.FC = () => {
       <Container maxWidth="md">
 
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/profile')}>
-            {t('common.profile')}
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/my-stories')}>
+            {t('common.myStories')}
           </Button>
           <Typography variant="h5" sx={{ fontWeight: 700, ml: 2 }}>
             <RateReviewIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'primary.main' }} />
             {t('review.title')}
           </Typography>
+          <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+            <span style={{ marginLeft: 'auto' }}>
+              <Button
+                variant="outlined"
+                startIcon={<ContentCopyIcon />}
+                onClick={handleClone}
+                disabled={!user.canCreateStories || cloning}
+              >
+                {t('common.clone')}
+              </Button>
+            </span>
+          </Tooltip>
         </Box>
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
@@ -341,12 +403,16 @@ const StoryReviewPage: React.FC = () => {
               onChange={(e) => setTopic(e.target.value)} disabled={busy} sx={{ flex: 1, minWidth: 160 }} />
           </Box>
 
-          {/* Seed is read-only — changing the premise requires a new story */}
+          {/* Story seed — editable; applies on the next chapter or full-story regeneration */}
           <TextField
-            label={t('editor.seedSection')} value={story.seed}
-            multiline minRows={2} fullWidth disabled
-            helperText={t('review.seedReadOnly')} sx={{ mb: 2 }}
+            label={t('editor.seedSection')} value={seed}
+            onChange={(e) => setSeed(e.target.value)}
+            multiline minRows={2} fullWidth disabled={busy}
+            sx={{ mb: 1 }}
           />
+          <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mb: 2, py: 0.5 }}>
+            {t('review.seedHint')}
+          </Alert>
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button variant="outlined"
@@ -580,6 +646,16 @@ const StoryReviewPage: React.FC = () => {
 
         {/* ── Action buttons ── */}
         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+            <span style={{ marginRight: 'auto' }}>
+              <Button variant="outlined" color="warning"
+                startIcon={regeneratingAll ? <CircularProgress size={16} /> : <RestartAltIcon />}
+                onClick={() => setRegenerateAllOpen(true)}
+                disabled={busy || !user.canCreateStories}>
+                {regeneratingAll ? t('review.regeneratingAll') : t('review.regenerateAll')}
+              </Button>
+            </span>
+          </Tooltip>
           <Button variant="outlined"
             startIcon={submitting ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
             onClick={handleApplyFeedback} disabled={!hasAnyFeedback || busy}>
@@ -592,6 +668,21 @@ const StoryReviewPage: React.FC = () => {
           </Button>
         </Box>
       </Container>
+
+      {/* Full regeneration confirmation */}
+      <Dialog open={regenerateAllOpen} onClose={() => setRegenerateAllOpen(false)}>
+        <DialogTitle>{t('review.regenerateAllConfirmTitle')}</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mb: 2 }}>{t('review.regenerateAllWarning')}</Alert>
+          <DialogContentText>{t('review.regenerateAllConfirmBody')}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRegenerateAllOpen(false)}>{t('common.cancel')}</Button>
+          <Button onClick={handleRegenerateAll} color="warning" variant="contained">
+            {t('review.regenerateAllConfirm')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar open={!!snackbar} autoHideDuration={3000}
         onClose={() => setSnackbar('')} message={snackbar} />

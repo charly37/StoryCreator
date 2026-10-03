@@ -10,9 +10,12 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
+import { cloneStory } from '../utils/cloneStory';
+import { AppUser } from '../App';
 
 interface Sentence {
   lang1: string;
@@ -51,7 +54,7 @@ const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
   advanced: 'error',
 };
 
-const StoryPreviewPage: React.FC = () => {
+const StoryPreviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -62,6 +65,8 @@ const StoryPreviewPage: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const [allRevealed, setAllRevealed] = useState(false);
+  const [cloning, setCloning] = useState(false);
+  const [cloneError, setCloneError] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -88,8 +93,8 @@ const StoryPreviewPage: React.FC = () => {
     return (
       <Box sx={{ pt: 12, pb: 6 }}>
         <Container maxWidth="md">
-          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/profile')} sx={{ mb: 2 }}>
-            {t('common.profile')}
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/my-stories')} sx={{ mb: 2 }}>
+            {t('common.myStories')}
           </Button>
           <Alert severity="error">{t('reader.notFound')}</Alert>
         </Container>
@@ -131,23 +136,57 @@ const StoryPreviewPage: React.FC = () => {
     setAllRevealed((v) => !v);
   };
 
+  const handleClone = async () => {
+    setCloning(true);
+    setCloneError('');
+    const result = await cloneStory(story._id);
+    setCloning(false);
+    if (!result.ok || !result.id) {
+      setCloneError(
+        result.code === 'CREATOR_ACCESS_REQUIRED'
+          ? t('editor.noCreatorAccessError')
+          : result.message || t('common.cloneError')
+      );
+      return;
+    }
+    navigate(`/editor/${result.id}`);
+  };
+
   return (
     <Box sx={{ pt: 10, pb: 6, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="md">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/profile')}>
-            {t('common.profile')}
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/my-stories')}>
+            {t('common.myStories')}
           </Button>
-          {story.isAIGenerated && (
-            <Button
-              variant="outlined"
-              startIcon={<RateReviewIcon />}
-              onClick={() => navigate(`/review/${story._id}`)}
-            >
-              {t('preview.goToReview')}
-            </Button>
-          )}
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+              <span>
+                <Button
+                  variant="outlined"
+                  startIcon={<ContentCopyIcon />}
+                  onClick={handleClone}
+                  disabled={!user.canCreateStories || cloning}
+                >
+                  {t('common.clone')}
+                </Button>
+              </span>
+            </Tooltip>
+            {story.isAIGenerated && (
+              <Button
+                variant="outlined"
+                startIcon={<RateReviewIcon />}
+                onClick={() => navigate(`/review/${story._id}`)}
+              >
+                {t('preview.goToReview')}
+              </Button>
+            )}
+          </Box>
         </Box>
+
+        {cloneError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setCloneError('')}>{cloneError}</Alert>
+        )}
 
         {/* Story header */}
         <Paper elevation={2} sx={{ p: 3, mb: 3, borderLeft: '4px solid', borderColor: 'primary.main' }}>

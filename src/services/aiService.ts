@@ -70,6 +70,7 @@ export interface IAIService {
     chapterIndex: number,
     newSeed: string,
     generalFeedback: string,
+    storySeed: string,
     allChapters: Array<{ seed: string; sentences: GeneratedSentence[] }>,
     nativeLanguage: string,
     learningLanguage: string,
@@ -103,6 +104,25 @@ function characterLines(characters: CharacterSpec[]): string {
       return `- ${c.name.trim()}${role}${description}${appearance}`;
     })
     .join('\n');
+}
+
+/**
+ * Coerces raw AI sentence objects into clean parallel-text pairs.
+ * Entries missing either language are dropped rather than padded with empty
+ * strings — Mongoose rejects '' for the required `lang1`/`lang2` paths.
+ */
+export function sanitizeSentences(raw: unknown, limit?: number): GeneratedSentence[] {
+  if (!Array.isArray(raw)) return [];
+  const capped = typeof limit === 'number' && limit >= 0 ? raw.slice(0, limit) : raw;
+  return capped
+    .map((entry) => {
+      const pair = (entry ?? {}) as { lang1?: unknown; lang2?: unknown };
+      return {
+        lang1: typeof pair.lang1 === 'string' ? pair.lang1.trim() : '',
+        lang2: typeof pair.lang2 === 'string' ? pair.lang2.trim() : '',
+      };
+    })
+    .filter((s) => s.lang1 !== '' && s.lang2 !== '');
 }
 
 class OpenAIService implements IAIService {
@@ -199,14 +219,13 @@ Rules:
       }))
       .filter((c) => c.name.trim() !== '');
 
-    // Ensure exactly N chapters, each trimmed/padded to target
+    // Ensure N chapters; keep only valid sentence pairs (AI may under-deliver)
     const chapters: GeneratedChapter[] = chapterSpecs.map((spec, i) => {
       const rawChapter = rawChapters[i];
-      const chapterSeed = rawChapter?.seed ?? `Chapter ${i + 1}`;
-      let sentences = Array.isArray(rawChapter?.sentences) ? rawChapter.sentences : [];
-      sentences = sentences.slice(0, spec.targetSentences);
-      while (sentences.length < spec.targetSentences) sentences.push({ lang1: '', lang2: '' });
-      return { seed: chapterSeed, sentences };
+      const chapterSeed = typeof rawChapter?.seed === 'string' && rawChapter.seed.trim()
+        ? rawChapter.seed.trim()
+        : `Chapter ${i + 1}`;
+      return { seed: chapterSeed, sentences: sanitizeSentences(rawChapter?.sentences, spec.targetSentences) };
     });
 
     return { title, characters: generatedCharacters, chapters };
@@ -270,6 +289,7 @@ Rules:
     chapterIndex: number,
     newSeed: string,
     generalFeedback: string,
+    storySeed: string,
     allChapters: Array<{ seed: string; sentences: GeneratedSentence[] }>,
     nativeLanguage: string,
     learningLanguage: string,
@@ -306,6 +326,7 @@ Rules:
 - Maintain the story level throughout`;
 
     const feedback = [
+      storySeed ? `Overall story premise: ${storySeed}` : '',
       `New seed for chapter ${chapterIndex + 1}: ${newSeed}`,
       generalFeedback ? `Additional feedback: ${generalFeedback}` : '',
       characterLines(characters) ? `Keep the cast consistent with:\n${characterLines(characters)}` : '',

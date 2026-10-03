@@ -88,6 +88,20 @@ const storySchema = new Schema<IStory>(
   { timestamps: true }
 );
 
+// Must run in `pre('validate')`: Mongoose validates before `pre('save')` hooks,
+// so filtering there would be too late to prevent a validation error.
+storySchema.pre('validate', function () {
+  // Drop sentence pairs missing either language — empty strings fail the
+  // `required` validators on `lang1`/`lang2` and would abort the whole save.
+  for (const chapter of this.chapters) {
+    chapter.sentences = chapter.sentences.filter(
+      (s) =>
+        typeof s.lang1 === 'string' && s.lang1.trim() !== '' &&
+        typeof s.lang2 === 'string' && s.lang2.trim() !== ''
+    );
+  }
+});
+
 storySchema.pre('save', function () {
   this.sentenceCount = this.chapters.reduce((sum, c) => sum + c.sentences.length, 0);
 });

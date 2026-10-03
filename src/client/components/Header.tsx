@@ -12,22 +12,42 @@ interface User {
   id: string;
   username: string;
   canCreateStories?: boolean;
+  uiLanguage?: 'en' | 'fr';
 }
 
 interface HeaderProps {
   user: User | null;
   onLogout: () => void;
+  onUserUpdate?: (user: User) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
+const Header: React.FC<HeaderProps> = ({ user, onLogout, onUserUpdate }) => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  const toggleLanguage = () => {
-    const next = i18n.language === 'en' ? 'fr' : 'en';
+  // Current UI language: the account preference wins when logged in, else the i18n detector.
+  const currentLanguage: 'en' | 'fr' =
+    user?.uiLanguage ?? (i18n.language?.startsWith('fr') ? 'fr' : 'en');
+
+  const toggleLanguage = async () => {
+    const next = currentLanguage === 'en' ? 'fr' : 'en';
     i18n.changeLanguage(next);
     localStorage.setItem('preferredLanguage', next);
+
+    // Persist to the account so the Profile page and future sessions stay in sync.
+    if (user) {
+      onUserUpdate?.({ ...user, uiLanguage: next });
+      try {
+        await fetch('/api/auth/update-language', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uiLanguage: next }),
+        });
+      } catch (error) {
+        console.error('Failed to update language preference:', error);
+      }
+    }
   };
 
   return (
@@ -46,14 +66,14 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
           {t('common.stories')}
         </Button>
 
-        <Tooltip title={t('common.language')}>
+        <Tooltip title={t('common.switchLanguage')}>
           <Button
             size="small"
             variant="outlined"
             onClick={toggleLanguage}
             sx={{ mx: 1, minWidth: 48, fontWeight: 700 }}
           >
-            {i18n.language === 'en' ? 'FR' : 'EN'}
+            {currentLanguage === 'en' ? 'EN' : 'FR'}
           </Button>
         </Tooltip>
 
@@ -80,6 +100,9 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
               </IconButton>
             </Tooltip>
             <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
+              <MenuItem onClick={() => { setAnchorEl(null); navigate('/my-stories'); }}>
+                {t('common.myStories')}
+              </MenuItem>
               <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }}>
                 {t('common.profile')}
               </MenuItem>

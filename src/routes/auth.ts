@@ -127,4 +127,33 @@ router.get('/check-auth', async (req: Request, res: Response) => {
   }
 });
 
+// Persist the user's UI language preference (used by the header language toggle)
+router.post('/update-language', async (req: Request, res: Response) => {
+  try {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const { uiLanguage } = req.body;
+    if (!uiLanguage || !['en', 'fr'].includes(uiLanguage)) {
+      return res.status(400).json({ message: 'Invalid UI language' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.session.userId,
+      { uiLanguage },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ uiLanguage: user.uiLanguage });
+  } catch (error) {
+    console.error('Update language error:', error);
+    res.status(500).json({ message: 'Server error updating language' });
+  }
+});
+
 export default router;

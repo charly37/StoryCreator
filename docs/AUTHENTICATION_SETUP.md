@@ -60,7 +60,8 @@ router.post('/', requireAuth, async (req, res) => { ... });
 
 - **[src/client/components/LoginPage.tsx](../src/client/components/LoginPage.tsx)** — Email + password form
 - **[src/client/components/RegisterPage.tsx](../src/client/components/RegisterPage.tsx)** — Username, email, password, and UI language selector
-- **[src/client/components/ProfilePage.tsx](../src/client/components/ProfilePage.tsx)** — Shows account info; logout button
+- **[src/client/components/ProfilePage.tsx](../src/client/components/ProfilePage.tsx)** — Account details (username, email, member since, interface language, creator access)
+- **[src/client/components/MyStoriesPage.tsx](../src/client/components/MyStoriesPage.tsx)** — User's drafts + published stories (tabs, publish, clone, delete)
 - **[src/client/App.tsx](../src/client/App.tsx)** — Calls `GET /api/auth/check-auth` on mount to restore session; holds `user` state passed down via props
 
 ## Production Checklist

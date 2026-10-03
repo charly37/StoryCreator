@@ -101,6 +101,23 @@ Returns the currently authenticated user, used by the React app on startup to re
 
 ---
 
+### `POST /api/auth/update-language`
+
+Persists the logged-in user's UI language preference (used by the header language toggle, keeping it in sync with the Profile page).
+
+**Body:** `{ "uiLanguage": "en" | "fr" }`
+
+**Responses**
+
+| Status | Description |
+|---|---|
+| `200` | Returns `{ uiLanguage }` |
+| `400` | Invalid or missing `uiLanguage` |
+| `401` | Authentication required |
+| `404` | User not found |
+
+---
+
 ## Stories — `/api/stories`
 
 ### `GET /api/stories`
@@ -190,6 +207,21 @@ Returns a single story including all sentences.
 | `chapters` | no | Array of `{ seed, targetSentences }`; defaults to `targetChapters` empty chapters |
 
 **Response `201`:** The created story object.
+
+Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `canCreateStories`.
+
+---
+
+### `POST /api/stories/:id/clone`
+
+*Auth required. Creator access required.* Deep-copy an existing story into a new draft owned by the authenticated user.
+
+- You may clone your own stories (drafts or published) or any **published** story by another author. Cloning another user's draft returns `403`.
+- Copies `title` (with `" (copy)"` appended to `title.lang1`), `chapters` (including sentences), `characters`, `nativeLanguage`, `learningLanguage`, `level`, `topic`, `seed`, and `targetChapters`.
+- The clone always starts as a draft (`published: false`) with `approved: false`, so it must be reviewed before it can be published. `isAIGenerated` is copied from the source.
+- Returns `400` if the source story is still generating.
+
+**Response `201`:** The newly created story object.
 
 Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `canCreateStories`.
 

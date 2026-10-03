@@ -11,6 +11,7 @@ import StoryEditorPage from './components/StoryEditorPage';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import ProfilePage from './components/ProfilePage';
+import MyStoriesPage from './components/MyStoriesPage';
 import StoryPreviewPage from './components/StoryPreviewPage';
 import StoryReviewPage from './components/StoryReviewPage';
 import CreatorAccessNotice from './components/CreatorAccessNotice';
@@ -82,6 +83,10 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const handleUserUpdate = (updated: Partial<AppUser>) => {
+    setUser((prev) => (prev ? { ...prev, ...updated } : prev));
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -92,12 +97,12 @@ const AppContent: React.FC = () => {
 
   return (
     <>
-      <Header user={user} onLogout={handleLogout} />
+      <Header user={user} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />
       <Box sx={{ minHeight: '100vh' }}>
         <Routes>
           <Route path="/" element={<LandingPage user={user} />} />
           <Route path="/stories" element={<StoriesPage />} />
-          <Route path="/stories/:id" element={<StoryReadPage />} />
+          <Route path="/stories/:id" element={<StoryReadPage user={user} />} />
           <Route
             path="/editor"
             element={
@@ -125,12 +130,16 @@ const AppContent: React.FC = () => {
             element={user ? <ProfilePage user={user} /> : <Navigate to="/login" replace />}
           />
           <Route
+            path="/my-stories"
+            element={user ? <MyStoriesPage user={user} /> : <Navigate to="/login" replace />}
+          />
+          <Route
             path="/preview/:id"
-            element={user ? <StoryPreviewPage /> : <Navigate to="/login" replace />}
+            element={user ? <StoryPreviewPage user={user} /> : <Navigate to="/login" replace />}
           />
           <Route
             path="/review/:id"
-            element={user ? <StoryReviewPage /> : <Navigate to="/login" replace />}
+            element={user ? <StoryReviewPage user={user} /> : <Navigate to="/login" replace />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

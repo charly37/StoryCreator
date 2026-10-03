@@ -18,8 +18,8 @@ const CreatorAccessNotice: React.FC = () => {
           <AlertTitle>{t('creatorAccess.title')}</AlertTitle>
           {t('creatorAccess.message')}
           <Box sx={{ mt: 2 }}>
-            <Button variant="outlined" size="small" onClick={() => navigate('/profile')}>
-              {t('common.profile')}
+            <Button variant="outlined" size="small" onClick={() => navigate('/my-stories')}>
+              {t('common.myStories')}
             </Button>
           </Box>
         </Alert>

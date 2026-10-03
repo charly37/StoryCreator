@@ -176,7 +176,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
       }
 
       setSnackbar(t('editor.generateQueued'));
-      navigate('/profile');
+      navigate('/my-stories');
     } catch {
       setError(t('editor.generateError'));
     } finally {

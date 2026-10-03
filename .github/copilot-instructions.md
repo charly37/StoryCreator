@@ -114,9 +114,10 @@ Uses **React Router v7** (`react-router-dom`). `BrowserRouter` wraps the app in 
 
 Key routes:
 - `/` — LandingPage (hero + recent published stories)
-- `/login`, `/register`, `/profile`
+- `/login`, `/register`
+- `/profile` — User account details (username, email, member since, creator access)
+- `/my-stories` — User's drafts + published stories (auth required)
 - `/stories` — Browse with filters (language pair, level, search)
-- `/stories/mine` — User's drafts + published stories (auth required)
 - `/stories/:id` — Read a story (bilingual toggle)
 - `/stories/:id/edit` — Story editor (seed, chapters, characters, publish/unpublish)
 - `*` → redirects to `/`

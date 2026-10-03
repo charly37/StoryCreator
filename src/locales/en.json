@@ -7,17 +7,21 @@
     "login": "Login",
     "register": "Register",
     "logout": "Logout",
+    "myStories": "My Stories",
     "profile": "Profile",
     "back": "Back",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
+    "clone": "Clone",
+    "cloneError": "Failed to clone story.",
     "publish": "Publish",
     "unpublish": "Unpublish",
     "loading": "Loading...",
     "or": "or",
-    "language": "Language"
+    "language": "Language",
+    "switchLanguage": "Switch language"
   },
   "creatorAccess": {
     "tooltip": "Creator access required to write stories",
@@ -133,7 +137,7 @@
     "draft": "Draft",
     "publishToggleHint": "Save the story first to publish it"
   },
-  "profile": {
+  "myStories": {
     "title": "My Stories",
     "drafts": "Drafts",
     "published": "Published",
@@ -149,6 +153,16 @@
     "read": "Read",
     "review": "Review",
     "publishGated": "Approve the story on the Review page before publishing"
+  },
+  "profile": {
+    "title": "My Profile",
+    "username": "Username",
+    "email": "Email",
+    "memberSince": "Member since",
+    "uiLanguage": "Interface language",
+    "creatorAccess": "Creator access",
+    "granted": "Granted",
+    "notGranted": "Not granted"
   },
   "preview": {
     "goToReview": "Go to Review",
@@ -178,7 +192,13 @@
     "chapterSentences": "{{count}} sentences",
     "targetSentences": "Target sentences",
     "generatingBanner": "Generation in progress… The page will refresh automatically when done.",
-    "seedReadOnly": "To use a different premise, create a new story",
+    "seedHint": "Edit the story premise. The change applies the next time you regenerate a chapter — or use \"Regenerate entire story\" for a full rewrite.",
+    "regenerateAll": "Regenerate entire story",
+    "regeneratingAll": "Starting…",
+    "regenerateAllConfirmTitle": "Regenerate entire story?",
+    "regenerateAllWarning": "This replaces every chapter and sentence with newly AI-generated content. Your current text and edits will be lost, and the story will need to be reviewed and approved again.",
+    "regenerateAllConfirmBody": "The current premise and cast will be used to rewrite the whole story.",
+    "regenerateAllConfirm": "Regenerate",
     "charactersHint": "Edit the cast and save — changes are applied the next time you regenerate a chapter or apply feedback."
   },
   "levels": {

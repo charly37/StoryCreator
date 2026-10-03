@@ -7,17 +7,21 @@
     "login": "Connexion",
     "register": "Inscription",
     "logout": "Déconnexion",
+    "myStories": "Mes histoires",
     "profile": "Profil",
     "back": "Retour",
     "save": "Enregistrer",
     "cancel": "Annuler",
     "delete": "Supprimer",
     "edit": "Modifier",
+    "clone": "Cloner",
+    "cloneError": "Échec du clonage de l'histoire.",
     "publish": "Publier",
     "unpublish": "Dépublier",
     "loading": "Chargement...",
     "or": "ou",
-    "language": "Langue"
+    "language": "Langue",
+    "switchLanguage": "Changer de langue"
   },
   "creatorAccess": {
     "tooltip": "Accès créateur requis pour écrire des histoires",
@@ -133,7 +137,7 @@
     "draft": "Brouillon",
     "publishToggleHint": "Enregistrez d'abord l'histoire pour la publier"
   },
-  "profile": {
+  "myStories": {
     "title": "Mes histoires",
     "drafts": "Brouillons",
     "published": "Publiées",
@@ -149,6 +153,16 @@
     "read": "Lire",
     "review": "Relire",
     "publishGated": "Approuvez l'histoire sur la page de relecture avant de la publier"
+  },
+  "profile": {
+    "title": "Mon profil",
+    "username": "Nom d'utilisateur",
+    "email": "E-mail",
+    "memberSince": "Membre depuis",
+    "uiLanguage": "Langue de l'interface",
+    "creatorAccess": "Accès créateur",
+    "granted": "Accordé",
+    "notGranted": "Non accordé"
   },
   "preview": {
     "goToReview": "Aller à la relecture",
@@ -178,7 +192,13 @@
     "chapterSentences": "{{count}} phrases",
     "targetSentences": "Phrases cibles",
     "generatingBanner": "Génération en cours… La page se rafraîchira automatiquement.",
-    "seedReadOnly": "Pour changer l'idée de départ, créez une nouvelle histoire",
+    "seedHint": "Modifiez l'idée de départ. Le changement sera appliqué lors de la prochaine regénération d'un chapitre — ou utilisez « Régénérer toute l'histoire » pour une réécriture complète.",
+    "regenerateAll": "Régénérer toute l'histoire",
+    "regeneratingAll": "Démarrage…",
+    "regenerateAllConfirmTitle": "Régénérer toute l'histoire ?",
+    "regenerateAllWarning": "Cela remplacera tous les chapitres et toutes les phrases par du contenu généré par IA. Vos textes et modifications actuels seront perdus, et l'histoire devra être révisée et approuvée à nouveau.",
+    "regenerateAllConfirmBody": "L'idée de départ et la distribution actuelles seront utilisées pour réécrire toute l'histoire.",
+    "regenerateAllConfirm": "Régénérer",
     "charactersHint": "Modifiez la distribution et enregistrez — les changements seront appliqués lors de la prochaine regénération d'un chapitre ou application du feedback."
   },
   "levels": {
