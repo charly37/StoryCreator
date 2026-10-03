@@ -107,6 +107,7 @@ src/client/
     RegisterPage.tsx
     ProfilePage.tsx     — Account details (username, email, member since, creator access)
     MyStoriesPage.tsx   — User's drafts + published stories
+    AboutPage.tsx       — About (project story, GitHub link, creator-access note)
   utils/
     languages.ts     — Supported language list
 ```

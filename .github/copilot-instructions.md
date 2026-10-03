@@ -118,6 +118,7 @@ Key routes:
 - `/profile` — User account details (username, email, member since, creator access)
 - `/my-stories` — User's drafts + published stories (auth required)
 - `/stories` — Browse with filters (language pair, level, search)
+- `/about` — About page (project story, GitHub link, creator-access/AI-cost note)
 - `/stories/:id` — Read a story (bilingual toggle)
 - `/stories/:id/edit` — Story editor (seed, chapters, characters, publish/unpublish)
 - `*` → redirects to `/`

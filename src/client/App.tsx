@@ -15,6 +15,7 @@ import MyStoriesPage from './components/MyStoriesPage';
 import StoryPreviewPage from './components/StoryPreviewPage';
 import StoryReviewPage from './components/StoryReviewPage';
 import CreatorAccessNotice from './components/CreatorAccessNotice';
+import AboutPage from './components/AboutPage';
 
 const theme = createTheme({
   palette: {
@@ -102,6 +103,7 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/" element={<LandingPage user={user} />} />
           <Route path="/stories" element={<StoriesPage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/stories/:id" element={<StoryReadPage user={user} />} />
           <Route
             path="/editor"

@@ -66,6 +66,10 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onUserUpdate }) => {
           {t('common.stories')}
         </Button>
 
+        <Button color="inherit" onClick={() => navigate('/about')}>
+          {t('common.about')}
+        </Button>
+
         <Tooltip title={t('common.switchLanguage')}>
           <Button
             size="small"
