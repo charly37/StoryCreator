@@ -40,11 +40,12 @@ Browser
 - Story creation is restricted to accounts with `canCreateStories: true`. New accounts default to `false`; an administrator grants access directly in MongoDB (see [Granting creator access](SETUP.md#granting-creator-access)) — there is no self-service upgrade.
 
 ### 6. **AI Story Generation & Review**
-- Authors write a **story seed** and optional per-chapter premises in the Story Editor.
+- Authors write a **story seed**, optional per-chapter **premises**, and reader-facing bilingual chapter **titles** in the Story Editor.
+- A chapter's `seed` is an authoring-only premise used for AI generation — it is never shown to readers, and is preserved across generation/regeneration. The reader-facing heading comes from the chapter's bilingual `title` (falling back to a localized "Chapter N" when empty).
 - An optional **Story Characters** panel lets authors define the cast. Each entry has `name`, `role`, `description` and `appearance`. The cast is injected into every AI prompt (generation, chapter regeneration, and feedback patching) to keep characterization consistent.
 - If the cast is left empty, the AI invents one and it is written back to the story after generation, so the author can review and refine it. Author-entered characters are never overwritten.
 - `POST /api/stories/:id/generate` runs asynchronously (`generating: true`); the client polls `GET /api/stories/:id` until it completes.
-- The Review page (`StoryReviewPage`) allows editing metadata, chapter premises and the cast, annotating individual sentences, applying feedback, regenerating a single chapter, and approving the story.
+- The Review page (`StoryReviewPage`) allows editing metadata, chapter titles, premises and the cast, annotating individual sentences, applying feedback, regenerating a single chapter, and approving the story.
 - AI-generated stories must be approved before they can be published.
 
 ---
@@ -57,9 +58,9 @@ Browser
 |---|---|---|
 | `title.lang1` | String | Title in native language |
 | `title.lang2` | String | Title in learning language (filled in by AI generation) |
-| `chapters` | `[{ seed, targetSentences, sentences: [{ lang1, lang2 }] }]` | Ordered chapters, each holding parallel sentence pairs |
+| `chapters` | `[{ title: { lang1, lang2 }, seed, targetSentences, sentences: [{ lang1, lang2 }] }]` | Ordered chapters, each holding a reader-facing bilingual title, an authoring-only premise, and parallel sentence pairs |
 | `characters` | `[{ name, role, description, appearance }]` | Author-defined cast used to keep AI output consistent |
-| `seed` | String | Story premise used for AI generation (read-only during review) |
+| `seed` | String | Story premise used for AI generation (read-only during review); the per-chapter `seed` is likewise an authoring-only premise never shown to readers |
 | `targetChapters` | Number | Planned chapter count (1–10) |
 | `sentenceCount` | Number | Auto-computed pre-save hook |
 | `nativeLanguage` | String | e.g. `"en"`, `"fr"` |

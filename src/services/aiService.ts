@@ -18,6 +18,7 @@ export interface CharacterSpec {
 }
 
 export interface GeneratedChapter {
+  title: { lang1: string; lang2: string };
   seed: string;
   sentences: GeneratedSentence[];
 }
@@ -45,6 +46,7 @@ export interface PatchedSentence {
 
 export interface RegeneratedChapter {
   index: number;
+  title: { lang1: string; lang2: string };
   seed: string;
   sentences: GeneratedSentence[];
 }
@@ -56,7 +58,8 @@ export interface IAIService {
     learningLanguage: string,
     chapterSpecs: ChapterSpec[],
     characters: CharacterSpec[],
-    level: string
+    level: string,
+    model?: string
   ): Promise<GeneratedStory>;
   patchSentences(
     patches: SentencePatch[],
@@ -64,7 +67,8 @@ export interface IAIService {
     nativeLanguage: string,
     learningLanguage: string,
     level: string,
-    characters: CharacterSpec[]
+    characters: CharacterSpec[],
+    model?: string
   ): Promise<PatchedSentence[]>;
   regenerateChapter(
     chapterIndex: number,
@@ -76,7 +80,8 @@ export interface IAIService {
     learningLanguage: string,
     level: string,
     targetSentences: number,
-    characters: CharacterSpec[]
+    characters: CharacterSpec[],
+    model?: string
   ): Promise<RegeneratedChapter[]>;
 }
 
@@ -125,6 +130,18 @@ export function sanitizeSentences(raw: unknown, limit?: number): GeneratedSenten
     .filter((s) => s.lang1 !== '' && s.lang2 !== '');
 }
 
+/**
+ * Coerces a raw AI bilingual title object into trimmed strings.
+ * Always returns both keys so callers can safely persist the shape.
+ */
+export function sanitizeTitle(raw: unknown): { lang1: string; lang2: string } {
+  const title = (raw ?? {}) as { lang1?: unknown; lang2?: unknown };
+  return {
+    lang1: typeof title.lang1 === 'string' ? title.lang1.trim() : '',
+    lang2: typeof title.lang2 === 'string' ? title.lang2.trim() : '',
+  };
+}
+
 class OpenAIService implements IAIService {
   private _client: OpenAI | null = null;
 
@@ -141,7 +158,8 @@ class OpenAIService implements IAIService {
     learningLanguage: string,
     chapterSpecs: ChapterSpec[],
     characters: CharacterSpec[],
-    level: string
+    level: string,
+    model = 'gpt-4o-mini'
   ): Promise<GeneratedStory> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
@@ -167,7 +185,11 @@ Return a JSON object with exactly this structure — no extra text or markdown:
   ],
   "chapters": [
     {
-      "seed": "<brief chapter description in English>",
+      "title": {
+        "lang1": "<short chapter title in ${nativeName}>",
+        "lang2": "<short chapter title in ${learningName}>"
+      },
+      "seed": "<brief chapter premise in English — internal authoring note, never shown to readers>",
       "sentences": [
         { "lang1": "<sentence in ${nativeName}>", "lang2": "<sentence in ${learningName}>" }
       ]
@@ -178,6 +200,8 @@ Return a JSON object with exactly this structure — no extra text or markdown:
 Rules:
 - Return exactly ${N} chapter objects in the "chapters" array
 - Chapter i must contain exactly the sentence count listed below
+- Give every chapter a short, reader-facing title (2–6 words) expressed in both languages
+- "seed" is an internal authoring note used for later regeneration — it is NOT shown to readers; keep it brief and in English
 - If a chapter has a provided seed, use it as the premise; if blank, invent a coherent one
 - The story must flow naturally across all chapters
 - lang1 is always ${nativeName}, lang2 is always ${learningName}
@@ -194,7 +218,7 @@ Rules:
     const userContent = `Story seed: ${seed}\n\nCharacters:\n${castList}\n\nChapters:\n${chapterList}`;
 
     const response = await this.client.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
@@ -224,8 +248,12 @@ Rules:
       const rawChapter = rawChapters[i];
       const chapterSeed = typeof rawChapter?.seed === 'string' && rawChapter.seed.trim()
         ? rawChapter.seed.trim()
-        : `Chapter ${i + 1}`;
-      return { seed: chapterSeed, sentences: sanitizeSentences(rawChapter?.sentences, spec.targetSentences) };
+        : '';
+      return {
+        title: sanitizeTitle(rawChapter?.title),
+        seed: chapterSeed,
+        sentences: sanitizeSentences(rawChapter?.sentences, spec.targetSentences),
+      };
     });
 
     return { title, characters: generatedCharacters, chapters };
@@ -237,7 +265,8 @@ Rules:
     nativeLanguage: string,
     learningLanguage: string,
     level: string,
-    characters: CharacterSpec[]
+    characters: CharacterSpec[],
+    model = 'gpt-4o-mini'
   ): Promise<PatchedSentence[]> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
@@ -272,7 +301,7 @@ Rules:
     ].filter(Boolean).join('\n\n');
 
     const response = await this.client.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
@@ -295,7 +324,8 @@ Rules:
     learningLanguage: string,
     level: string,
     targetSentences: number,
-    characters: CharacterSpec[]
+    characters: CharacterSpec[],
+    model = 'gpt-4o-mini'
   ): Promise<RegeneratedChapter[]> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
@@ -314,12 +344,14 @@ If the change affects story coherence in other chapters, you may also return upd
 Return a JSON object with exactly this structure — no extra text:
 {
   "chapters": [
-    { "index": <0-based chapter index>, "seed": "<updated seed>", "sentences": [{ "lang1": "...", "lang2": "..." }] }
+    { "index": <0-based chapter index>, "title": { "lang1": "<short title in ${nativeName}>", "lang2": "<short title in ${learningName}>" }, "seed": "<updated premise in English>", "sentences": [{ "lang1": "...", "lang2": "..." }] }
   ]
 }
 
 Rules:
 - Always include the TARGET chapter (index ${chapterIndex}) with exactly ${targetSentences} sentences
+- Give the chapter a short, reader-facing title (2–6 words) in both languages
+- "seed" is an internal authoring note (never shown to readers) — keep it brief and in English
 - Only include other chapters if coherence truly requires changes; minimize collateral edits
 - lang1 is always ${nativeName}, lang2 is always ${learningName}
 - Each sentence pair must express the same meaning
@@ -334,7 +366,7 @@ Rules:
     ].filter(Boolean).join('\n\n');
 
     const response = await this.client.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },

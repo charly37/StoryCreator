@@ -23,6 +23,7 @@ interface Sentence {
 }
 
 interface Chapter {
+  title?: { lang1: string; lang2: string };
   seed: string;
   sentences: Sentence[];
 }
@@ -45,7 +46,7 @@ interface FlatSentence {
   lang1: string;
   lang2: string;
   isFirstInChapter: boolean;
-  chapterSeed: string;
+  chapterTitle?: { lang1: string; lang2: string };
 }
 
 const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
@@ -111,7 +112,7 @@ const StoryPreviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
       lang1: s.lang1,
       lang2: s.lang2,
       isFirstInChapter: si === 0,
-      chapterSeed: chapter.seed,
+      chapterTitle: chapter.title,
     }))
   );
 
@@ -234,7 +235,9 @@ const StoryPreviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
             {sentence.isFirstInChapter && story.chapters.length > 1 && (
               <Typography variant="overline" color="primary" sx={{ display: 'block', mb: 1, fontWeight: 700 }}>
                 {t('preview.chapterN', { n: sentence.chapterIndex + 1 })}
-                {sentence.chapterSeed ? ` — ${sentence.chapterSeed}` : ''}
+                {(sentence.chapterTitle?.lang2 || sentence.chapterTitle?.lang1)
+                  ? ` — ${sentence.chapterTitle.lang2 || sentence.chapterTitle.lang1}`
+                  : ''}
               </Typography>
             )}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

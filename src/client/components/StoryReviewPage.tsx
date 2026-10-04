@@ -23,11 +23,12 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, getLanguageName } from '../utils/languages';
+import { AI_MODELS, DEFAULT_AI_MODEL } from '../utils/aiModels';
 import { cloneStory } from '../utils/cloneStory';
 import { AppUser } from '../App';
 
 interface Sentence { lang1: string; lang2: string; }
-interface Chapter { seed: string; targetSentences: number; sentences: Sentence[]; }
+interface Chapter { title: { lang1: string; lang2: string }; seed: string; targetSentences: number; sentences: Sentence[]; }
 interface Character { name: string; role: string; description: string; appearance: string; }
 
 interface Story {
@@ -40,6 +41,7 @@ interface Story {
   level: 'beginner' | 'intermediate' | 'advanced';
   topic: string;
   seed: string;
+  aiModel: string;
   generating: boolean;
   approved: boolean;
   sentenceCount: number;
@@ -68,7 +70,8 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const [seed, setSeed] = useState('');
   const [characters, setCharacters] = useState<Character[]>([]);
 
-  // Per-chapter editable seeds and feedback; keyed by chapter index
+  // Per-chapter editable titles, premises and feedback; keyed by chapter index
+  const [chapterTitles, setChapterTitles] = useState<Record<number, { lang1: string; lang2: string }>>({});
   const [chapterSeeds, setChapterSeeds] = useState<Record<number, string>>({});
   const [chapterFeedbacks, setChapterFeedbacks] = useState<Record<number, string>>({});
   const [chapterTargets, setChapterTargets] = useState<Record<number, number>>({});
@@ -83,10 +86,13 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [aiModel, setAiModel] = useState(DEFAULT_AI_MODEL);
   // track which chapter is being regenerated
   const [regeneratingChapter, setRegeneratingChapter] = useState<number | null>(null);
   const [regenerateAllOpen, setRegenerateAllOpen] = useState(false);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
+  const [deleteChapterIndex, setDeleteChapterIndex] = useState<number | null>(null);
+  const [deletingChapter, setDeletingChapter] = useState<number | null>(null);
 
   const fetchStory = useCallback(async () => {
     if (!id) return;
@@ -129,11 +135,18 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
     setLevel(story.level);
     setTopic(story.topic);
     setSeed(story.seed || '');
+    if (story.aiModel) setAiModel(story.aiModel);
     const seeds: Record<number, string> = {};
     const targets: Record<number, number> = {};
-    story.chapters.forEach((c, i) => { seeds[i] = c.seed; targets[i] = c.targetSentences; });
+    const titles: Record<number, { lang1: string; lang2: string }> = {};
+    story.chapters.forEach((c, i) => {
+      seeds[i] = c.seed;
+      targets[i] = c.targetSentences;
+      titles[i] = { lang1: c.title?.lang1 || '', lang2: c.title?.lang2 || '' };
+    });
     setChapterSeeds(seeds);
     setChapterTargets(targets);
+    setChapterTitles(titles);
     setCharacters(
       Array.isArray(story.characters)
         ? story.characters.map((c) => ({
@@ -157,6 +170,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const saveMetadata = async (): Promise<boolean> => {
     if (!story) return false;
     const chapters = story.chapters.map((_, i) => ({
+      title: chapterTitles[i] ?? { lang1: '', lang2: '' },
       seed: chapterSeeds[i] ?? '',
       targetSentences: chapterTargets[i] ?? 12,
     }));
@@ -170,6 +184,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
         level,
         topic,
         seed,
+        aiModel,
         chapters,
         characters,
       }),
@@ -228,7 +243,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
       const res = await fetch(`/api/stories/${id}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ generalFeedback: generalFeedback.trim(), annotations: annotationsToSend }),
+        body: JSON.stringify({ generalFeedback: generalFeedback.trim(), annotations: annotationsToSend, model: aiModel }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || t('review.applyError')); return; }
@@ -251,6 +266,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
         body: JSON.stringify({
           chapterIndex,
           generalFeedback: chapterFeedbacks[chapterIndex]?.trim() ?? '',
+          model: aiModel,
         }),
       });
       const data = await res.json();
@@ -263,6 +279,45 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
     }
   };
 
+  const handleInsertChapter = async (index: number) => {
+    if (!story || !id) return;
+    setSaving(true);
+    try {
+      // Persist any in-progress title/premise edits before inserting.
+      if (!(await saveMetadata())) return;
+      const res = await fetch(`/api/stories/${id}/chapters`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ index }),
+      });
+      if (!res.ok) {
+        setError((await res.json()).message || t('editor.saveError'));
+        return;
+      }
+      await fetchStory();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteChapter = async (index: number) => {
+    if (!story || !id) return;
+    setDeleteChapterIndex(null);
+    setDeletingChapter(index);
+    try {
+      // Persist any in-progress edits first so the index maps correctly.
+      if (!(await saveMetadata())) return;
+      const res = await fetch(`/api/stories/${id}/chapters/${index}`, { method: 'DELETE' });
+      if (!res.ok) {
+        setError((await res.json()).message || t('editor.saveError'));
+        return;
+      }
+      await fetchStory();
+    } finally {
+      setDeletingChapter(null);
+    }
+  };
+
   const handleRegenerateAll = async () => {
     if (!story || !id) return;
     setRegenerateAllOpen(false);
@@ -272,7 +327,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
       const res = await fetch(`/api/stories/${id}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ model: aiModel }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || t('editor.generateError')); return; }
@@ -302,7 +357,13 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
     }
   };
 
-  const busy = saving || submitting || approving || regeneratingAll || (story?.generating ?? false) || regeneratingChapter !== null;
+  const busy = saving || submitting || approving || regeneratingAll || (story?.generating ?? false) || regeneratingChapter !== null || deletingChapter !== null;
+
+  // Reader-facing chapter heading: prefer the learning-language title, fall back to the native one.
+  const chapterHeading = (ci: number): string => {
+    const text = chapterTitles[ci]?.lang2 || chapterTitles[ci]?.lang1 || '';
+    return text.length > 60 ? `${text.slice(0, 60)}…` : text;
+  };
 
   if (loading) {
     return (
@@ -498,6 +559,34 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
           </Button>
         </Paper>
 
+        {/* ── AI Generator Settings ── */}
+        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <AutoAwesomeIcon color="secondary" fontSize="small" />
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              {t('editor.aiSettings')}
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('editor.aiModelHint')}
+          </Typography>
+          <FormControl sx={{ minWidth: 260 }}>
+            <InputLabel>{t('editor.aiModel')}</InputLabel>
+            <Select
+              value={aiModel}
+              label={t('editor.aiModel')}
+              onChange={(e) => setAiModel(e.target.value)}
+              disabled={busy}
+            >
+              {AI_MODELS.map((m) => (
+                <MenuItem key={m.id} value={m.id}>
+                  {m.label} — {m.description}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Paper>
+
         {/* ── Story-level general feedback ── */}
         <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
@@ -518,14 +607,30 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Typography sx={{ fontWeight: 600 }}>
                 {t('review.chapterN', { n: ci + 1 })}
-                {chapter.seed ? ` — ${chapter.seed.slice(0, 60)}${chapter.seed.length > 60 ? '…' : ''}` : ''}
+                {chapterHeading(ci) ? ` — ${chapterHeading(ci)}` : ''}
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
-              {/* Chapter seed + target sentences */}
+              {/* Reader-facing chapter title (bilingual) */}
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                <TextField
+                  label={`${t('review.chapterTitle')} — ${getLanguageName(nativeLanguage) || '—'}`}
+                  value={chapterTitles[ci]?.lang1 ?? ''}
+                  onChange={(e) => setChapterTitles((prev) => ({ ...prev, [ci]: { lang1: e.target.value, lang2: prev[ci]?.lang2 ?? '' } }))}
+                  disabled={busy} sx={{ flex: 1, minWidth: 200 }}
+                />
+                <TextField
+                  label={`${t('review.chapterTitle')} — ${getLanguageName(learningLanguage) || '—'}`}
+                  value={chapterTitles[ci]?.lang2 ?? ''}
+                  onChange={(e) => setChapterTitles((prev) => ({ ...prev, [ci]: { lang1: prev[ci]?.lang1 ?? '', lang2: e.target.value } }))}
+                  disabled={busy} sx={{ flex: 1, minWidth: 200 }}
+                />
+              </Box>
+              {/* Chapter premise + target sentences */}
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
                 <TextField
                   label={t('review.chapterSeed')}
+                  helperText={t('review.chapterSeedHint')}
                   value={chapterSeeds[ci] ?? ''}
                   onChange={(e) => setChapterSeeds((prev) => ({ ...prev, [ci]: e.target.value }))}
                   multiline minRows={2} disabled={busy} sx={{ flex: 1, minWidth: 200 }}
@@ -605,6 +710,27 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
                   </Box>
                 );
               })}
+
+              {/* Insert / delete this chapter */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, gap: 1 }}>
+                <Button
+                  size="small"
+                  color="error"
+                  startIcon={deletingChapter === ci ? <CircularProgress size={14} /> : <DeleteIcon />}
+                  onClick={() => setDeleteChapterIndex(ci)}
+                  disabled={busy || story.chapters.length <= 1}
+                >
+                  {t('review.deleteChapter')}
+                </Button>
+                <Button
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleInsertChapter(ci + 1)}
+                  disabled={busy || story.chapters.length >= 10}
+                >
+                  {t('review.insertChapterBelow')}
+                </Button>
+              </Box>
             </AccordionDetails>
           </Accordion>
         ))}
@@ -619,10 +745,11 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
                 if (!story || !id) return;
                 const newChapters = [
                   ...story.chapters.map((_, i) => ({
+                    title: chapterTitles[i] ?? { lang1: '', lang2: '' },
                     seed: chapterSeeds[i] ?? '',
                     targetSentences: chapterTargets[i] ?? 12,
                   })),
-                  { seed: '', targetSentences: 12 },
+                  { title: { lang1: '', lang2: '' }, seed: '', targetSentences: 12 },
                 ];
                 setSaving(true);
                 try {
@@ -680,6 +807,24 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
           <Button onClick={() => setRegenerateAllOpen(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleRegenerateAll} color="warning" variant="contained">
             {t('review.regenerateAllConfirm')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete chapter confirmation */}
+      <Dialog open={deleteChapterIndex !== null} onClose={() => setDeleteChapterIndex(null)}>
+        <DialogTitle>{t('review.deleteChapterConfirmTitle', { n: (deleteChapterIndex ?? 0) + 1 })}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{t('review.deleteChapterConfirmBody')}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteChapterIndex(null)}>{t('common.cancel')}</Button>
+          <Button
+            onClick={() => deleteChapterIndex !== null && handleDeleteChapter(deleteChapterIndex)}
+            color="error"
+            variant="contained"
+          >
+            {t('review.deleteChapterConfirm')}
           </Button>
         </DialogActions>
       </Dialog>

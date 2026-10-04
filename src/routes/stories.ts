@@ -1,10 +1,11 @@
 import express, { Request, Response, NextFunction } from 'express';
 import Story from '../models/Story';
 import User from '../models/User';
-import { aiService, SentencePatch, sanitizeSentences } from '../services/aiService';
+import { aiService, SentencePatch, sanitizeSentences, sanitizeTitle } from '../services/aiService';
 
 const DEFAULT_SENTENCES_PER_CHAPTER = 12;
 const MAX_CHARACTERS = 20;
+const MAX_CHAPTERS_PER_STORY = 10;
 
 interface CharacterInput {
   name?: unknown;
@@ -137,12 +138,13 @@ router.post('/', requireAuth, requireCreatePermission, async (req: Request, res:
     const targetChapters = Math.min(Math.max(parseInt(req.body.targetChapters, 10) || 1, 1), 10);
 
     const chapters = rawChapters.length > 0
-      ? rawChapters.map((c: { seed?: string; targetSentences?: number }) => ({
+      ? rawChapters.map((c: { title?: unknown; seed?: string; targetSentences?: number }) => ({
+          title: sanitizeTitle(c.title),
           seed: c.seed ?? '',
           targetSentences: Math.min(Math.max(parseInt(String(c.targetSentences), 10) || DEFAULT_SENTENCES_PER_CHAPTER, 1), 100),
           sentences: [],
         }))
-      : Array.from({ length: targetChapters }, () => ({ seed: '', targetSentences: DEFAULT_SENTENCES_PER_CHAPTER, sentences: [] }));
+      : Array.from({ length: targetChapters }, () => ({ title: { lang1: '', lang2: '' }, seed: '', targetSentences: DEFAULT_SENTENCES_PER_CHAPTER, sentences: [] }));
 
     const story = new Story({
       title,
@@ -188,6 +190,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     if (level) story.level = level;
     if (topic !== undefined) story.topic = topic;
     if (req.body.seed !== undefined) story.seed = req.body.seed;
+    if (req.body.aiModel !== undefined) story.aiModel = req.body.aiModel;
     if (req.body.characters !== undefined) story.characters = sanitizeCharacters(req.body.characters);
     if (req.body.targetChapters !== undefined) {
       story.targetChapters = Math.min(Math.max(parseInt(req.body.targetChapters, 10) || 1, 1), 10);
@@ -195,13 +198,20 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
 
     // Update chapter metadata (seed + targetSentences) without touching sentence content
     if (Array.isArray(req.body.chapters)) {
-      const incoming = req.body.chapters as Array<{ seed?: string; targetSentences?: number }>;
+      const incoming = req.body.chapters as Array<{ title?: { lang1?: string; lang2?: string }; seed?: string; targetSentences?: number }>;
       // Resize chapters array if needed
       while (story.chapters.length < incoming.length) {
-        story.chapters.push({ seed: '', targetSentences: DEFAULT_SENTENCES_PER_CHAPTER, sentences: [] });
+        story.chapters.push({ title: { lang1: '', lang2: '' }, seed: '', targetSentences: DEFAULT_SENTENCES_PER_CHAPTER, sentences: [] });
       }
       story.chapters = story.chapters.slice(0, incoming.length);
       for (let i = 0; i < incoming.length; i++) {
+        if (incoming[i].title !== undefined) {
+          const title = incoming[i].title ?? {};
+          story.chapters[i].title = {
+            lang1: typeof title.lang1 === 'string' ? title.lang1.trim() : story.chapters[i].title?.lang1 ?? '',
+            lang2: typeof title.lang2 === 'string' ? title.lang2.trim() : story.chapters[i].title?.lang2 ?? '',
+          };
+        }
         if (incoming[i].seed !== undefined) story.chapters[i].seed = incoming[i].seed!;
         if (incoming[i].targetSentences !== undefined) {
           story.chapters[i].targetSentences = Math.min(Math.max(parseInt(String(incoming[i].targetSentences), 10) || DEFAULT_SENTENCES_PER_CHAPTER, 1), 100);
@@ -214,6 +224,75 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error updating story:', error);
     res.status(500).json({ message: 'Server error updating story' });
+  }
+});
+
+// POST /api/stories/:id/chapters — insert a new empty chapter at a given position
+router.post('/:id/chapters', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const story = await Story.findById(req.params.id);
+    if (!story) return res.status(404).json({ message: 'Story not found' });
+    if (story.authorId.toString() !== req.session.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (story.chapters.length >= MAX_CHAPTERS_PER_STORY) {
+      return res.status(400).json({ message: `A story cannot have more than ${MAX_CHAPTERS_PER_STORY} chapters` });
+    }
+
+    // Default to appending at the end; otherwise clamp to a valid insertion point.
+    const rawIndex = parseInt(req.body.index, 10);
+    const index = Number.isNaN(rawIndex)
+      ? story.chapters.length
+      : Math.min(Math.max(rawIndex, 0), story.chapters.length);
+
+    const newChapter = {
+      title: sanitizeTitle(req.body.title),
+      seed: typeof req.body.seed === 'string' ? req.body.seed : '',
+      targetSentences: Math.min(
+        Math.max(parseInt(String(req.body.targetSentences), 10) || DEFAULT_SENTENCES_PER_CHAPTER, 1),
+        100
+      ),
+      sentences: [],
+    };
+
+    // splice (not push) so every later chapter — and its sentences — shifts together
+    story.chapters.splice(index, 0, newChapter);
+    story.targetChapters = Math.min(story.chapters.length, MAX_CHAPTERS_PER_STORY);
+    await story.save();
+
+    res.status(201).json(story);
+  } catch (error) {
+    console.error('Error inserting chapter:', error);
+    res.status(500).json({ message: 'Server error inserting chapter' });
+  }
+});
+
+// DELETE /api/stories/:id/chapters/:index — remove a chapter and its sentences
+router.delete('/:id/chapters/:index', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const story = await Story.findById(req.params.id);
+    if (!story) return res.status(404).json({ message: 'Story not found' });
+    if (story.authorId.toString() !== req.session.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const index = parseInt(String(req.params.index), 10);
+    if (Number.isNaN(index) || index < 0 || index >= story.chapters.length) {
+      return res.status(400).json({ message: 'Invalid chapter index' });
+    }
+    if (story.chapters.length <= 1) {
+      return res.status(400).json({ message: 'A story must have at least one chapter' });
+    }
+
+    // splice out — remaining chapters and their sentences shift together
+    story.chapters.splice(index, 1);
+    story.targetChapters = Math.min(story.chapters.length, MAX_CHAPTERS_PER_STORY);
+    await story.save();
+
+    res.json(story);
+  } catch (error) {
+    console.error('Error deleting chapter:', error);
+    res.status(500).json({ message: 'Server error deleting chapter' });
   }
 });
 
@@ -285,6 +364,7 @@ router.post('/:id/generate', requireAuth, requireCreatePermission, async (req: R
     story.generating = true;
     await story.save();
 
+    const { model } = req.body as { model?: string };
     res.status(202).json({ message: 'Story generation started', storyId: story._id });
 
     setImmediate(async () => {
@@ -295,10 +375,12 @@ router.post('/:id/generate', requireAuth, requireCreatePermission, async (req: R
           story.learningLanguage,
           chapterSpecs,
           characters,
-          story.level
+          story.level,
+          model
         );
         story.chapters = generated.chapters.map((c, i) => ({
-          seed: c.seed,
+          title: c.title,
+          seed: chapterSpecs[i]?.seed?.trim() || c.seed,
           targetSentences: chapterSpecs[i]?.targetSentences ?? c.sentences.length,
           sentences: c.sentences,
         }));
@@ -334,9 +416,10 @@ router.post('/:id/review', requireAuth, requireCreatePermission, async (req: Req
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    const { generalFeedback, annotations } = req.body as {
+    const { generalFeedback, annotations, model } = req.body as {
       generalFeedback?: string;
       annotations?: Array<{ chapterIndex: number; sentenceIndex: number; feedback: string }>;
+      model?: string;
     };
 
     if (!Array.isArray(annotations) || annotations.length === 0) {
@@ -379,7 +462,8 @@ router.post('/:id/review', requireAuth, requireCreatePermission, async (req: Req
             role: c.role,
             description: c.description,
             appearance: c.appearance,
-          }))
+          })),
+          model
         );
         for (const p of patched) {
           const lang1 = typeof p.lang1 === 'string' ? p.lang1.trim() : '';
@@ -445,18 +529,22 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
             role: c.role,
             description: c.description,
             appearance: c.appearance,
-          }))
+          })),
+          req.body.model
         );
         for (const r of results) {
           if (r.index >= 0 && r.index < story.chapters.length) {
-            if (typeof r.seed === 'string' && r.seed.trim()) {
-              story.chapters[r.index].seed = r.seed.trim();
+            const target = story.chapters[r.index];
+            if (r.title !== undefined) {
+              target.title = sanitizeTitle(r.title);
+            }
+            // Preserve the author's premise when set; only fall back to the AI seed when blank.
+            const aiSeed = typeof r.seed === 'string' ? r.seed.trim() : '';
+            if (!target.seed?.trim() && aiSeed) {
+              target.seed = aiSeed;
             }
             // Keep only valid pairs; never pad with empty strings (fails required validation)
-            story.chapters[r.index].sentences = sanitizeSentences(
-              r.sentences,
-              story.chapters[r.index].targetSentences
-            );
+            target.sentences = sanitizeSentences(r.sentences, target.targetSentences);
           }
         }
         story.generating = false;
@@ -516,6 +604,7 @@ router.post('/:id/clone', requireAuth, requireCreatePermission, async (req: Requ
         lang2: source.title.lang2,
       },
       chapters: source.chapters.map((c) => ({
+        title: { lang1: c.title?.lang1 ?? '', lang2: c.title?.lang2 ?? '' },
         seed: c.seed,
         targetSentences: c.targetSentences,
         sentences: c.sentences.map((s) => ({ lang1: s.lang1, lang2: s.lang2 })),

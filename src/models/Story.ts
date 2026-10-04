@@ -13,6 +13,7 @@ export interface ICharacter {
 }
 
 export interface IChapter {
+  title: { lang1: string; lang2: string };
   seed: string;
   targetSentences: number;
   sentences: ISentence[];
@@ -29,6 +30,7 @@ export interface IStory extends Document {
   topic: string;
   seed: string;
   targetChapters: number;
+  aiModel: string;
   authorId: mongoose.Types.ObjectId;
   authorName: string;
   published: boolean;
@@ -46,6 +48,10 @@ const sentenceSchema = new Schema<ISentence>(
 
 const chapterSchema = new Schema<IChapter>(
   {
+    title: {
+      lang1: { type: String, default: '' },
+      lang2: { type: String, default: '' },
+    },
     seed: { type: String, default: '' },
     targetSentences: { type: Number, default: 12 },
     sentences: { type: [sentenceSchema], default: [] },
@@ -78,6 +84,7 @@ const storySchema = new Schema<IStory>(
     topic: { type: String, default: '' },
     seed: { type: String, default: '' },
     targetChapters: { type: Number, default: 1 },
+    aiModel: { type: String, default: 'gpt-4o-mini' },
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     authorName: { type: String, required: true },
     published: { type: Boolean, default: false },

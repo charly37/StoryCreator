@@ -13,6 +13,7 @@ async function migrate() {
       {
         $set: {
           chapters: [{
+            title: { lang1: '', lang2: '' },
             seed: '',
             targetSentences: { $size: '$sentences' },
             sentences: '$sentences',

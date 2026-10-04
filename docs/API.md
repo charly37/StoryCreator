@@ -188,7 +188,11 @@ Returns a single story including all sentences.
   ],
   "targetChapters": 2,
   "chapters": [
-    { "seed": "Milo discovers the harbour", "targetSentences": 12 }
+    {
+      "title": { "lang1": "Milo discovers the harbour", "lang2": "Milo découvre le port" },
+      "seed": "Milo discovers the harbour",
+      "targetSentences": 12
+    }
   ]
 }
 ```
@@ -204,7 +208,9 @@ Returns a single story including all sentences.
 | `seed` | no | Story premise used for AI generation |
 | `characters` | no | Array of `{ name, role, description, appearance }`; blank names are dropped, max 20 |
 | `targetChapters` | no | Planned chapter count (1–10, default 1) |
-| `chapters` | no | Array of `{ seed, targetSentences }`; defaults to `targetChapters` empty chapters |
+| `chapters` | no | Array of `{ title: { lang1, lang2 }, seed, targetSentences }`; defaults to `targetChapters` empty chapters |
+
+Each chapter carries a reader-facing bilingual `title` and a private `seed`. The `seed` is only an AI authoring premise — it is **never shown to readers** and is preserved across generation/regeneration. When a chapter `title` is empty the reader falls back to a localized "Chapter N" heading.
 
 **Response `201`:** The created story object.
 
@@ -217,7 +223,7 @@ Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `can
 *Auth required. Creator access required.* Deep-copy an existing story into a new draft owned by the authenticated user.
 
 - You may clone your own stories (drafts or published) or any **published** story by another author. Cloning another user's draft returns `403`.
-- Copies `title` (with `" (copy)"` appended to `title.lang1`), `chapters` (including sentences), `characters`, `nativeLanguage`, `learningLanguage`, `level`, `topic`, `seed`, and `targetChapters`.
+- Copies `title` (with `" (copy)"` appended to `title.lang1`), `chapters` (including chapter titles and sentences), `characters`, `nativeLanguage`, `learningLanguage`, `level`, `topic`, `seed`, and `targetChapters`.
 - The clone always starts as a draft (`published: false`) with `approved: false`, so it must be reviewed before it can be published. `isAIGenerated` is copied from the source.
 - Returns `400` if the source story is still generating.
 
@@ -232,6 +238,31 @@ Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `can
 *Auth required. Author only.* Update story fields. All fields are optional — only supplied fields are updated.
 
 **Body:** Same shape as `POST /api/stories`.
+
+**Response `200`:** The updated story object.
+
+---
+
+### `POST /api/stories/:id/chapters`
+
+*Auth required. Author only.* Insert a new empty chapter at a given position without disturbing existing chapters or their sentences.
+
+**Body:** `{ index?: number, title?: { lang1, lang2 }, seed?: string, targetSentences?: number }`
+
+- `index` is the 0-based insertion point. Omit it (or send a non-number) to append at the end; out-of-range values are clamped to `[0, chapterCount]`.
+- The server splices the chapter into the array, so every following chapter — and its sentences — shifts together; the new chapter starts with no sentences.
+- Returns `400` when the story already has the maximum of 10 chapters.
+
+**Response `201`:** The updated story object.
+
+---
+
+### `DELETE /api/stories/:id/chapters/:index`
+
+*Auth required. Author only.* Remove a single chapter (and its sentences) by 0-based index.
+
+- Returns `400` for an invalid `index` or when it would leave the story with zero chapters (a story must keep at least one).
+- The server splices the chapter out, so remaining chapters and their sentences shift together. `targetChapters` and `sentenceCount` are recalculated.
 
 **Response `200`:** The updated story object.
 
@@ -263,6 +294,7 @@ Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `can
 - Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `canCreateStories`.
 - Responds immediately with `202`; the job runs in the background and sets `generating: true` while running.
 - The story's `characters` are sent to the AI as the cast. If the cast was empty, the AI's invented cast is written back to `characters` after generation; author-entered characters are preserved.
+- Each chapter gets a short bilingual `title` from the AI. Author-provided chapter `seed` values are preserved; the AI's seed is only stored where the author left it blank.
 
 **Response `202`:** `{ message, storyId }`
 
@@ -286,6 +318,7 @@ Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `can
 - Returns `400` for an invalid `chapterIndex`.
 - Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `canCreateStories`.
 - Story `characters` are included as consistency context.
+- Regenerated chapters receive updated bilingual `title`s; an author-provided chapter `seed` is preserved when non-empty.
 - Responds `202` and runs the job in the background.
 
 ### `POST /api/stories/:id/approve`

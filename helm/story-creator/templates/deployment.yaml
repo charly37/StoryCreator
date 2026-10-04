@@ -37,6 +37,11 @@ spec:
                 secretKeyRef:
                   name: story-creator-secrets
                   key: session-secret
+            - name: OPEN_AI_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: story-creator-secrets
+                  key: open-ai-key
           livenessProbe:
             httpGet:
               path: /api/health

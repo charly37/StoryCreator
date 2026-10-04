@@ -11,6 +11,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import GroupsIcon from '@mui/icons-material/Groups';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, getLanguageName } from '../utils/languages';
+import { AI_MODELS, DEFAULT_AI_MODEL } from '../utils/aiModels';
 import { AppUser } from '../App';
 
 interface StoryEditorPageProps {
@@ -18,6 +19,7 @@ interface StoryEditorPageProps {
 }
 
 interface ChapterSpec {
+  title: { lang1: string; lang2: string };
   seed: string;
   targetSentences: number;
 }
@@ -46,8 +48,9 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
   const [topic, setTopic] = useState('');
   const [seed, setSeed] = useState('');
-  const [chapterSpecs, setChapterSpecs] = useState<ChapterSpec[]>([{ seed: '', targetSentences: DEFAULT_SENTENCES }]);
+  const [chapterSpecs, setChapterSpecs] = useState<ChapterSpec[]>([{ title: { lang1: '', lang2: '' }, seed: '', targetSentences: DEFAULT_SENTENCES }]);
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [aiModel, setAiModel] = useState(DEFAULT_AI_MODEL);
 
   const [loading, setLoading] = useState(!!id);
   const [generating, setGenerating] = useState(false);
@@ -66,6 +69,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         setLevel(data.level || 'beginner');
         setTopic(data.topic || '');
         setSeed(data.seed || '');
+        if (data.aiModel) setAiModel(data.aiModel);
         setCharacters(
           Array.isArray(data.characters)
             ? data.characters.map((c: Partial<Character>) => ({
@@ -77,8 +81,12 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
             : []
         );
         const loadedChapters = Array.isArray(data.chapters) && data.chapters.length > 0
-          ? data.chapters.map((c: ChapterSpec) => ({ seed: c.seed || '', targetSentences: c.targetSentences || DEFAULT_SENTENCES }))
-          : [{ seed: '', targetSentences: DEFAULT_SENTENCES }];
+          ? data.chapters.map((c: ChapterSpec) => ({
+              title: { lang1: c.title?.lang1 || '', lang2: c.title?.lang2 || '' },
+              seed: c.seed || '',
+              targetSentences: c.targetSentences || DEFAULT_SENTENCES,
+            }))
+          : [{ title: { lang1: '', lang2: '' }, seed: '', targetSentences: DEFAULT_SENTENCES }];
         setChapterSpecs(loadedChapters);
       })
       .catch(() => setError('Failed to load story'))
@@ -129,6 +137,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         level,
         topic,
         seed,
+        aiModel,
         characters,
         targetChapters: chapterSpecs.length,
         chapters: chapterSpecs,
@@ -166,7 +175,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
       const genRes = await fetch(`/api/stories/${storyId}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ model: aiModel }),
       });
       const genData = await genRes.json();
       if (!genRes.ok) {
@@ -389,7 +398,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
             <Button
               size="small"
               startIcon={<AddIcon />}
-              onClick={() => setChapterSpecs((prev) => [...prev, { seed: '', targetSentences: DEFAULT_SENTENCES }])}
+              onClick={() => setChapterSpecs((prev) => [...prev, { title: { lang1: '', lang2: '' }, seed: '', targetSentences: DEFAULT_SENTENCES }])}
               disabled={chapterSpecs.length >= MAX_CHAPTERS}
             >
               {t('editor.addChapter')}
@@ -412,10 +421,27 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
                   </IconButton>
                 )}
               </Box>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start', mb: 2 }}>
+                <TextField
+                  label={`${t('editor.chapterTitle')} — ${getLanguageName(nativeLanguage) || '—'}`}
+                  placeholder={t('editor.chapterTitlePlaceholder')}
+                  value={chapter.title.lang1}
+                  onChange={(e) => setChapterSpecs((prev) => prev.map((c, idx) => idx === i ? { ...c, title: { ...c.title, lang1: e.target.value } } : c))}
+                  sx={{ flex: 1, minWidth: 200 }}
+                />
+                <TextField
+                  label={`${t('editor.chapterTitle')} — ${getLanguageName(learningLanguage) || '—'}`}
+                  placeholder={t('editor.chapterTitlePlaceholder')}
+                  value={chapter.title.lang2}
+                  onChange={(e) => setChapterSpecs((prev) => prev.map((c, idx) => idx === i ? { ...c, title: { ...c.title, lang2: e.target.value } } : c))}
+                  sx={{ flex: 1, minWidth: 200 }}
+                />
+              </Box>
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 <TextField
                   label={t('editor.chapterSeed')}
                   placeholder={t('editor.chapterSeedPlaceholder')}
+                  helperText={t('editor.chapterSeedHint')}
                   value={chapter.seed}
                   onChange={(e) => setChapterSpecs((prev) => prev.map((c, idx) => idx === i ? { ...c, seed: e.target.value } : c))}
                   multiline
@@ -437,6 +463,33 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
           <Typography variant="caption" color="text.secondary">
             {t('editor.totalSentences', { count: chapterSpecs.reduce((s, c) => s + c.targetSentences, 0) })}
           </Typography>
+        </Paper>
+
+        {/* AI Generator Settings */}
+        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <AutoAwesomeIcon color="secondary" fontSize="small" />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              {t('editor.aiSettings')}
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('editor.aiModelHint')}
+          </Typography>
+          <FormControl sx={{ minWidth: 260 }}>
+            <InputLabel>{t('editor.aiModel')}</InputLabel>
+            <Select
+              value={aiModel}
+              label={t('editor.aiModel')}
+              onChange={(e) => setAiModel(e.target.value)}
+            >
+              {AI_MODELS.map((m) => (
+                <MenuItem key={m.id} value={m.id}>
+                  {m.label} — {m.description}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Paper>
 
         {/* Actions */}
