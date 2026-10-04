@@ -15,3 +15,8 @@ export const AI_MODELS: AIModel[] = [
 ];
 
 export const DEFAULT_AI_MODEL = 'gpt-4o-mini';
+
+export const getAIModelLabel = (modelId?: string): string => {
+  const model = AI_MODELS.find((m) => m.id === (modelId || DEFAULT_AI_MODEL));
+  return model?.label ?? modelId ?? DEFAULT_AI_MODEL;
+};

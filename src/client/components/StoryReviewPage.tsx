@@ -10,8 +10,6 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RateReviewIcon from '@mui/icons-material/RateReview';
-import CommentIcon from '@mui/icons-material/Comment';
-import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import SaveIcon from '@mui/icons-material/Save';
@@ -42,8 +40,9 @@ interface Story {
   topic: string;
   seed: string;
   aiModel: string;
+  aiGuideline: string;
+  published: boolean;
   generating: boolean;
-  approved: boolean;
   sentenceCount: number;
 }
 
@@ -69,6 +68,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const [topic, setTopic] = useState('');
   const [seed, setSeed] = useState('');
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [aiGuideline, setAiGuideline] = useState('');
 
   // Per-chapter editable titles, premises and feedback; keyed by chapter index
   const [chapterTitles, setChapterTitles] = useState<Record<number, { lang1: string; lang2: string }>>({});
@@ -76,16 +76,8 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const [chapterFeedbacks, setChapterFeedbacks] = useState<Record<number, string>>({});
   const [chapterTargets, setChapterTargets] = useState<Record<number, number>>({});
 
-  // Sentence-level annotations; keyed by "chapterIndex-sentenceIndex"
-  const [annotations, setAnnotations] = useState<Record<string, string>>({});
-  const [openAnnotations, setOpenAnnotations] = useState<Set<string>>(new Set());
-
-  // Story-level general feedback for sentence patches
-  const [generalFeedback, setGeneralFeedback] = useState('');
-
   const [saving, setSaving] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [approving, setApproving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [aiModel, setAiModel] = useState(DEFAULT_AI_MODEL);
   // track which chapter is being regenerated
   const [regeneratingChapter, setRegeneratingChapter] = useState<number | null>(null);
@@ -136,6 +128,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
     setTopic(story.topic);
     setSeed(story.seed || '');
     if (story.aiModel) setAiModel(story.aiModel);
+    setAiGuideline(story.aiGuideline || '');
     const seeds: Record<number, string> = {};
     const targets: Record<number, number> = {};
     const titles: Record<number, { lang1: string; lang2: string }> = {};
@@ -185,6 +178,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
         topic,
         seed,
         aiModel,
+        aiGuideline,
         chapters,
         characters,
       }),
@@ -203,55 +197,6 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
       if (await saveMetadata()) setSnackbar(t('editor.saved'));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const toggleAnnotation = (key: string) => {
-    setOpenAnnotations((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-        setAnnotations((a) => { const n = { ...a }; delete n[key]; return n; });
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
-
-  const hasAnyFeedback = generalFeedback.trim() !== '' ||
-    Object.values(annotations).some((v) => v.trim() !== '');
-
-  const handleApplyFeedback = async () => {
-    if (!story || !id) return;
-    const activeAnnotations = Object.entries(annotations)
-      .filter(([, v]) => v.trim())
-      .map(([k, v]) => {
-        const [ci, si] = k.split('-').map(Number);
-        return { chapterIndex: ci, sentenceIndex: si, feedback: v.trim() };
-      });
-    if (activeAnnotations.length === 0 && !generalFeedback.trim()) return;
-
-    // Fall back to first 5 sentences of chapter 0 when only general feedback given
-    const annotationsToSend = activeAnnotations.length > 0
-      ? activeAnnotations
-      : (story.chapters[0]?.sentences ?? []).slice(0, 5).map((_, i) => ({ chapterIndex: 0, sentenceIndex: i, feedback: '' }));
-
-    setSubmitting(true);
-    try {
-      if (!(await saveMetadata())) return;
-      const res = await fetch(`/api/stories/${id}/review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ generalFeedback: generalFeedback.trim(), annotations: annotationsToSend, model: aiModel }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.message || t('review.applyError')); return; }
-      navigate('/my-stories');
-    } catch {
-      setError(t('review.applyError'));
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -340,24 +285,24 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
     }
   };
 
-  const handleApprove = async () => {
+  const handleTogglePublish = async () => {
     if (!story || !id) return;
-    setApproving(true);
+    setPublishing(true);
     try {
       if (!(await saveMetadata())) return;
-      const res = await fetch(`/api/stories/${id}/approve`, { method: 'POST' });
+      const res = await fetch(`/api/stories/${id}/publish`, { method: 'POST' });
       const data = await res.json();
-      if (!res.ok) { setError(data.message || t('review.approveError')); return; }
-      setSnackbar(t('review.approveSuccess'));
+      if (!res.ok) { setError(data.message || t('review.publishError')); return; }
+      setSnackbar(data.published ? t('myStories.publishSuccess') : t('myStories.unpublishSuccess'));
       navigate('/my-stories');
     } catch {
-      setError(t('review.approveError'));
+      setError(t('review.publishError'));
     } finally {
-      setApproving(false);
+      setPublishing(false);
     }
   };
 
-  const busy = saving || submitting || approving || regeneratingAll || (story?.generating ?? false) || regeneratingChapter !== null || deletingChapter !== null;
+  const busy = saving || publishing || regeneratingAll || (story?.generating ?? false) || regeneratingChapter !== null || deletingChapter !== null;
 
   // Reader-facing chapter heading: prefer the learning-language title, fall back to the native one.
   const chapterHeading = (ci: number): string => {
@@ -475,13 +420,6 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
             {t('review.seedHint')}
           </Alert>
 
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button variant="outlined"
-              startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
-              onClick={handleSaveMetadata} disabled={busy}>
-              {saving ? t('common.loading') : t('editor.saveChanges')}
-            </Button>
-          </Box>
         </Paper>
 
         {/* ── Editable story characters ── */}
@@ -570,6 +508,18 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('editor.aiModelHint')}
           </Typography>
+          <TextField
+            label={t('editor.aiGuideline')}
+            placeholder={t('editor.aiGuidelinePlaceholder')}
+            helperText={t('editor.aiGuidelineHint')}
+            value={aiGuideline}
+            onChange={(e) => setAiGuideline(e.target.value)}
+            multiline
+            minRows={3}
+            fullWidth
+            disabled={busy}
+            sx={{ mb: 2 }}
+          />
           <FormControl sx={{ minWidth: 260 }}>
             <InputLabel>{t('editor.aiModel')}</InputLabel>
             <Select
@@ -585,20 +535,6 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
               ))}
             </Select>
           </FormControl>
-        </Paper>
-
-        {/* ── Story-level general feedback ── */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-            {t('review.generalFeedback')}
-          </Typography>
-          <TextField
-            multiline minRows={2} maxRows={6} fullWidth
-            placeholder={t('review.generalFeedbackPlaceholder')}
-            value={generalFeedback}
-            onChange={(e) => setGeneralFeedback(e.target.value)}
-            disabled={busy}
-          />
         </Paper>
 
         {/* ── Chapter accordions ── */}
@@ -675,41 +611,19 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
                 {t('review.chapterSentences', { count: chapter.sentences.length })}
               </Typography>
-              {chapter.sentences.map((sentence, si) => {
-                const key = `${ci}-${si}`;
-                const hasAnnotation = !!annotations[key]?.trim();
-                const isOpen = openAnnotations.has(key);
-                return (
-                  <Box key={si}>
-                    {si > 0 && <Divider sx={{ my: 1 }} />}
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, minWidth: 28, fontWeight: 600 }}>
-                        {si + 1}.
-                      </Typography>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="body1" sx={{ lineHeight: 1.7 }}>{sentence.lang1}</Typography>
-                        {isOpen && (
-                          <TextField
-                            size="small" fullWidth autoFocus
-                            placeholder={t('review.annotationPlaceholder')}
-                            value={annotations[key] ?? ''}
-                            onChange={(e) => setAnnotations((prev) => ({ ...prev, [key]: e.target.value }))}
-                            disabled={busy} sx={{ mt: 1 }}
-                          />
-                        )}
-                      </Box>
-                      <Tooltip title={isOpen ? t('review.removeNote') : t('review.addNote')}>
-                        <span>
-                          <IconButton size="small" color={hasAnnotation ? 'primary' : 'default'}
-                            onClick={() => toggleAnnotation(key)} disabled={busy}>
-                            {hasAnnotation || isOpen ? <CommentIcon fontSize="small" /> : <CommentOutlinedIcon fontSize="small" />}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
+              {chapter.sentences.map((sentence, si) => (
+                <Box key={si}>
+                  {si > 0 && <Divider sx={{ my: 1 }} />}
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, minWidth: 28, fontWeight: 600 }}>
+                      {si + 1}.
+                    </Typography>
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="body1" sx={{ lineHeight: 1.7 }}>{sentence.lang1}</Typography>
                     </Box>
                   </Box>
-                );
-              })}
+                </Box>
+              ))}
 
               {/* Insert / delete this chapter */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, gap: 1 }}>
@@ -784,14 +698,20 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
             </span>
           </Tooltip>
           <Button variant="outlined"
-            startIcon={submitting ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
-            onClick={handleApplyFeedback} disabled={!hasAnyFeedback || busy}>
-            {submitting ? t('review.applying') : t('review.applyFeedback')}
+            startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
+            onClick={handleSaveMetadata}
+            disabled={busy}
+          >
+            {saving ? t('common.loading') : t('editor.saveChanges')}
           </Button>
-          <Button variant="contained" color="success"
-            startIcon={approving ? <CircularProgress size={16} /> : <CheckCircleIcon />}
-            onClick={handleApprove} disabled={story.sentenceCount === 0 || busy}>
-            {approving ? t('review.approving') : t('review.approve')}
+          <Button variant="contained" color={story.published ? 'warning' : 'success'}
+            startIcon={publishing ? <CircularProgress size={16} /> : <CheckCircleIcon />}
+            onClick={handleTogglePublish}
+            disabled={(!story.published && story.sentenceCount === 0) || busy}
+          >
+            {publishing
+              ? (story.published ? t('review.unpublishing') : t('review.publishing'))
+              : (story.published ? t('common.unpublish') : t('common.publish'))}
           </Button>
         </Box>
       </Container>

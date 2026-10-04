@@ -11,6 +11,7 @@ import CodeIcon from '@mui/icons-material/Code';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import SchoolIcon from '@mui/icons-material/School';
 import { useTranslation } from 'react-i18next';
 
 const AboutPage: React.FC = () => {
@@ -85,6 +86,28 @@ const AboutPage: React.FC = () => {
                 <Alert severity="warning" icon={<AutoAwesomeIcon />} sx={{ py: 0.5 }}>
                   {t('about.writerAccessNote')}
                 </Alert>
+              </Paper>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Paper elevation={2} sx={{ p: 4, height: '100%' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <SchoolIcon sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
+                  <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                    {t('about.otherWebsiteTitle')}
+                  </Typography>
+                </Box>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('about.otherWebsiteText')}
+                </Typography>
+                <Link
+                  href="https://dialecthub.net/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ fontWeight: 600 }}
+                >
+                  https://dialecthub.net/
+                </Link>
               </Paper>
             </Grid>
           </Grid>

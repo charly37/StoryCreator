@@ -13,6 +13,8 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
+import { getAIModelLabel } from '../utils/aiModels';
+import { formatSeedPreview } from '../utils/seedPreview';
 import { cloneStory } from '../utils/cloneStory';
 import { AppUser } from '../App';
 
@@ -22,12 +24,11 @@ interface StoryCard {
   nativeLanguage: string;
   learningLanguage: string;
   level: string;
-  topic: string;
+  aiModel?: string;
   sentenceCount: number;
   published: boolean;
   generating: boolean;
   isAIGenerated: boolean;
-  approved: boolean;
   seed: string;
 }
 
@@ -190,6 +191,16 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                     size="small" variant="outlined"
                   />
                   <Chip
+                    label={
+                      story.isAIGenerated
+                        ? t('stories.aiModelTag', { model: getAIModelLabel(story.aiModel) })
+                        : t('stories.manualTag')
+                    }
+                    size="small"
+                    color={story.isAIGenerated ? 'info' : 'default'}
+                    variant="outlined"
+                  />
+                  <Chip
                     label={story.published ? t('editor.published') : t('editor.draft')}
                     color={story.published ? 'success' : 'default'}
                     size="small"
@@ -206,14 +217,20 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                   )}
                 </Box>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>{story.title.lang1}</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                  {story.title.lang2}
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    mt: 0.5,
+                    mb: 0.5,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {formatSeedPreview(story.seed) || t('stories.seedUnavailable')}
                 </Typography>
-                {story.topic && (
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                    {story.topic}
-                  </Typography>
-                )}
                 <Typography variant="caption" color="text.secondary">
                   {t('myStories.sentences', { count: story.sentenceCount })}
                 </Typography>
@@ -236,20 +253,13 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                   {t('myStories.review')}
                 </Button>
                 )}
-                <Tooltip
-                  title={(story.isAIGenerated || !!story.seed) && !story.approved && !story.published ? t('myStories.publishGated') : ''}
+                <Button
+                  size="small"
+                  color={story.published ? 'warning' : 'success'}
+                  onClick={() => handleTogglePublish(story)}
                 >
-                  <span>
-                    <Button
-                      size="small"
-                      color={story.published ? 'warning' : 'success'}
-                      onClick={() => handleTogglePublish(story)}
-                      disabled={(story.isAIGenerated || !!story.seed) && !story.approved && !story.published}
-                    >
-                      {story.published ? t('common.unpublish') : t('common.publish')}
-                    </Button>
-                  </span>
-                </Tooltip>
+                  {story.published ? t('common.unpublish') : t('common.publish')}
+                </Button>
                 <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
                   <span>
                     <Button

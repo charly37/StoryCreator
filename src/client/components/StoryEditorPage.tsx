@@ -51,6 +51,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const [chapterSpecs, setChapterSpecs] = useState<ChapterSpec[]>([{ title: { lang1: '', lang2: '' }, seed: '', targetSentences: DEFAULT_SENTENCES }]);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [aiModel, setAiModel] = useState(DEFAULT_AI_MODEL);
+  const [aiGuideline, setAiGuideline] = useState('');
 
   const [loading, setLoading] = useState(!!id);
   const [generating, setGenerating] = useState(false);
@@ -70,6 +71,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         setTopic(data.topic || '');
         setSeed(data.seed || '');
         if (data.aiModel) setAiModel(data.aiModel);
+        setAiGuideline(data.aiGuideline || '');
         setCharacters(
           Array.isArray(data.characters)
             ? data.characters.map((c: Partial<Character>) => ({
@@ -138,6 +140,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         topic,
         seed,
         aiModel,
+        aiGuideline,
         characters,
         targetChapters: chapterSpecs.length,
         chapters: chapterSpecs,
@@ -476,6 +479,17 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('editor.aiModelHint')}
           </Typography>
+          <TextField
+            label={t('editor.aiGuideline')}
+            placeholder={t('editor.aiGuidelinePlaceholder')}
+            helperText={t('editor.aiGuidelineHint')}
+            value={aiGuideline}
+            onChange={(e) => setAiGuideline(e.target.value)}
+            multiline
+            minRows={3}
+            fullWidth
+            sx={{ mb: 2 }}
+          />
           <FormControl sx={{ minWidth: 260 }}>
             <InputLabel>{t('editor.aiModel')}</InputLabel>
             <Select
@@ -524,4 +538,3 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
 };
 
 export default StoryEditorPage;
-

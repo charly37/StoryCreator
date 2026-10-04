@@ -37,6 +37,8 @@
     "writerAccessTitle": "Reading is free — writing uses paid AI",
     "writerAccessText": "Reading stories is free and open to everyone. Creating and generating stories (and the AI review and regeneration tools) is limited to accounts with creator access, because every generation calls a paid AI model that costs me real money out of pocket.",
     "writerAccessNote": "Want to write your own stories? Contact me to request creator access — just keep in mind that generating them isn't free to run.",
+    "otherWebsiteTitle": "Looking for more traditional lessons?",
+    "otherWebsiteText": "If you enjoy StoryCreator to learn languages, you can also check out my other website for a more classic lesson format:",
     "openSourceTitle": "Open Source & Built with AI",
     "openSourceText": "This project is open source and is also a chance for me to explore coding with AI assistance. The full source code is available on GitHub.",
     "githubStar": "⭐ Star the repository to show your support!",
@@ -84,6 +86,9 @@
     "allLevels": "All levels",
     "allLanguages": "All languages",
     "noResults": "No stories found. Try adjusting your filters.",
+    "aiModelTag": "AI: {{model}}",
+    "manualTag": "Written manually",
+    "seedUnavailable": "No story premise provided.",
     "sentences": "{{count}} sentences",
     "by": "by",
     "readStory": "Read"
@@ -163,7 +168,10 @@
     "publishToggleHint": "Save the story first to publish it",
     "aiSettings": "AI Generator Settings",
     "aiModel": "Model",
-    "aiModelHint": "Select the AI model to use for generation. Better models improve quality but increase cost."
+    "aiModelHint": "Select the AI model to use for generation. Better models improve quality but increase cost.",
+    "aiGuideline": "Writing guideline (optional)",
+    "aiGuidelinePlaceholder": "e.g. Keep a warm, optimistic tone with simple dialogue and vivid sensory details.",
+    "aiGuidelineHint": "Private authoring note. This style guideline is applied to generation and regeneration, and is not shown to readers."
   },
   "myStories": {
     "title": "My Stories",
@@ -179,8 +187,7 @@
     "sentences": "{{count}} sentences",
     "generating": "Generating…",
     "read": "Read",
-    "review": "Review",
-    "publishGated": "Approve the story on the Review page before publishing"
+    "review": "Review"
   },
   "profile": {
     "title": "My Profile",
@@ -198,19 +205,12 @@
   },
   "review": {
     "title": "Review Story",
-    "generalFeedback": "General feedback",
-    "generalFeedbackPlaceholder": "Overall feedback for the whole story (optional when you have sentence notes)",
     "sentences": "Sentences",
-    "addNote": "Add a note to this sentence",
-    "removeNote": "Remove note",
-    "annotationPlaceholder": "Your feedback for this sentence…",
-    "applyFeedback": "Apply Feedback & Regenerate",
     "applying": "Applying…",
-    "approve": "Approve Story",
-    "approving": "Approving…",
-    "approveSuccess": "Story approved! You can now publish it.",
-    "applyError": "Error applying feedback. Please try again.",
-    "approveError": "Error approving story. Please try again.",
+    "publishing": "Publishing…",
+    "unpublishing": "Unpublishing…",
+    "applyError": "Error processing AI update. Please try again.",
+    "publishError": "Error updating publish status. Please try again.",
     "regenerateChapter": "Regenerate Chapter",
     "regenerateChapterWarning": "Regenerating a chapter may also update other chapters to preserve story coherence.",
     "insertChapterBelow": "Insert chapter below",
@@ -231,10 +231,10 @@
     "regenerateAll": "Regenerate entire story",
     "regeneratingAll": "Starting…",
     "regenerateAllConfirmTitle": "Regenerate entire story?",
-    "regenerateAllWarning": "This replaces every chapter and sentence with newly AI-generated content. Your current text and edits will be lost, and the story will need to be reviewed and approved again.",
+    "regenerateAllWarning": "This replaces every chapter and sentence with newly AI-generated content. Your current text and edits will be lost, and the story should be reviewed again.",
     "regenerateAllConfirmBody": "The current premise and cast will be used to rewrite the whole story.",
     "regenerateAllConfirm": "Regenerate",
-    "charactersHint": "Edit the cast and save — changes are applied the next time you regenerate a chapter or apply feedback."
+    "charactersHint": "Edit the cast and save — changes are applied the next time you regenerate a chapter or regenerate the full story."
   },
   "levels": {
     "beginner": "Beginner",

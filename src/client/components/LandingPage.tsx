@@ -8,6 +8,8 @@ import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import EditIcon from '@mui/icons-material/Edit';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
+import { getAIModelLabel } from '../utils/aiModels';
+import { formatSeedPreview } from '../utils/seedPreview';
 import { AppUser } from '../App';
 
 interface StoryCard {
@@ -16,7 +18,9 @@ interface StoryCard {
   nativeLanguage: string;
   learningLanguage: string;
   level: string;
-  topic: string;
+  aiModel?: string;
+  isAIGenerated: boolean;
+  seed: string;
   authorName: string;
   sentenceCount: number;
 }
@@ -137,20 +141,33 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
                         label={`${getLanguageName(story.nativeLanguage)} → ${getLanguageName(story.learningLanguage)}`}
                         size="small" variant="outlined"
                       />
+                      <Chip
+                        label={
+                          story.isAIGenerated
+                            ? t('stories.aiModelTag', { model: getAIModelLabel(story.aiModel) })
+                            : t('stories.manualTag')
+                        }
+                        size="small"
+                        color={story.isAIGenerated ? 'info' : 'default'}
+                        variant="outlined"
+                      />
                     </Box>
                     <Typography variant="h6" sx={{ fontWeight: 600 }} gutterBottom noWrap>
                       {story.title.lang1}
                     </Typography>
-                    {story.title.lang2 && (
-                      <Typography variant="body2" color="text.secondary" noWrap sx={{ fontStyle: 'italic' }}>
-                        {story.title.lang2}
-                      </Typography>
-                    )}
-                    {story.topic && (
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                        {story.topic}
-                      </Typography>
-                    )}
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        mt: 0.5,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {formatSeedPreview(story.seed) || t('stories.seedUnavailable')}
+                    </Typography>
                   </CardContent>
                   <CardActions sx={{ px: 2, pb: 2 }}>
                     <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>

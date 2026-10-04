@@ -59,7 +59,8 @@ export interface IAIService {
     chapterSpecs: ChapterSpec[],
     characters: CharacterSpec[],
     level: string,
-    model?: string
+    model?: string,
+    aiGuideline?: string
   ): Promise<GeneratedStory>;
   patchSentences(
     patches: SentencePatch[],
@@ -81,7 +82,8 @@ export interface IAIService {
     level: string,
     targetSentences: number,
     characters: CharacterSpec[],
-    model?: string
+    model?: string,
+    aiGuideline?: string
   ): Promise<RegeneratedChapter[]>;
 }
 
@@ -159,18 +161,25 @@ class OpenAIService implements IAIService {
     chapterSpecs: ChapterSpec[],
     characters: CharacterSpec[],
     level: string,
-    model = 'gpt-4o-mini'
+    model = 'gpt-4o-mini',
+    aiGuideline = ''
   ): Promise<GeneratedStory> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
     const levelGuidance = LEVEL_GUIDANCE[level] ?? LEVEL_GUIDANCE.intermediate;
     const N = chapterSpecs.length;
 
+    const sanitizedGuideline = aiGuideline.trim().slice(0, 2000);
+    const guidelineBlock = sanitizedGuideline
+      ? `\nAdditional writing guideline from the author:\n${sanitizedGuideline}\nFollow this guideline consistently unless it conflicts with language accuracy or safety.`
+      : '';
+
     const systemPrompt = `You are a bilingual story writer creating parallel-text stories for language learners.
 Each story presents the same sentence in two languages side by side.
 
 Level: ${level}
 ${levelGuidance}
+${guidelineBlock}
 
 Return a JSON object with exactly this structure — no extra text or markdown:
 {
@@ -325,7 +334,8 @@ Rules:
     level: string,
     targetSentences: number,
     characters: CharacterSpec[],
-    model = 'gpt-4o-mini'
+    model = 'gpt-4o-mini',
+    aiGuideline = ''
   ): Promise<RegeneratedChapter[]> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
@@ -335,8 +345,14 @@ Rules:
       .map((c, i) => `Chapter ${i + 1} (${i === chapterIndex ? 'TARGET — regenerate this' : 'context only'}): ${c.seed}`)
       .join('\n');
 
+    const sanitizedGuideline = aiGuideline.trim().slice(0, 2000);
+    const guidelineBlock = sanitizedGuideline
+      ? `\nAdditional writing guideline from the author:\n${sanitizedGuideline}\nFollow this guideline consistently unless it conflicts with language accuracy or safety.`
+      : '';
+
     const systemPrompt = `You are revising a specific chapter of a bilingual parallel-text story.
 Level: ${level} — ${levelGuidance}
+${guidelineBlock}
 
 You are given the full story context. Rewrite the TARGET chapter using the new seed.
 If the change affects story coherence in other chapters, you may also return updated versions of those chapters.
@@ -381,4 +397,3 @@ Rules:
 }
 
 export const aiService: IAIService = new OpenAIService();
-

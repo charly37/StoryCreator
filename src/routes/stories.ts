@@ -1,11 +1,12 @@
 import express, { Request, Response, NextFunction } from 'express';
 import Story from '../models/Story';
 import User from '../models/User';
-import { aiService, SentencePatch, sanitizeSentences, sanitizeTitle } from '../services/aiService';
+import { aiService, sanitizeSentences, sanitizeTitle } from '../services/aiService';
 
 const DEFAULT_SENTENCES_PER_CHAPTER = 12;
 const MAX_CHARACTERS = 20;
 const MAX_CHAPTERS_PER_STORY = 10;
+const MAX_AI_GUIDELINE_LENGTH = 2000;
 
 interface CharacterInput {
   name?: unknown;
@@ -27,6 +28,11 @@ function sanitizeCharacters(input: unknown): Array<{ name: string; role: string;
     }))
     .filter((c) => c.name !== '')
     .slice(0, MAX_CHARACTERS);
+}
+
+function sanitizeAIGuideline(input: unknown): string {
+  if (typeof input !== 'string') return '';
+  return input.trim().slice(0, MAX_AI_GUIDELINE_LENGTH);
 }
 
 const router = express.Router();
@@ -156,6 +162,7 @@ router.post('/', requireAuth, requireCreatePermission, async (req: Request, res:
       level,
       topic: topic || '',
       seed: req.body.seed || '',
+      aiGuideline: sanitizeAIGuideline(req.body.aiGuideline),
       authorId: req.session.userId,
       authorName: author.username,
       published: false,
@@ -191,6 +198,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     if (topic !== undefined) story.topic = topic;
     if (req.body.seed !== undefined) story.seed = req.body.seed;
     if (req.body.aiModel !== undefined) story.aiModel = req.body.aiModel;
+    if (req.body.aiGuideline !== undefined) story.aiGuideline = sanitizeAIGuideline(req.body.aiGuideline);
     if (req.body.characters !== undefined) story.characters = sanitizeCharacters(req.body.characters);
     if (req.body.targetChapters !== undefined) {
       story.targetChapters = Math.min(Math.max(parseInt(req.body.targetChapters, 10) || 1, 1), 10);
@@ -323,11 +331,6 @@ router.post('/:id/publish', requireAuth, async (req: Request, res: Response) => 
     if (!story.published && story.sentenceCount === 0) {
       return res.status(400).json({ message: 'Cannot publish a story with no sentences' });
     }
-    // seed is the fallback for stories generated before isAIGenerated was added
-    const requiresApproval = story.isAIGenerated || !!story.seed;
-    if (!story.published && requiresApproval && !story.approved) {
-      return res.status(400).json({ message: 'AI-generated stories must be reviewed and approved before publishing' });
-    }
     story.published = !story.published;
     await story.save();
     res.json({ published: story.published });
@@ -376,7 +379,8 @@ router.post('/:id/generate', requireAuth, requireCreatePermission, async (req: R
           chapterSpecs,
           characters,
           story.level,
-          model
+          model,
+          story.aiGuideline
         );
         story.chapters = generated.chapters.map((c, i) => ({
           title: c.title,
@@ -390,8 +394,6 @@ router.post('/:id/generate', requireAuth, requireCreatePermission, async (req: R
         }
         story.title.lang2 = generated.title;
         story.isAIGenerated = true;
-        // Content changed — a previous approval no longer applies.
-        story.approved = false;
         story.generating = false;
         await story.save();
       } catch (error) {
@@ -404,86 +406,6 @@ router.post('/:id/generate', requireAuth, requireCreatePermission, async (req: R
   } catch (error) {
     console.error('Error starting story generation:', error);
     res.status(500).json({ message: 'Server error starting story generation' });
-  }
-});
-
-// POST /api/stories/:id/review — patch annotated sentences via AI (fire-and-forget)
-router.post('/:id/review', requireAuth, requireCreatePermission, async (req: Request, res: Response) => {
-  try {
-    const story = await Story.findById(req.params.id);
-    if (!story) return res.status(404).json({ message: 'Story not found' });
-    if (story.authorId.toString() !== req.session.userId) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    const { generalFeedback, annotations, model } = req.body as {
-      generalFeedback?: string;
-      annotations?: Array<{ chapterIndex: number; sentenceIndex: number; feedback: string }>;
-      model?: string;
-    };
-
-    if (!Array.isArray(annotations) || annotations.length === 0) {
-      return res.status(400).json({ message: 'At least one sentence annotation is required' });
-    }
-
-    const patches: SentencePatch[] = annotations
-      .filter((a) =>
-        a.chapterIndex >= 0 && a.chapterIndex < story.chapters.length &&
-        a.sentenceIndex >= 0 && a.sentenceIndex < story.chapters[a.chapterIndex].sentences.length &&
-        a.feedback?.trim()
-      )
-      .map((a) => ({
-        chapterIndex: a.chapterIndex,
-        sentenceIndex: a.sentenceIndex,
-        lang1: story.chapters[a.chapterIndex].sentences[a.sentenceIndex].lang1,
-        lang2: story.chapters[a.chapterIndex].sentences[a.sentenceIndex].lang2,
-        feedback: a.feedback.trim(),
-      }));
-
-    if (patches.length === 0) {
-      return res.status(400).json({ message: 'No valid sentence annotations found' });
-    }
-
-    story.generating = true;
-    await story.save();
-
-    res.status(202).json({ message: 'Review patch started', storyId: story._id });
-
-    setImmediate(async () => {
-      try {
-        const patched = await aiService.patchSentences(
-          patches,
-          generalFeedback?.trim() ?? '',
-          story.nativeLanguage,
-          story.learningLanguage,
-          story.level,
-          story.characters.map((c) => ({
-            name: c.name,
-            role: c.role,
-            description: c.description,
-            appearance: c.appearance,
-          })),
-          model
-        );
-        for (const p of patched) {
-          const lang1 = typeof p.lang1 === 'string' ? p.lang1.trim() : '';
-          const lang2 = typeof p.lang2 === 'string' ? p.lang2.trim() : '';
-          if (lang1 === '' || lang2 === '') continue;
-          if (p.chapterIndex >= 0 && p.chapterIndex < story.chapters.length &&
-              p.sentenceIndex >= 0 && p.sentenceIndex < story.chapters[p.chapterIndex].sentences.length) {
-            story.chapters[p.chapterIndex].sentences[p.sentenceIndex] = { lang1, lang2 };
-          }
-        }
-        story.generating = false;
-        await story.save();
-      } catch (error) {
-        console.error('Background review patch failed:', error);
-        await Story.updateOne({ _id: story._id }, { $set: { generating: false } });
-      }
-    });
-  } catch (error) {
-    console.error('Error starting review patch:', error);
-    res.status(500).json({ message: 'Server error starting review patch' });
   }
 });
 
@@ -530,7 +452,8 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
             description: c.description,
             appearance: c.appearance,
           })),
-          req.body.model
+          req.body.model,
+          story.aiGuideline
         );
         for (const r of results) {
           if (r.index >= 0 && r.index < story.chapters.length) {
@@ -557,26 +480,6 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
   } catch (error) {
     console.error('Error starting chapter regeneration:', error);
     res.status(500).json({ message: 'Server error starting chapter regeneration' });
-  }
-});
-
-// POST /api/stories/:id/approve — marks story as reviewed and approved for publishing
-router.post('/:id/approve', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const story = await Story.findById(req.params.id);
-    if (!story) return res.status(404).json({ message: 'Story not found' });
-    if (story.authorId.toString() !== req.session.userId) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-    if (story.sentenceCount === 0) {
-      return res.status(400).json({ message: 'Cannot approve a story with no sentences' });
-    }
-    story.approved = true;
-    await story.save();
-    res.json({ approved: story.approved });
-  } catch (error) {
-    console.error('Error approving story:', error);
-    res.status(500).json({ message: 'Server error approving story' });
   }
 });
 
@@ -620,13 +523,13 @@ router.post('/:id/clone', requireAuth, requireCreatePermission, async (req: Requ
       level: source.level,
       topic: source.topic,
       seed: source.seed,
+      aiGuideline: source.aiGuideline,
       targetChapters: source.targetChapters,
       authorId: req.session.userId,
       authorName: author.username,
       published: false,
       generating: false,
       isAIGenerated: source.isAIGenerated,
-      approved: false,
     });
 
     await clone.save();

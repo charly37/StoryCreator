@@ -37,6 +37,8 @@
     "writerAccessTitle": "La lecture est gratuite — l'écriture utilise une IA payante",
     "writerAccessText": "La lecture des histoires est gratuite et ouverte à tous. La création et la génération d'histoires (ainsi que les outils d'IA de relecture et de regénération) sont réservées aux comptes ayant l'accès créateur, car chaque génération fait appel à un modèle d'IA payant qui me coûte de l'argent.",
     "writerAccessNote": "Vous voulez écrire vos propres histoires ? Contactez-moi pour demander l'accès créateur — gardez juste en tête que leur génération n'est pas gratuite à faire tourner.",
+    "otherWebsiteTitle": "Vous cherchez des leçons plus classiques ?",
+    "otherWebsiteText": "Si StoryCreator vous plaît pour apprendre les langues, vous pouvez aussi découvrir mon autre site avec un format de cours plus traditionnel :",
     "openSourceTitle": "Open Source & développé avec l'IA",
     "openSourceText": "Ce projet est open source et c'est aussi l'occasion pour moi d'explorer le développement avec l'aide de l'IA. Tout le code source est disponible sur GitHub.",
     "githubStar": "⭐ Mettez une étoile au dépôt pour montrer votre soutien !",
@@ -84,6 +86,9 @@
     "allLevels": "Tous les niveaux",
     "allLanguages": "Toutes les langues",
     "noResults": "Aucune histoire trouvée. Essayez d'ajuster vos filtres.",
+    "aiModelTag": "IA : {{model}}",
+    "manualTag": "Écriture manuelle",
+    "seedUnavailable": "Aucune idée de départ fournie.",
     "sentences": "{{count}} phrases",
     "by": "par",
     "readStory": "Lire"
@@ -163,7 +168,10 @@
     "publishToggleHint": "Enregistrez d'abord l'histoire pour la publier",
     "aiSettings": "Paramètres du générateur IA",
     "aiModel": "Modèle",
-    "aiModelHint": "Sélectionnez le modèle IA à utiliser pour la génération. Un meilleur modèle améliore la qualité mais augmente le coût."
+    "aiModelHint": "Sélectionnez le modèle IA à utiliser pour la génération. Un meilleur modèle améliore la qualité mais augmente le coût.",
+    "aiGuideline": "Consigne d'écriture (optionnel)",
+    "aiGuidelinePlaceholder": "ex. Garder un ton chaleureux et optimiste, avec des dialogues simples et des détails sensoriels.",
+    "aiGuidelineHint": "Note privée d'auteur. Cette consigne de style est appliquée à la génération et à la regénération, et n'est pas visible par les lecteurs."
   },
   "myStories": {
     "title": "Mes histoires",
@@ -179,8 +187,7 @@
     "sentences": "{{count}} phrases",
     "generating": "Génération en cours…",
     "read": "Lire",
-    "review": "Relire",
-    "publishGated": "Approuvez l'histoire sur la page de relecture avant de la publier"
+    "review": "Relire"
   },
   "profile": {
     "title": "Mon profil",
@@ -198,19 +205,12 @@
   },
   "review": {
     "title": "Relire l'histoire",
-    "generalFeedback": "Commentaire général",
-    "generalFeedbackPlaceholder": "Commentaire sur l'ensemble de l'histoire (optionnel si vous avez des notes sur des phrases)",
     "sentences": "Phrases",
-    "addNote": "Ajouter une note à cette phrase",
-    "removeNote": "Supprimer la note",
-    "annotationPlaceholder": "Votre retour sur cette phrase…",
-    "applyFeedback": "Appliquer et regénérer",
     "applying": "Application en cours…",
-    "approve": "Approuver l'histoire",
-    "approving": "Approbation en cours…",
-    "approveSuccess": "Histoire approuvée ! Vous pouvez maintenant la publier.",
-    "applyError": "Erreur lors de l'application du feedback. Veuillez réessayer.",
-    "approveError": "Erreur lors de l'approbation. Veuillez réessayer.",
+    "publishing": "Publication en cours…",
+    "unpublishing": "Dépublication en cours…",
+    "applyError": "Erreur lors du traitement de la mise à jour IA. Veuillez réessayer.",
+    "publishError": "Erreur lors de la mise à jour de la publication. Veuillez réessayer.",
     "regenerateChapter": "Regénérer le chapitre",
     "regenerateChapterWarning": "La regénération d'un chapitre peut modifier d'autres chapitres pour préserver la cohérence du récit.",
     "insertChapterBelow": "Insérer un chapitre ci-dessous",
@@ -231,10 +231,10 @@
     "regenerateAll": "Régénérer toute l'histoire",
     "regeneratingAll": "Démarrage…",
     "regenerateAllConfirmTitle": "Régénérer toute l'histoire ?",
-    "regenerateAllWarning": "Cela remplacera tous les chapitres et toutes les phrases par du contenu généré par IA. Vos textes et modifications actuels seront perdus, et l'histoire devra être révisée et approuvée à nouveau.",
+    "regenerateAllWarning": "Cela remplacera tous les chapitres et toutes les phrases par du contenu généré par IA. Vos textes et modifications actuels seront perdus, et l'histoire devrait être relue à nouveau.",
     "regenerateAllConfirmBody": "L'idée de départ et la distribution actuelles seront utilisées pour réécrire toute l'histoire.",
     "regenerateAllConfirm": "Régénérer",
-    "charactersHint": "Modifiez la distribution et enregistrez — les changements seront appliqués lors de la prochaine regénération d'un chapitre ou application du feedback."
+    "charactersHint": "Modifiez la distribution et enregistrez — les changements seront appliqués lors de la prochaine regénération d'un chapitre ou regénération complète."
   },
   "levels": {
     "beginner": "Débutant",
