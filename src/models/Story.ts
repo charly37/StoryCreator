@@ -37,6 +37,7 @@ export interface IStory extends Document {
   published: boolean;
   generating: boolean;
   isAIGenerated: boolean;
+  aiCallCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -91,6 +92,7 @@ const storySchema = new Schema<IStory>(
     published: { type: Boolean, default: false },
     generating: { type: Boolean, default: false },
     isAIGenerated: { type: Boolean, default: false },
+    aiCallCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

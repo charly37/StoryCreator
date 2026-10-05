@@ -395,6 +395,7 @@ router.post('/:id/generate', requireAuth, requireCreatePermission, async (req: R
         story.title.lang2 = generated.title;
         story.isAIGenerated = true;
         story.generating = false;
+        story.aiCallCount = (story.aiCallCount ?? 0) + 1;
         await story.save();
       } catch (error) {
         console.error('Background story generation failed:', error);
@@ -471,6 +472,7 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
           }
         }
         story.generating = false;
+        story.aiCallCount = (story.aiCallCount ?? 0) + 1;
         await story.save();
       } catch (error) {
         console.error('Background chapter regeneration failed:', error);

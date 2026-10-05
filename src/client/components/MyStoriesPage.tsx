@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
 import { getAIModelLabel } from '../utils/aiModels';
 import { formatSeedPreview } from '../utils/seedPreview';
+import { formatRelativeDate } from '../utils/relativeDate';
 import { cloneStory } from '../utils/cloneStory';
 import { AppUser } from '../App';
 
@@ -30,6 +31,8 @@ interface StoryCard {
   generating: boolean;
   isAIGenerated: boolean;
   seed: string;
+  aiCallCount: number;
+  updatedAt: string;
 }
 
 const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
@@ -39,7 +42,7 @@ const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
 };
 
 const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   const [stories, setStories] = useState<StoryCard[]>([]);
@@ -232,7 +235,7 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                   {formatSeedPreview(story.seed) || t('stories.seedUnavailable')}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {t('myStories.sentences', { count: story.sentenceCount })}
+                  {t('myStories.sentences', { count: story.sentenceCount })} · {t('stories.updatedAgo', { when: formatRelativeDate(story.updatedAt, i18n.language) })}{((story.aiCallCount ?? 0) > 0 || story.isAIGenerated) ? ` · ${t('stories.aiCalls', { count: Math.max(story.aiCallCount ?? 0, story.isAIGenerated ? 1 : 0) })}` : ''}
                 </Typography>
               </CardContent>
               <CardActions sx={{ px: 2, pb: 2, gap: 1, flexWrap: 'wrap' }}>

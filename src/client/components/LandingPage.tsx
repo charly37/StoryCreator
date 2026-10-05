@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
 import { getAIModelLabel } from '../utils/aiModels';
 import { formatSeedPreview } from '../utils/seedPreview';
+import { formatRelativeDate } from '../utils/relativeDate';
 import { AppUser } from '../App';
 
 interface StoryCard {
@@ -23,6 +24,8 @@ interface StoryCard {
   seed: string;
   authorName: string;
   sentenceCount: number;
+  aiCallCount: number;
+  updatedAt: string;
 }
 
 const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
@@ -32,7 +35,7 @@ const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
 };
 
 const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [stories, setStories] = useState<StoryCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,7 +174,7 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
                   </CardContent>
                   <CardActions sx={{ px: 2, pb: 2 }}>
                     <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
-                      {t('stories.by')} {story.authorName} · {t('stories.sentences', { count: story.sentenceCount })}
+                      {t('stories.by')} {story.authorName} · {t('stories.sentences', { count: story.sentenceCount })} · {t('stories.updatedAgo', { when: formatRelativeDate(story.updatedAt, i18n.language) })}{((story.aiCallCount ?? 0) > 0 || story.isAIGenerated) ? ` · ${t('stories.aiCalls', { count: Math.max(story.aiCallCount ?? 0, story.isAIGenerated ? 1 : 0) })}` : ''}
                     </Typography>
                     <Button size="small" variant="outlined" onClick={() => navigate(`/stories/${story._id}`)}>
                       {t('stories.readStory')}

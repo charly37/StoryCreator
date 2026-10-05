@@ -91,6 +91,8 @@
     "seedUnavailable": "Aucune idée de départ fournie.",
     "sentences": "{{count}} phrases",
     "by": "par",
+    "updatedAgo": "mis à jour {{when}}",
+    "aiCalls": "{{count}} appels IA",
     "readStory": "Lire"
   },
   "reader": {

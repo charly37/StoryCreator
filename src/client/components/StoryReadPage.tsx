@@ -13,6 +13,9 @@ import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
+import { getAIModelLabel } from '../utils/aiModels';
+import { formatSeedPreview } from '../utils/seedPreview';
+import { formatRelativeDate } from '../utils/relativeDate';
 import { cloneStory } from '../utils/cloneStory';
 import { AppUser } from '../App';
 
@@ -42,6 +45,11 @@ interface Story {
   level: 'beginner' | 'intermediate' | 'advanced';
   topic: string;
   authorName: string;
+  aiModel?: string;
+  isAIGenerated: boolean;
+  seed: string;
+  aiCallCount: number;
+  updatedAt: string;
   sentenceCount: number;
 }
 
@@ -54,7 +62,7 @@ const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
 const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [story, setStory] = useState<Story | null>(null);
   const [loading, setLoading] = useState(true);
@@ -187,15 +195,33 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
                   size="small" variant="outlined"
                 />
                 {story.topic && <Chip label={story.topic} size="small" variant="outlined" />}
+                <Chip
+                  label={
+                    story.isAIGenerated
+                      ? t('stories.aiModelTag', { model: getAIModelLabel(story.aiModel) })
+                      : t('stories.manualTag')
+                  }
+                  size="small"
+                  color={story.isAIGenerated ? 'info' : 'default'}
+                  variant="outlined"
+                />
               </Box>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>{story.title.lang2 || story.title.lang1}</Typography>
-              {story.title.lang2 && (
-                <Typography variant="subtitle1" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                  {story.title.lang1}
-                </Typography>
-              )}
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>{story.title.lang1}</Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{
+                  mt: 0.5, mb: 0.5,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}
+              >
+                {formatSeedPreview(story.seed) || t('stories.seedUnavailable')}
+              </Typography>
               <Typography variant="caption" color="text.secondary">
-                {t('stories.by')} {story.authorName} · {t('stories.sentences', { count: total })}
+                {t('stories.by')} {story.authorName} · {t('stories.sentences', { count: total })} · {t('stories.updatedAgo', { when: formatRelativeDate(story.updatedAt, i18n.language) })}{((story.aiCallCount ?? 0) > 0 || story.isAIGenerated) ? ` · ${t('stories.aiCalls', { count: Math.max(story.aiCallCount ?? 0, story.isAIGenerated ? 1 : 0) })}` : ''}
               </Typography>
             </Box>
           </Box>

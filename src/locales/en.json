@@ -91,6 +91,8 @@
     "seedUnavailable": "No story premise provided.",
     "sentences": "{{count}} sentences",
     "by": "by",
+    "updatedAgo": "updated {{when}}",
+    "aiCalls": "{{count}} AI calls",
     "readStory": "Read"
   },
   "reader": {
