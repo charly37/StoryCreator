@@ -304,9 +304,11 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
 
   const busy = saving || publishing || regeneratingAll || (story?.generating ?? false) || regeneratingChapter !== null || deletingChapter !== null;
 
-  // Reader-facing chapter heading: prefer the learning-language title, fall back to the native one.
+  // Reader-facing chapter heading: prefer the source/native-language title so the
+  // collapsed chapter tile stays readable for learners while they are working from
+  // the language they already know.
   const chapterHeading = (ci: number): string => {
-    const text = chapterTitles[ci]?.lang2 || chapterTitles[ci]?.lang1 || '';
+    const text = chapterTitles[ci]?.lang1 || chapterTitles[ci]?.lang2 || '';
     return text.length > 60 ? `${text.slice(0, 60)}…` : text;
   };
 
