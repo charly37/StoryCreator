@@ -4,29 +4,40 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
+    groups:
+      github-actions-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
+    groups:
+      docker-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
-    # @mui/material and @mui/icons-material must move in lockstep: icons-material
-    # declares a peer of @mui/material@^<same-minor>, so bumping one alone breaks
-    # `npm ci` with ERESOLVE.
     groups:
+      npm-dependencies:
+        patterns:
+          - "*"
+      # @mui/material and @mui/icons-material must move in lockstep: icons-material
+      # declares a peer of @mui/material@^<same-minor>, so bumping one alone breaks
+      # `npm ci` with ERESOLVE.
       mui:
         patterns:
           - "@mui/*"
