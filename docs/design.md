@@ -7,8 +7,11 @@ StoryCreator is a bilingual story reading and writing platform. Users can author
 ```
 Browser
   └── React SPA (Webpack bundle in public/)
-        └── /api/*  →  Express.js server (src/server.ts)
+        └── /api/*     →  Express.js server (src/server.ts)
                             └── MongoDB Atlas (Mongoose)
+
+External clients
+  └── /api/v1/*  (API key)  →  same Express server, read-only
 ```
 
 ## Key Features
@@ -47,6 +50,15 @@ Browser
 - If the cast is left empty, the AI invents one and it is written back to the story after generation, so the author can review and refine it. Author-entered characters are never overwritten.
 - `POST /api/stories/:id/generate` runs asynchronously (`generating: true`); the client polls `GET /api/stories/:id` until it completes.
 - The Review page (`StoryReviewPage`) allows editing metadata, chapter titles, premises and the cast, reviewing sentence output in read-only mode, regenerating a single chapter, regenerating the whole story, and publishing/unpublishing.
+
+### 7. **Public API & API Keys**
+- Accounts with `canCreateStories` create up to **5** API keys from **Profile → API keys**.
+- Raw keys are shown exactly once. Only a SHA-256 hash and a non-secret, indexed prefix are stored.
+- `/api/v1` is key-authenticated (`Authorization: Bearer`), read-only and limited to **published** stories: list, detail and metadata.
+- Responses are built by an explicit allow-list serializer, so authoring metadata (`seed`, `aiGuideline`, `characters`, `authorId`, `generating`, AI counters) is never exposed.
+- Requests are rate limited per key (`PUBLIC_API_RATE_LIMIT_PER_MIN`, default 60/min) and CORS is open for `GET` so browser-based tools can call it.
+- The session-based `/api/*` surface is unchanged; v1 is additive and breaking changes ship as `/api/v2`.
+- See [PUBLIC_API.md](PUBLIC_API.md).
 
 ---
 
@@ -88,6 +100,20 @@ Indexes: `{ nativeLanguage, learningLanguage, published }` (compound for browse 
 | `canCreateStories` | Boolean | Default `false`; grants access to story creation and the AI authoring endpoints |
 | `createdAt` | Date | |
 
+### `ApiKey`
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | String | User-supplied label, 1–50 chars |
+| `prefix` | String | First 17 characters of the key, unique, indexed |
+| `keyHash` | String | SHA-256 hex digest, unique, `select: false` |
+| `ownerId` | ObjectId → User | Indexed |
+| `scopes` | `[String]` | Default `["stories:read"]` |
+| `lastUsedAt` | Date | Updated at most once every 5 minutes per key |
+| `createdAt` / `updatedAt` | Date | Managed by Mongoose `timestamps` |
+
+Keys are revoked by hard delete; the raw secret is never persisted.
+
 ---
 
 ## Frontend Structure
@@ -107,6 +133,7 @@ src/client/
     LoginPage.tsx
     RegisterPage.tsx
     ProfilePage.tsx     — Account details (username, email, member since, creator access)
+    ApiKeysSection.tsx  — Self-service API key create / reveal-once / revoke
     MyStoriesPage.tsx   — User's drafts + published stories
     AboutPage.tsx       — About (project story, GitHub link, creator-access note)
   utils/
@@ -120,14 +147,22 @@ src/
   server.ts           — Express app, middleware, startup
   config/
     database.ts       — Mongoose connection
+  middleware/
+    requireApiKey.ts  — Bearer/X-API-Key auth for /api/v1
   models/
     Story.ts          — Mongoose schema + IStory interface
     User.ts           — Mongoose schema + IUser interface
+    ApiKey.ts         — Hashed API keys (prefix + SHA-256 hash)
   routes/
     auth.ts           — /api/auth/* endpoints
     stories.ts        — /api/stories/* endpoints
+    apiKeys.ts        — /api/keys/* (session-authenticated key management)
+    publicApi.ts      — /api/v1/* (key-authenticated, read-only)
+  serializers/
+    publicStory.ts    — Allow-list shaping for public story responses
   services/
     aiService.ts      — OpenAI prompts (generate / patch / regenerate)
+    apiKeyService.ts  — Hashing, generation, lookup, last-used tracking
   i18n.ts             — i18next config (client-side)
   locales/
     en.json

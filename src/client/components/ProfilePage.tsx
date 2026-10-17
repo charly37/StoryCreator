@@ -7,6 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
 import { AppUser } from '../App';
+import ApiKeysSection from './ApiKeysSection';
 
 const ProfilePage: React.FC<{ user: AppUser }> = ({ user }) => {
   const { t, i18n } = useTranslation();
@@ -69,6 +70,8 @@ const ProfilePage: React.FC<{ user: AppUser }> = ({ user }) => {
             </Box>
           ))}
         </Paper>
+
+        <ApiKeysSection canCreate={!!user.canCreateStories} />
       </Container>
     </Box>
   );

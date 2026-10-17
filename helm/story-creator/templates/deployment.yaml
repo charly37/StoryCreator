@@ -27,6 +27,8 @@ spec:
               value: {{ .Values.app.nodeEnv | quote }}
             - name: PORT
               value: {{ .Values.app.port | quote }}
+            - name: PUBLIC_API_RATE_LIMIT_PER_MIN
+              value: {{ .Values.app.publicApiRateLimitPerMin | default 60 | quote }}
             - name: MONGODB_URI
               valueFrom:
                 secretKeyRef:

@@ -14,6 +14,8 @@ replicaCount: 1
 app:
   nodeEnv: production
   port: 3000
+  # Requests per minute per API key on /api/v1
+  publicApiRateLimitPerMin: 60
 
 ingress:
   host: bilingualstory.net

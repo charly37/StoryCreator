@@ -21,6 +21,8 @@ MONGODB_URI=mongodb+srv://<db_username>:<db_password>@cluster0.xxxxx.mongodb.net
 SESSION_SECRET=your-secret-key-change-in-production
 NODE_ENV=development
 PORT=3000
+# Optional — public API v1 requests per minute per key (default: 60)
+PUBLIC_API_RATE_LIMIT_PER_MIN=60
 ```
 
 Replace `<db_username>` and `<db_password>` with your actual MongoDB Atlas credentials.
@@ -63,6 +65,29 @@ pre-existing documents (optional — a missing field behaves as `false`):
 ```js
 db.users.updateMany({ canCreateStories: { $exists: false } }, { $set: { canCreateStories: false } });
 ```
+
+## Public API keys
+
+The public API (`/api/v1`, see [PUBLIC_API.md](PUBLIC_API.md)) is read-only and
+exposes published stories. Every request must carry an API key.
+
+Users with creator access create and revoke keys themselves at **Profile → API
+keys**. A key is shown once at creation; only its SHA-256 hash and a non-secret
+prefix are stored, so a lost key must be revoked and replaced. Each account may
+hold at most 5 keys.
+
+Keys live in the `apikeys` collection and are owned by a user (`ownerId`). To
+inspect or revoke keys manually:
+
+```js
+// List keys (never contains the secret)
+db.apikeys.find({}, { name: 1, prefix: 1, ownerId: 1, createdAt: 1, lastUsedAt: 1 });
+
+// Revoke a key by prefix
+db.apikeys.deleteOne({ prefix: "stc_live_AbCdEfGh" });
+```
+
+The rate limit is controlled by `PUBLIC_API_RATE_LIMIT_PER_MIN` (default `60`).
 
 ## Development
 

@@ -2,6 +2,8 @@
 
 All endpoints are prefixed with `/api`. The server returns JSON for all responses.
 
+> For external, read-only integrations use the keyed **[Public API v1](PUBLIC_API.md)** (`/api/v1`) instead of the session-based endpoints below. It requires an API key and exposes published stories only.
+
 Authentication is session-based — the browser cookie is sent automatically. Endpoints marked **Auth required** return `401` if the session has no `userId`.
 
 Some endpoints additionally require **creator access** — the user document must have `canCreateStories: true`. These endpoints return:
@@ -312,6 +314,58 @@ Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `can
 - The story's `aiGuideline` is included as style guidance when provided.
 - Regenerated chapters receive updated bilingual `title`s; an author-provided chapter `seed` is preserved when non-empty.
 - Responds `202` and runs the job in the background.
+
+## API Keys — `/api/keys`
+
+Self-service API keys for the [public API](PUBLIC_API.md). All endpoints are **auth required** and only operate on the current user's keys. `POST` additionally requires **creator access**.
+
+The raw key is returned exactly once, on creation. Only a SHA-256 hash and a non-secret prefix are stored.
+
+### `GET /api/keys`
+
+List the current user's keys, newest first.
+
+**Response `200`:**
+
+```json
+{
+  "keys": [
+    {
+      "id": "66f1c2...",
+      "name": "My reading app",
+      "prefix": "stc_live_AbCdEfGh",
+      "scopes": ["stories:read"],
+      "createdAt": "2026-10-17T09:12:00.000Z",
+      "lastUsedAt": null
+    }
+  ],
+  "maxKeys": 5
+}
+```
+
+### `POST /api/keys`
+
+*Auth required. Creator access required.*
+
+**Body:** `{ "name": "My reading app" }` — required, trimmed, 1–50 characters.
+
+- Returns `400` when the name is missing, blank or too long.
+- Returns `400` with `code: "API_KEY_LIMIT_REACHED"` when the account already has 5 keys.
+- Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `canCreateStories`.
+
+**Response `201`:**
+
+```json
+{
+  "key": "stc_live_...",
+  "apiKey": { "id": "...", "name": "My reading app", "prefix": "stc_live_AbCdEfGh", "scopes": ["stories:read"], "createdAt": "...", "lastUsedAt": null },
+  "warning": "Store this key now. It cannot be retrieved again."
+}
+```
+
+### `DELETE /api/keys/:id`
+
+*Auth required. Owner only.* Revoke a key by deleting it. Returns `204` on success, or `404` when the id is invalid or belongs to another user.
 
 ## Health Check
 
