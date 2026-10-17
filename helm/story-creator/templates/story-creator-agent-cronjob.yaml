@@ -1,0 +1,65 @@
+{{- if .Values.storyCreatorAgent.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-story-agent
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "story-creator.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.storyCreatorAgent.schedule | quote }}
+  suspend: {{ .Values.storyCreatorAgent.suspend }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: {{ .Values.storyCreatorAgent.startingDeadlineSeconds }}
+  successfulJobsHistoryLimit: {{ .Values.storyCreatorAgent.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.storyCreatorAgent.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.storyCreatorAgent.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.storyCreatorAgent.activeDeadlineSeconds }}
+      template:
+        metadata:
+          labels:
+            app: {{ .Release.Name }}-story-agent
+            {{- include "story-creator.selectorLabels" . | nindent 12 }}
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: story-agent
+              image: "{{ .Values.image.scripts.repository }}:{{ .Values.image.scripts.tag | default .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.scripts.pullPolicy }}
+              command: ["python", "-u", "StoryCreatorAgent.py"]
+              args:
+                {{- toYaml .Values.storyCreatorAgent.args | nindent 16 }}
+              env:
+                - name: STORYCREATOR_API_URL
+                  value: {{ .Values.storyCreatorAgent.apiUrl | default (printf "http://%s-app" .Release.Name) | quote }}
+                - name: STORYCREATOR_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.storyCreatorAgent.apiKeySecret.name | default "story-creator-secrets" }}
+                      key: {{ .Values.storyCreatorAgent.apiKeySecret.key | default "storycreator-api-key" }}
+                # Stable for every retry of the same scheduled Job, so a pod restart
+                # replays the original Idempotency-Key instead of paying for a second story.
+                - name: STORYCREATOR_IDEMPOTENCY_KEY
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['job-name']
+                - name: OPEN_AI_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: story-creator-secrets
+                      key: open-ai-key
+              resources:
+                {{- toYaml .Values.resources.storyCreatorAgent | nindent 16 }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+{{- end }}

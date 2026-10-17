@@ -8,6 +8,12 @@ image:
   repository: charly37/storycreator
   tag: latest
   pullPolicy: IfNotPresent
+  # Image built from pythonDockerBaseImage/Dockerfile (DialectHubAgent scripts).
+  scripts:
+    repository: charly37/storycreator-scripts
+    # Empty means "use image.tag" (set both with --set image.tag=...)
+    tag: ""
+    pullPolicy: IfNotPresent
 
 replicaCount: 1
 
@@ -29,6 +35,39 @@ certManager:
   # that were already created by the primary (prod) release.
   createIssuers: true
 
+# Scheduled agent that invents a story idea and creates it through the public API.
+# Requires `storycreator-api-key` in the story-creator-secrets secret. The key must
+# be created in Profile → API keys with "Allow creating stories (uses AI)" enabled.
+storyCreatorAgent:
+  enabled: true
+  # Mondays at 08:00 (cluster timezone)
+  schedule: "0 8 * * 1"
+  suspend: false
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  backoffLimit: 2
+  # Must be greater than the agent's --timeout (default 900s)
+  activeDeadlineSeconds: 1200
+
+  # In-cluster API URL. Empty defaults to http://<release>-app (the chart Service).
+  apiUrl: ""
+
+  apiKeySecret:
+    name: story-creator-secrets
+    key: storycreator-api-key
+
+  # Arguments passed to StoryCreatorAgent.py.
+  # Add "--no-publish" to keep generated stories as drafts, or
+  # "--native-language", "fr" to target French learners.
+  args:
+    - "--level"
+    - "beginner"
+    - "--chapters"
+    - "3"
+    - "--sentences-per-chapter"
+    - "8"
+
 resources:
   app:
     requests:
@@ -37,3 +76,10 @@ resources:
     limits:
       memory: "512Mi"
       cpu: "500m"
+  storyCreatorAgent:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"

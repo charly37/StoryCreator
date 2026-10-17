@@ -158,7 +158,18 @@ Before the first `helm install`, create the secret that holds sensitive config i
 kubectl create secret generic story-creator-secrets \
   --namespace=story-creator \
   --from-literal=mongodb-uri='<your-atlas-connection-string>' \
-  --from-literal=session-secret='<random-secret-key>'
+  --from-literal=session-secret='<random-secret-key>' \
+  --from-literal=open-ai-key='<your-openai-key>' \
+  --from-literal=storycreator-api-key='<stc_live_ key with stories:write>'
+```
+
+`storycreator-api-key` is used by the scheduled story agent. Create it in the
+website under **Profile → API keys** with "Allow creating stories (uses AI)"
+enabled, then patch the secret if it is already deployed:
+
+```bash
+kubectl -n story-creator patch secret story-creator-secrets --type merge \
+  -p '{"stringData":{"storycreator-api-key":"stc_live_..."}}'
 ```
 
 This only needs to be done once per cluster. The Helm chart references it but never creates it (keeping credentials out of version control).
@@ -179,3 +190,13 @@ helm upgrade --install story-creator helm/story-creator \
 ```
 
 Update `helm/story-creator/values.yaml` (or pass `--set`) to change the domain (`bilingualstory.net` by default), image tag, or resource limits.
+
+### Scheduled story agent (CronJob)
+
+The chart deploys `story-creator-story-agent`, a CronJob that runs
+`DialectHubAgent/StoryCreatorAgent.py` on a schedule to create a story through
+the public API. It requires the `storycreator-api-key` secret key above and the
+`charly37/storycreator-scripts` image built by CI.
+
+See [STORY_AGENT.md](STORY_AGENT.md) for the schedule, CLI options, local and
+Docker usage, manual job triggers and troubleshooting.

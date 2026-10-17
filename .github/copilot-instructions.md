@@ -9,6 +9,8 @@ This project follows a **lean README + detailed docs** pattern:
   - `SETUP.md` - Installation, environment setup, MongoDB Atlas, scripts
   - `design.md` - Architecture, features, project structure
   - `API.md` - Complete API reference (endpoints, payloads, response codes)
+  - `PUBLIC_API.md` - Key-authenticated read/create API (`/api/v1`)
+  - `STORY_AGENT.md` - Scheduled story-generation agent, Docker image, Helm CronJob
   - `AUTHENTICATION_SETUP.md` - User auth implementation
   - `TODO.md` - Planned improvements and known issues
 
@@ -59,10 +61,13 @@ npm test             # MongoDB Memory Server + Playwright
 - Smoke tests will be tagged `@smoke` for CI runs.
 - Prefer `getByRole()` selectors over `getByTestId()`.
 
-### Deployment (planned)
-- Production: Docker multi-stage build (`Dockerfile` — to be added)
-- Deployed on k3s via Helm charts (`helm/story-creator/` — to be added)
-- CI/CD: GitHub Actions builds and pushes images (mirrors PortugueseLearning workflow)
+### Deployment
+- Production: multi-stage `Dockerfile` (app image).
+- Deployed on k3s via Helm chart `helm/story-creator/`.
+- A second image, `charly37/storycreator-scripts`, is built from `pythonDockerBaseImage/Dockerfile` and packages `DialectHubAgent/StoryCreatorAgent.py`.
+- The chart renders a `storyCreatorAgent` CronJob (`<release>-story-agent`, default Mondays 08:00) that generates an idea and creates a story through `POST /api/v1/stories`. It requires `storycreator-api-key` (write-enabled key) and `open-ai-key` in the `story-creator-secrets` secret. Config lives under `storyCreatorAgent.*` in `values.yaml`.
+- The CronJob passes the Kubernetes `job-name` as `STORYCREATOR_IDEMPOTENCY_KEY`, so retries of one scheduled run reuse the same story instead of paying for a second AI generation.
+- CI/CD: GitHub Actions builds and pushes both images (mirrors PortugueseLearning workflow).
 
 ## Project-Specific Conventions
 

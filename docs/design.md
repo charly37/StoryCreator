@@ -178,3 +178,16 @@ src/
 Sessions are stored in MongoDB (`connect-mongo`). The session cookie has a 7-day TTL (`maxAge: 7 days`), is `httpOnly`, and uses `sameSite: lax`. `touchAfter: 24 * 3600` prevents unnecessary session document writes on every request.
 
 > For production, set `cookie.secure: true` and serve over HTTPS.
+
+## Story Automation
+
+`DialectHubAgent/StoryCreatorAgent.py` runs as a Kubernetes CronJob
+(`<release>-story-agent`) and creates stories through the public API rather than
+touching MongoDB. It asks an OpenAI agent for a random idea, `POST`s it to
+`/api/v1/stories`, and polls until generation completes. Kubernetes retries of a
+scheduled run reuse the Job name as the `Idempotency-Key`, avoiding duplicate
+paid generations.
+
+The agent is shipped in `charly37/storycreator-scripts` (built from
+`pythonDockerBaseImage/Dockerfile`). Configuration lives under
+`storyCreatorAgent.*` in the Helm chart. See [STORY_AGENT.md](STORY_AGENT.md).
