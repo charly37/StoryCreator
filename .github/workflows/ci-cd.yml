@@ -83,6 +83,9 @@ jobs:
     - name: Build scripts Docker image
       run: docker build -t storycreator-scripts:${{ steps.tags.outputs.app_tag }} -f pythonDockerBaseImage/Dockerfile .
 
+    - name: Smoke-test scripts image
+      run: docker run --rm storycreator-scripts:${{ steps.tags.outputs.app_tag }} --help
+
     - name: Test Docker image with MongoDB
       run: |
         # Create isolated network for container communication
@@ -131,6 +134,9 @@ jobs:
         # Also push floating tag (latest or dev)
         docker tag storycreator:${{ steps.tags.outputs.app_tag }} ${{ vars.DOCKER_USERNAME }}/storycreator:${{ steps.tags.outputs.floating_tag }}
         docker push ${{ vars.DOCKER_USERNAME }}/storycreator:${{ steps.tags.outputs.floating_tag }}
+
+        docker tag storycreator-scripts:${{ steps.tags.outputs.app_tag }} ${{ vars.DOCKER_USERNAME }}/storycreator-scripts:${{ steps.tags.outputs.floating_tag }}
+        docker push ${{ vars.DOCKER_USERNAME }}/storycreator-scripts:${{ steps.tags.outputs.floating_tag }}
 
     - name: Create deployment info
       if: github.event_name != 'pull_request'
