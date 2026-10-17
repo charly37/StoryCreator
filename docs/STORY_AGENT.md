@@ -150,7 +150,9 @@ docker run --rm \
 ```
 
 The container runs as UID 1000 (`appuser`) and has no writable application
-directory requirement; the agent only needs network access.
+directory requirement; the agent only needs network access. `python -u
+StoryCreatorAgent.py` is the image entrypoint, so CLI flags are appended directly
+after the image name.
 
 ---
 

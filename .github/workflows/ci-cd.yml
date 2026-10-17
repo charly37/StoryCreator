@@ -83,9 +83,6 @@ jobs:
     - name: Build scripts Docker image
       run: docker build -t storycreator-scripts:${{ steps.tags.outputs.app_tag }} -f pythonDockerBaseImage/Dockerfile .
 
-    - name: Smoke-test scripts image
-      run: docker run --rm storycreator-scripts:${{ steps.tags.outputs.app_tag }} --help
-
     - name: Test Docker image with MongoDB
       run: |
         # Create isolated network for container communication

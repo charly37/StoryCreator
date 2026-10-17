@@ -28,5 +28,5 @@ USER appuser
 # Copy application code (with correct ownership)
 COPY --chown=appuser:appuser DialectHubAgent/StoryCreatorAgent.py .
 
-# Default command — pass CLI flags after the image name
-CMD ["python", "-u", "StoryCreatorAgent.py"]
+# Entrypoint — CLI flags can be appended after the image name
+ENTRYPOINT ["python", "-u", "StoryCreatorAgent.py"]

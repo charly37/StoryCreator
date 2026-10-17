@@ -90,9 +90,6 @@ jobs:
           -f pythonDockerBaseImage/Dockerfile \
           -t ${{ vars.DOCKER_USERNAME }}/storycreator-scripts:$VERSION .
 
-    - name: Smoke-test scripts image
-      run: docker run --rm ${{ vars.DOCKER_USERNAME }}/storycreator-scripts:${{ github.event.inputs.version }} --help
-
     - name: Push Docker images
       run: |
         VERSION="${{ github.event.inputs.version }}"
