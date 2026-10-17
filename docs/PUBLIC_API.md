@@ -1,14 +1,15 @@
 # Public API v1
 
-A read-only, key-authenticated API for published stories. It is intended for
-external tools (reading apps, export scripts, integrations) that want bilingual
-story content without going through the website.
+A key-authenticated API for published stories and for creating new stories with
+the platform's AI writer. It is intended for external tools (reading apps,
+export scripts, integrations) that want bilingual story content without going
+through the website.
 
 - **Base path:** `/api/v1`
 - **Content type:** `application/json`
-- **Access:** published stories only; every request requires an API key
-- **No write access:** creating, editing, generating, publishing and deleting
-  stories are not available over this API
+- **Read:** published stories (list, detail, metadata) — requires `stories:read`
+- **Write:** create a story from a seed; the AI writer generates the chapters asynchronously — requires `stories:write`
+- **Not available:** updating, deleting, unpublishing, or publishing existing stories. Those stay website-only.
 
 The browser-facing API under `/api/*` is separate and remains session-based.
 
@@ -29,6 +30,16 @@ Keys look like `stc_live_` followed by 32 URL-safe characters. They are shown
 **once**, when created, and only a SHA-256 hash is stored — a lost key cannot be
 recovered, only revoked and replaced.
 
+### Scopes
+
+| Scope | Grants |
+|---|---|
+| `stories:read` | List, read and browse published stories |
+| `stories:write` | Create stories (always issued together with `stories:read`) |
+
+Read-only keys keep working unchanged. Write access is opt-in when the key is
+created.
+
 ### Creating and revoking keys
 
 Keys are managed from the website at **Profile → API keys** while logged in, or
@@ -40,17 +51,20 @@ with the endpoints below (session cookie auth, not an API key):
 | `POST` | `/api/keys` | Create a key — the raw key is returned **once** |
 | `DELETE` | `/api/keys/:id` | Revoke a key immediately |
 
-`POST /api/keys` body: `{ "name": "My reading app" }` (1–50 characters).
+`POST /api/keys` body: `{ "name": "My reading app", "writeAccess": true }`.
+`name` is required (1–50 characters); `writeAccess` is optional and defaults to
+`false`. When `true`, the key receives both `stories:read` and `stories:write`.
 
-Creator access (`canCreateStories: true`) is required to create keys. A maximum
-of **5** keys can exist per account at any time.
+Creator access (`canCreateStories: true`) is required to create keys, and is
+re-checked on every write request. A maximum of **5** keys can exist per account
+at any time.
 
 ```bash
-# Create a key
+# Create a read+write key
 curl -X POST https://your-host/api/keys \
   -H 'Content-Type: application/json' \
   -b cookies.txt \
-  -d '{"name":"My reading app"}'
+  -d '{"name":"Publishing pipeline","writeAccess":true}'
 ```
 
 ```json
@@ -60,7 +74,7 @@ curl -X POST https://your-host/api/keys \
     "id": "66f1c2...",
     "name": "My reading app",
     "prefix": "stc_live_AbCdEfGh",
-    "scopes": ["stories:read"],
+    "scopes": ["stories:read", "stories:write"],
     "createdAt": "2026-10-17T09:12:00.000Z",
     "lastUsedAt": null
   },
@@ -128,12 +142,90 @@ curl -s "https://your-host/api/v1/stories?nativeLang=en&learningLang=pt&level=be
 
 ---
 
+### `POST /api/v1/stories`
+
+Create a draft and start AI generation. Requires the `stories:write` scope.
+
+The story is created immediately with empty chapters; generation runs in the
+background. The response is `202 Accepted` with a `Location` header and a
+`pollUrl` — poll `GET /api/v1/stories/:id` until `data.status.state` is `ready`
+(or `failed`).
+
+**Body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `title.lang1` | string | yes | Title in the native language |
+| `title.lang2` | string | no | Title in the learning language (the AI fills it when blank) |
+| `nativeLanguage` | string | yes | Supported language code (see `/metadata`) |
+| `learningLanguage` | string | yes | Supported language code; must differ from `nativeLanguage` |
+| `level` | string | yes | `beginner`, `intermediate` or `advanced` |
+| `seed` | string | yes | Story premise used by the AI |
+| `topic` | string | no | Free-text topic (max 200 chars) |
+| `characters` | array | no | `[{ name, role, description, appearance }]`, max 20 |
+| `aiGuideline` | string | no | Private style guidance (max 2000 chars) |
+| `aiModel` | string | no | `gpt-4o-mini` (default), `gpt-4.1-mini`, `gpt-4o`, `gpt-5-mini` |
+| `targetChapters` | integer | no | 1–10, default `1` (ignored when `chapters` is provided) |
+| `chapters` | array | no | `[{ title?, seed?, targetSentences? }]`, max 10; `targetSentences` 1–100 |
+| `published` | boolean | no | Default `false`. When `true`, the story is published automatically once generation produces content |
+
+**Idempotency**
+
+Send `Idempotency-Key: <unique value>` to make retries safe. Replaying the same
+key returns the previously created story (`200`) instead of starting a second
+paid AI generation.
+
+**Response `202`**
+
+```json
+{
+  "data": {
+    "id": "66f0a1b2c3d4e5f60718293a",
+    "status": "generating",
+    "published": false,
+    "pollUrl": "/api/v1/stories/66f0a1b2c3d4e5f60718293a"
+  }
+}
+```
+
+```bash
+curl -X POST https://your-host/api/v1/stories \
+  -H "Authorization: Bearer $STORYCREATOR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: story-2026-10-17-001" \
+  -d '{
+    "title": { "lang1": "The Patient Robot" },
+    "nativeLanguage": "en",
+    "learningLanguage": "pt",
+    "level": "beginner",
+    "seed": "A small robot learns to garden with the help of a neighbour.",
+    "published": true
+  }'
+```
+
+If generation fails, the story stays a draft and the failure is recorded on
+`status.generationError`.
+
+---
+
 ### `GET /api/v1/stories/:id`
 
 Fetch one published story, including every chapter and sentence pair.
 
-Draft, unpublished and non-existent stories all return `404 NOT_FOUND` — the API
-does not reveal whether an unpublished story exists.
+Draft, unpublished and non-existent stories return `404 NOT_FOUND` — the API
+does not reveal whether an unpublished story exists. The exception is a
+**write-scoped key reading its own story**: drafts are visible to their owner, so
+the create → poll flow works before publishing.
+
+Write-scoped owners also receive a `status` block:
+
+```json
+"status": { "state": "ready", "published": true, "generationError": "" }
+```
+
+`state` is `generating` while the AI job runs, `failed` if it errored (with a
+truncated `generationError`), and `ready` otherwise. Public responses do not
+include this block.
 
 **Response `200`**
 
@@ -200,13 +292,14 @@ All v1 errors use the same envelope:
 
 | Status | Code | Meaning |
 |---|---|---|
-| `400` | `INVALID_PARAMETER` | Invalid query value or story id |
+| `400` | `INVALID_PARAMETER` | Invalid query value, story id, or create body |
 | `401` | `MISSING_API_KEY` | No `Authorization: Bearer` / `X-API-Key` header |
 | `401` | `INVALID_API_KEY` | Unknown, malformed or revoked key |
-| `403` | `INSUFFICIENT_SCOPE` | Key lacks the required `stories:read` scope |
+| `403` | `INSUFFICIENT_SCOPE` | Key lacks the required `stories:read` / `stories:write` scope |
+| `403` | `CREATOR_ACCESS_REQUIRED` | The key owner no longer has `canCreateStories` |
 | `404` | `NOT_FOUND` | Story missing/unpublished, or unknown endpoint |
 | `429` | `RATE_LIMITED` | Request limit exceeded for this key |
-| `500` | `SERVER_ERROR` | Unexpected server failure |
+| `500` | `SERVER_ERROR` | Unexpected server failure (including generation failing to start) |
 
 Unknown paths under `/api/v1` always return the JSON 404 envelope — never the
 website's HTML shell.
@@ -216,7 +309,8 @@ website's HTML shell.
 ## Rate limits
 
 Each key gets **60 requests per minute** by default (configurable per deployment
-with `PUBLIC_API_RATE_LIMIT_PER_MIN`). Limits are tracked per key, not per IP.
+with `PUBLIC_API_RATE_LIMIT_PER_MIN`). Limits are tracked per key, not per IP,
+and apply to reads and story creation alike.
 
 Responses include the standard IETF `RateLimit-*` headers:
 
@@ -237,8 +331,11 @@ header.
   per key to avoid a database write on every request.
 - Keys are stored as SHA-256 hashes with an indexed, non-secret prefix. Revoking
   a key deletes it, which invalidates it immediately.
-- Revoking `canCreateStories` from an account does **not** invalidate keys that
-  already exist — revoke the keys themselves if needed.
+- `canCreateStories` is re-checked on every write request, so revoking creator
+  access takes effect immediately. Existing keys are not deleted automatically.
+- Story creation triggers a **paid** AI call. There is currently no daily quota;
+  the per-key minute limit is the only throttle. Use `Idempotency-Key` to avoid
+  duplicate generations on retries.
 - The public payload is an explicit allow-list. Authoring internals (story seed,
   AI guideline, character descriptions, author ids, AI call counters) are never
   returned.

@@ -80,6 +80,9 @@ jobs:
     - name: Build Docker image
       run: docker build -t storycreator:${{ steps.tags.outputs.app_tag }} .
 
+    - name: Build scripts Docker image
+      run: docker build -t storycreator-scripts:${{ steps.tags.outputs.app_tag }} -f pythonDockerBaseImage/Dockerfile .
+
     - name: Test Docker image with MongoDB
       run: |
         # Create isolated network for container communication
@@ -122,6 +125,9 @@ jobs:
         docker tag storycreator:${{ steps.tags.outputs.app_tag }} ${{ vars.DOCKER_USERNAME }}/storycreator:${{ steps.tags.outputs.app_tag }}
         docker push ${{ vars.DOCKER_USERNAME }}/storycreator:${{ steps.tags.outputs.app_tag }}
 
+        docker tag storycreator-scripts:${{ steps.tags.outputs.app_tag }} ${{ vars.DOCKER_USERNAME }}/storycreator-scripts:${{ steps.tags.outputs.app_tag }}
+        docker push ${{ vars.DOCKER_USERNAME }}/storycreator-scripts:${{ steps.tags.outputs.app_tag }}
+
         # Also push floating tag (latest or dev)
         docker tag storycreator:${{ steps.tags.outputs.app_tag }} ${{ vars.DOCKER_USERNAME }}/storycreator:${{ steps.tags.outputs.floating_tag }}
         docker push ${{ vars.DOCKER_USERNAME }}/storycreator:${{ steps.tags.outputs.floating_tag }}
@@ -138,6 +144,7 @@ jobs:
         echo "" >> deployment-info.txt
         echo "Docker Image:" >> deployment-info.txt
         echo "  - ${{ vars.DOCKER_USERNAME }}/storycreator:${{ steps.tags.outputs.app_tag }}" >> deployment-info.txt
+        echo "  - ${{ vars.DOCKER_USERNAME }}/storycreator-scripts:${{ steps.tags.outputs.app_tag }}" >> deployment-info.txt
         cat deployment-info.txt
 
     - name: Upload deployment info

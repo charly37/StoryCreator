@@ -2,38 +2,13 @@ import express, { Request, Response, NextFunction } from 'express';
 import Story from '../models/Story';
 import User from '../models/User';
 import { aiService, sanitizeSentences, sanitizeTitle } from '../services/aiService';
-
-const DEFAULT_SENTENCES_PER_CHAPTER = 12;
-const MAX_CHARACTERS = 20;
-const MAX_CHAPTERS_PER_STORY = 10;
-const MAX_AI_GUIDELINE_LENGTH = 2000;
-
-interface CharacterInput {
-  name?: unknown;
-  role?: unknown;
-  description?: unknown;
-  appearance?: unknown;
-}
-
-/** Trims character fields, drops nameless entries, and caps the cast size. */
-function sanitizeCharacters(input: unknown): Array<{ name: string; role: string; description: string; appearance: string }> {
-  if (!Array.isArray(input)) return [];
-  return input
-    .filter((c): c is CharacterInput => !!c && typeof c === 'object')
-    .map((c) => ({
-      name: typeof c.name === 'string' ? c.name.trim() : '',
-      role: typeof c.role === 'string' ? c.role.trim() : '',
-      description: typeof c.description === 'string' ? c.description.trim() : '',
-      appearance: typeof c.appearance === 'string' ? c.appearance.trim() : '',
-    }))
-    .filter((c) => c.name !== '')
-    .slice(0, MAX_CHARACTERS);
-}
-
-function sanitizeAIGuideline(input: unknown): string {
-  if (typeof input !== 'string') return '';
-  return input.trim().slice(0, MAX_AI_GUIDELINE_LENGTH);
-}
+import { startStoryGeneration } from '../services/storyGenerationService';
+import {
+  DEFAULT_SENTENCES_PER_CHAPTER,
+  MAX_CHAPTERS_PER_STORY,
+  sanitizeAIGuideline,
+  sanitizeCharacters,
+} from '../services/storyInput';
 
 const router = express.Router();
 
@@ -352,58 +327,19 @@ router.post('/:id/generate', requireAuth, requireCreatePermission, async (req: R
       return res.status(400).json({ message: 'A story seed is required' });
     }
 
-    const chapterSpecs = story.chapters.map((c) => ({
-      seed: c.seed,
-      targetSentences: c.targetSentences,
-    }));
-    const characters = story.characters.map((c) => ({
-      name: c.name,
-      role: c.role,
-      description: c.description,
-      appearance: c.appearance,
-    }));
-    const hadCharacters = characters.length > 0;
-
-    story.generating = true;
-    await story.save();
-
     const { model } = req.body as { model?: string };
-    res.status(202).json({ message: 'Story generation started', storyId: story._id });
-
-    setImmediate(async () => {
-      try {
-        const generated = await aiService.generateStory(
-          story.seed,
-          story.nativeLanguage,
-          story.learningLanguage,
-          chapterSpecs,
-          characters,
-          story.level,
-          model,
-          story.aiGuideline
-        );
-        story.chapters = generated.chapters.map((c, i) => ({
-          title: c.title,
-          seed: chapterSpecs[i]?.seed?.trim() || c.seed,
-          targetSentences: chapterSpecs[i]?.targetSentences ?? c.sentences.length,
-          sentences: c.sentences,
-        }));
-        // Auto-populate the cast only when the author had not defined one
-        if (!hadCharacters && generated.characters.length > 0) {
-          story.characters = generated.characters;
-        }
-        story.title.lang2 = generated.title;
-        story.isAIGenerated = true;
-        story.generating = false;
-        story.aiCallCount = (story.aiCallCount ?? 0) + 1;
-        await story.save();
-      } catch (error) {
-        console.error('Background story generation failed:', error);
-        // Use updateOne (no document validation) so a partially-populated in-memory
-        // story cannot throw again and crash the process.
-        await Story.updateOne({ _id: story._id }, { $set: { generating: false } });
+    const result = await startStoryGeneration(String(req.params.id), model);
+    if (!result.ok) {
+      if (result.code === 'ALREADY_GENERATING') {
+        return res.status(409).json({ message: 'Story is already generating', code: 'STORY_GENERATING' });
       }
-    });
+      if (result.code === 'MISSING_SEED') {
+        return res.status(400).json({ message: 'A story seed is required' });
+      }
+      return res.status(404).json({ message: 'Story not found' });
+    }
+
+    res.status(202).json({ message: 'Story generation started', storyId: story._id });
   } catch (error) {
     console.error('Error starting story generation:', error);
     res.status(500).json({ message: 'Server error starting story generation' });

@@ -11,6 +11,7 @@ const SECRET_BYTES = 24;
 const LAST_USED_TOUCH_MS = 5 * 60 * 1000;
 
 export const API_KEY_SCOPE = 'stories:read';
+export const API_KEY_WRITE_SCOPE = 'stories:write';
 export const MAX_API_KEYS_PER_USER = 5;
 
 export interface ApiKeyIdentity {
@@ -79,11 +80,19 @@ export type CreateApiKeyResult =
   | { ok: false; code: 'API_KEY_LIMIT_REACHED' };
 
 /** Creates a key for a user, retrying on the (astronomically unlikely) prefix/hash collision. */
-export async function createApiKeyForUser(ownerId: string, name: string): Promise<CreateApiKeyResult> {
+export async function createApiKeyForUser(
+  ownerId: string,
+  name: string,
+  options: { writeAccess?: boolean } = {}
+): Promise<CreateApiKeyResult> {
   const existing = await ApiKey.countDocuments({ ownerId });
   if (existing >= MAX_API_KEYS_PER_USER) {
     return { ok: false, code: 'API_KEY_LIMIT_REACHED' };
   }
+
+  const scopes = options.writeAccess
+    ? [API_KEY_SCOPE, API_KEY_WRITE_SCOPE]
+    : [API_KEY_SCOPE];
 
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -94,7 +103,7 @@ export async function createApiKeyForUser(ownerId: string, name: string): Promis
         prefix: material.prefix,
         keyHash: material.keyHash,
         ownerId,
-        scopes: [API_KEY_SCOPE],
+        scopes,
       });
       return { ok: true, rawKey: material.rawKey, apiKey };
     } catch (error) {

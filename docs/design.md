@@ -54,9 +54,13 @@ External clients
 ### 7. **Public API & API Keys**
 - Accounts with `canCreateStories` create up to **5** API keys from **Profile → API keys**.
 - Raw keys are shown exactly once. Only a SHA-256 hash and a non-secret, indexed prefix are stored.
-- `/api/v1` is key-authenticated (`Authorization: Bearer`), read-only and limited to **published** stories: list, detail and metadata.
-- Responses are built by an explicit allow-list serializer, so authoring metadata (`seed`, `aiGuideline`, `characters`, `authorId`, `generating`, AI counters) is never exposed.
-- Requests are rate limited per key (`PUBLIC_API_RATE_LIMIT_PER_MIN`, default 60/min) and CORS is open for `GET` so browser-based tools can call it.
+- `/api/v1` is key-authenticated (`Authorization: Bearer`):
+  - `stories:read` — list, detail and metadata for **published** stories.
+  - `stories:write` (opt-in per key, always paired with read) — `POST /api/v1/stories` creates a draft from a seed and starts the same AI generation pipeline as the website. Generation runs asynchronously; clients poll `GET /api/v1/stories/:id`, where write-scoped owners can see their own drafts plus a `status` block (`generating` / `ready` / `failed`).
+- `published: true` at creation defers publishing until generation produces content. There is no update/delete/publish surface over the API.
+- `Idempotency-Key` on create prevents duplicate paid AI calls on retries.
+- Responses are built by an explicit allow-list serializer, so authoring metadata (`seed`, `aiGuideline`, `characters`, `authorId`, `generating` outside the owner status block, AI counters) is never exposed publicly.
+- Requests are rate limited per key (`PUBLIC_API_RATE_LIMIT_PER_MIN`, default 60/min) and CORS is open for `GET`/`POST` so browser-based tools can call it.
 - The session-based `/api/*` surface is unchanged; v1 is additive and breaking changes ship as `/api/v2`.
 - See [PUBLIC_API.md](PUBLIC_API.md).
 

@@ -82,8 +82,8 @@ app.use(
   '/api/v1',
   cors({
     origin: '*',
-    methods: ['GET'],
-    allowedHeaders: ['Authorization', 'X-API-Key', 'Content-Type'],
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Authorization', 'X-API-Key', 'Content-Type', 'Idempotency-Key'],
     maxAge: 86400,
   }),
   requireApiKey,

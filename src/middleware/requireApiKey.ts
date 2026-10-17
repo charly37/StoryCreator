@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { API_KEY_SCOPE, authenticateApiKey } from '../services/apiKeyService';
+import { authenticateApiKey } from '../services/apiKeyService';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -34,7 +34,7 @@ function extractRawKey(req: Request): string | null {
   return null;
 }
 
-/** Gates the public `/api/v1` surface behind a valid, scoped API key. */
+/** Authenticates the key and attaches its identity to `req`. Does not check scopes. */
 export async function requireApiKey(req: Request, res: Response, next: NextFunction): Promise<void> {
   const rawKey = extractRawKey(req);
   if (!rawKey) {
@@ -48,10 +48,6 @@ export async function requireApiKey(req: Request, res: Response, next: NextFunct
       sendError(res, 401, 'INVALID_API_KEY', 'The provided API key is not valid');
       return;
     }
-    if (!identity.scopes.includes(API_KEY_SCOPE)) {
-      sendError(res, 403, 'INSUFFICIENT_SCOPE', `This key is missing the "${API_KEY_SCOPE}" scope`);
-      return;
-    }
 
     req.apiKey = identity;
     next();
@@ -59,4 +55,19 @@ export async function requireApiKey(req: Request, res: Response, next: NextFunct
     console.error('[apiKey] Authentication failed:', error);
     sendError(res, 500, 'SERVER_ERROR', 'Server error while authenticating the API key');
   }
+}
+
+/** Route-level scope guard; must run after `requireApiKey`. */
+export function requireScope(scope: string) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.apiKey) {
+      sendError(res, 401, 'MISSING_API_KEY', 'Provide an API key via Authorization: Bearer <key>');
+      return;
+    }
+    if (!req.apiKey.scopes.includes(scope)) {
+      sendError(res, 403, 'INSUFFICIENT_SCOPE', `This key is missing the "${scope}" scope`);
+      return;
+    }
+    next();
+  };
 }

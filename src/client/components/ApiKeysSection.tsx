@@ -3,6 +3,8 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -10,6 +12,7 @@ import {
   DialogContentText,
   DialogTitle,
   Divider,
+  FormControlLabel,
   IconButton,
   Paper,
   Stack,
@@ -27,9 +30,12 @@ interface ApiKeyRecord {
   id: string;
   name: string;
   prefix: string;
+  scopes: string[];
   createdAt: string;
   lastUsedAt: string | null;
 }
+
+const WRITE_SCOPE = 'stories:write';
 
 const MAX_NAME_LENGTH = 50;
 const DEFAULT_MAX_KEYS = 5;
@@ -52,6 +58,7 @@ const ApiKeysSection: React.FC<{ canCreate: boolean }> = ({ canCreate }) => {
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState('');
   const [nameError, setNameError] = useState('');
+  const [writeAccess, setWriteAccess] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -101,7 +108,7 @@ const ApiKeysSection: React.FC<{ canCreate: boolean }> = ({ canCreate }) => {
       const res = await fetch('/api/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmed }),
+        body: JSON.stringify({ name: trimmed, writeAccess }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -112,6 +119,7 @@ const ApiKeysSection: React.FC<{ canCreate: boolean }> = ({ canCreate }) => {
       setCreateOpen(false);
       setName('');
       setNameError('');
+      setWriteAccess(false);
       setCopied(false);
       setNewKey(data.key);
       await fetchKeys();
@@ -190,7 +198,19 @@ const ApiKeysSection: React.FC<{ canCreate: boolean }> = ({ canCreate }) => {
           {keys.map((key) => (
             <Box key={key.id} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography variant="body1" sx={{ fontWeight: 600 }} noWrap>{key.name}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body1" sx={{ fontWeight: 600 }} noWrap>{key.name}</Typography>
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    color={key.scopes?.includes(WRITE_SCOPE) ? 'secondary' : 'default'}
+                    label={
+                      key.scopes?.includes(WRITE_SCOPE)
+                        ? t('profile.apiKeys.scopeWrite')
+                        : t('profile.apiKeys.scopeRead')
+                    }
+                  />
+                </Box>
                 <Typography
                   variant="caption"
                   color="text.secondary"
@@ -225,7 +245,10 @@ const ApiKeysSection: React.FC<{ canCreate: boolean }> = ({ canCreate }) => {
               variant="contained"
               startIcon={<AddIcon />}
               disabled={!canCreate || atLimit || loading}
-              onClick={() => setCreateOpen(true)}
+              onClick={() => {
+                setWriteAccess(false);
+                setCreateOpen(true);
+              }}
             >
               {t('profile.apiKeys.create')}
             </Button>
@@ -257,6 +280,20 @@ const ApiKeysSection: React.FC<{ canCreate: boolean }> = ({ canCreate }) => {
             disabled={creating}
             slotProps={{ htmlInput: { maxLength: MAX_NAME_LENGTH } }}
           />
+          <FormControlLabel
+            sx={{ mt: 1 }}
+            control={
+              <Checkbox
+                checked={writeAccess}
+                onChange={(event) => setWriteAccess(event.target.checked)}
+                disabled={creating}
+              />
+            }
+            label={t('profile.apiKeys.writeAccess')}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
+            {t('profile.apiKeys.writeAccessHint')}
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)} disabled={creating}>

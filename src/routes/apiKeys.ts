@@ -5,7 +5,6 @@ import User from '../models/User';
 import {
   createApiKeyForUser,
   MAX_API_KEYS_PER_USER,
-  API_KEY_SCOPE,
 } from '../services/apiKeyService';
 
 const router = express.Router();
@@ -70,7 +69,8 @@ router.post('/', requireAuth, requireCreatePermission, async (req: Request, res:
       return res.status(400).json({ message: `Key name cannot exceed ${MAX_NAME_LENGTH} characters` });
     }
 
-    const result = await createApiKeyForUser(req.session.userId as string, name);
+    const writeAccess = req.body?.writeAccess === true;
+    const result = await createApiKeyForUser(req.session.userId as string, name, { writeAccess });
     if (!result.ok) {
       return res.status(400).json({
         message: `You can have at most ${MAX_API_KEYS_PER_USER} API keys. Revoke one to create another.`,
@@ -80,10 +80,7 @@ router.post('/', requireAuth, requireCreatePermission, async (req: Request, res:
 
     res.status(201).json({
       key: result.rawKey,
-      apiKey: {
-        ...serializeApiKey(result.apiKey),
-        scopes: [API_KEY_SCOPE],
-      },
+      apiKey: serializeApiKey(result.apiKey),
       warning: 'Store this key now. It cannot be retrieved again.',
     });
   } catch (error) {

@@ -38,6 +38,9 @@ export interface IStory extends Document {
   generating: boolean;
   isAIGenerated: boolean;
   aiCallCount: number;
+  generationError: string;
+  publishWhenReady: boolean;
+  idempotencyKey?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -93,6 +96,9 @@ const storySchema = new Schema<IStory>(
     generating: { type: Boolean, default: false },
     isAIGenerated: { type: Boolean, default: false },
     aiCallCount: { type: Number, default: 0 },
+    generationError: { type: String, default: '' },
+    publishWhenReady: { type: Boolean, default: false },
+    idempotencyKey: { type: String, default: undefined },
   },
   { timestamps: true }
 );
@@ -117,6 +123,10 @@ storySchema.pre('save', function () {
 
 storySchema.index({ nativeLanguage: 1, learningLanguage: 1, published: 1 });
 storySchema.index({ authorId: 1 });
+storySchema.index(
+  { authorId: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $exists: true } } }
+);
 
 const Story = mongoose.model<IStory>('Story', storySchema);
 export default Story;

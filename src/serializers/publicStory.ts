@@ -53,8 +53,22 @@ export interface PublicStorySummary extends PublicStoryBase {
   chapterCount: number;
 }
 
+export interface PublicStoryStatus {
+  state: 'generating' | 'ready' | 'failed';
+  published: boolean;
+  generationError: string;
+}
+
 export interface PublicStoryDetail extends PublicStoryBase {
   chapters: PublicChapter[];
+  /** Present only when a write-scoped key reads its own story. */
+  status?: PublicStoryStatus;
+}
+
+export interface OwnerStatusInput {
+  published?: boolean;
+  generating?: boolean;
+  generationError?: string;
 }
 
 function baseFields(story: StoryLike): PublicStoryBase {
@@ -83,8 +97,8 @@ export function toPublicStorySummary(story: StoryLike): PublicStorySummary {
   };
 }
 
-export function toPublicStoryDetail(story: StoryLike): PublicStoryDetail {
-  return {
+export function toPublicStoryDetail(story: StoryLike, ownerStatus?: OwnerStatusInput): PublicStoryDetail {
+  const detail: PublicStoryDetail = {
     ...baseFields(story),
     chapters: (story.chapters ?? []).map((chapter) => ({
       title: {
@@ -97,4 +111,14 @@ export function toPublicStoryDetail(story: StoryLike): PublicStoryDetail {
       })),
     })),
   };
+
+  if (ownerStatus) {
+    detail.status = {
+      state: ownerStatus.generating ? 'generating' : ownerStatus.generationError ? 'failed' : 'ready',
+      published: ownerStatus.published === true,
+      generationError: ownerStatus.generationError ?? '',
+    };
+  }
+
+  return detail;
 }

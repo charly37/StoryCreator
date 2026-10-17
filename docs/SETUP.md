@@ -68,13 +68,14 @@ db.users.updateMany({ canCreateStories: { $exists: false } }, { $set: { canCreat
 
 ## Public API keys
 
-The public API (`/api/v1`, see [PUBLIC_API.md](PUBLIC_API.md)) is read-only and
-exposes published stories. Every request must carry an API key.
+The public API (`/api/v1`, see [PUBLIC_API.md](PUBLIC_API.md)) exposes published
+stories and can create new stories with AI. Every request must carry an API key.
 
 Users with creator access create and revoke keys themselves at **Profile → API
-keys**. A key is shown once at creation; only its SHA-256 hash and a non-secret
-prefix are stored, so a lost key must be revoked and replaced. Each account may
-hold at most 5 keys.
+keys**. Write access is opt-in per key ("Allow creating stories"); read-only keys
+can only browse published stories. A key is shown once at creation; only its
+SHA-256 hash and a non-secret prefix are stored, so a lost key must be revoked
+and replaced. Each account may hold at most 5 keys.
 
 Keys live in the `apikeys` collection and are owned by a user (`ownerId`). To
 inspect or revoke keys manually:

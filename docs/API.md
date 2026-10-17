@@ -2,7 +2,7 @@
 
 All endpoints are prefixed with `/api`. The server returns JSON for all responses.
 
-> For external, read-only integrations use the keyed **[Public API v1](PUBLIC_API.md)** (`/api/v1`) instead of the session-based endpoints below. It requires an API key and exposes published stories only.
+> For external integrations use the keyed **[Public API v1](PUBLIC_API.md)** (`/api/v1`) instead of the session-based endpoints below. It requires an API key, exposes published stories, and can create stories with AI when the key has the `stories:write` scope.
 
 Authentication is session-based — the browser cookie is sent automatically. Endpoints marked **Auth required** return `401` if the session has no `userId`.
 
@@ -347,7 +347,7 @@ List the current user's keys, newest first.
 
 *Auth required. Creator access required.*
 
-**Body:** `{ "name": "My reading app" }` — required, trimmed, 1–50 characters.
+**Body:** `{ "name": "My reading app", "writeAccess": false }` — `name` is required, trimmed, 1–50 characters. `writeAccess` is optional (default `false`); when `true` the key receives both `stories:read` and `stories:write`.
 
 - Returns `400` when the name is missing, blank or too long.
 - Returns `400` with `code: "API_KEY_LIMIT_REACHED"` when the account already has 5 keys.
@@ -358,7 +358,7 @@ List the current user's keys, newest first.
 ```json
 {
   "key": "stc_live_...",
-  "apiKey": { "id": "...", "name": "My reading app", "prefix": "stc_live_AbCdEfGh", "scopes": ["stories:read"], "createdAt": "...", "lastUsedAt": null },
+  "apiKey": { "id": "...", "name": "My reading app", "prefix": "stc_live_AbCdEfGh", "scopes": ["stories:read", "stories:write"], "createdAt": "...", "lastUsedAt": null },
   "warning": "Store this key now. It cannot be retrieved again."
 }
 ```
