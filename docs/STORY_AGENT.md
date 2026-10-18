@@ -88,7 +88,7 @@ export OPEN_AI_KEY=sk-...
 export STORYCREATOR_API_KEY=stc_live_...
 export STORYCREATOR_API_URL=http://localhost:3000
 
-# Generate the idea and print the API request without calling the API
+# Generate the idea and log the API request without calling the API
 python StoryCreatorAgent.py --dry-run
 
 # Create and publish a 3-chapter story
@@ -117,7 +117,7 @@ python StoryCreatorAgent.py --chapters 3 --sentences-per-chapter 8 --output stor
 | `--poll-interval` | `5` | Seconds between status polls |
 | `--timeout` | `900` | Max seconds to wait for generation |
 | `--output` | — | Write idea, request and story to a JSON file |
-| `--dry-run` | — | Print the request and exit without calling the API |
+| `--dry-run` | — | Log the request and exit without calling the API |
 
 ### Environment variables
 

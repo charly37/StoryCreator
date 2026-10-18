@@ -490,7 +490,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Only generate the idea and print the API request; do not call the API",
+        help="Only generate the idea and log the API request; do not call the API",
     )
     return parser
 
@@ -517,7 +517,10 @@ async def run(args: argparse.Namespace) -> None:
     log.info("Seed: %s", payload["seed"])
 
     if args.dry_run:
-        print(json.dumps({"idea": idea, "request": payload}, ensure_ascii=False, indent=2))
+        log.info(
+            "Dry run — idea and request:\n%s",
+            json.dumps({"idea": idea, "request": payload}, ensure_ascii=False, indent=2),
+        )
         return
 
     if not args.api_key:
