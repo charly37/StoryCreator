@@ -162,7 +162,8 @@ Session-authenticated CRUD for the current user's public-API keys.
 
 ### Public API v1 (`/api/v1`)
 Key-authenticated: `stories:read` for published-story reads, `stories:write` for creation. Full reference: `docs/PUBLIC_API.md`.
-- `GET /stories` — Filters `nativeLang`, `learningLang`, `level`, `search`, `sort`, `page`, `limit` (clamped to 50); returns `{ data, pagination }`; requires `stories:read`
+- `GET /stories` — Filters `nativeLang`, `learningLang`, `level`, `search`, `author` (exact username, case-insensitive),
+  `sort`, `page`, `limit` (clamped to 50); returns `{ data, pagination }`; requires `stories:read`. Unknown `author` → empty page (not 404)
 - `GET /stories/:id` — Published story with chapters + sentence pairs; drafts return **404** for read-only keys. Write-scoped owners can read their own drafts and receive a `status` block (`generating` / `ready` / `failed` + `generationError`)
 - `POST /stories` — Requires `stories:write`; creates a draft from `title.lang1`, languages, `level`, `seed` (+ optional `topic`, `characters`, `aiGuideline`, `aiModel`, `targetChapters`, `chapters`, `published`), starts AI generation, returns `202 { data: { id, status, published, pollUrl } }` + `Location`; supports `Idempotency-Key`
 - `GET /metadata` — Languages, levels, pagination limits

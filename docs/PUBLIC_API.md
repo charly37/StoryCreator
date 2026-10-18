@@ -98,12 +98,15 @@ List published stories, newest first.
 | `learningLang` | string | — | Learning-language code, e.g. `pt` |
 | `level` | string | — | `beginner`, `intermediate` or `advanced` |
 | `search` | string | — | Case-insensitive match on either title or labels (max 100 chars) |
+| `author` | string | — | Exact username (case-insensitive, max 30 chars) — returns only that user's published stories |
 | `sort` | string | `newest` | `newest` or `oldest` |
 | `page` | integer | `1` | 1-based page number |
 | `limit` | integer | `12` | Page size, clamped to **50** |
 
-Unknown language codes, levels, sort values and non-numeric `page`/`limit`
-values return `400 INVALID_PARAMETER`.
+Unknown language codes, levels, sort values, non-numeric `page`/`limit` values
+and an over-long `author` return `400 INVALID_PARAMETER`. An `author` that does
+not resolve to an account returns an empty `data` array with `total: 0`
+(**not** `404`).
 
 **Response `200`**
 
@@ -141,7 +144,14 @@ values return `400 INVALID_PARAMETER`.
 ```bash
 curl -s "https://your-host/api/v1/stories?nativeLang=en&learningLang=pt&level=beginner&limit=5" \
   -H "Authorization: Bearer $STORYCREATOR_API_KEY"
+
+# Only published stories authored by the user "charly"
+curl -s "https://your-host/api/v1/stories?author=charly&limit=50" \
+  -H "Authorization: Bearer $STORYCREATOR_API_KEY"
 ```
+
+Only **published** stories are ever listed, so `author` implicitly means
+"published stories by that user" — drafts are never returned by this endpoint.
 
 ---
 

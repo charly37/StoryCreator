@@ -33,6 +33,7 @@ const LANGUAGE_CODES = new Set(LANGUAGES.map((language) => language.code));
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 50;
 const MAX_SEARCH_LENGTH = 100;
+const MAX_USERNAME_LENGTH = 30;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
 
 // Everything the summary needs; chapter bodies are excluded from list responses.
@@ -89,6 +90,7 @@ router.get('/stories', requireScope(API_KEY_SCOPE), async (req: Request, res: Re
     const learningLang = readString(req.query.learningLang);
     const level = readString(req.query.level);
     const search = readString(req.query.search);
+    const author = readString(req.query.author);
     const sort = readString(req.query.sort);
     const pageParam = readString(req.query.page);
     const limitParam = readString(req.query.limit);
@@ -98,6 +100,7 @@ router.get('/stories', requireScope(API_KEY_SCOPE), async (req: Request, res: Re
       learningLang === null ||
       level === null ||
       search === null ||
+      author === null ||
       sort === null ||
       pageParam === null ||
       limitParam === null
@@ -120,6 +123,11 @@ router.get('/stories', requireScope(API_KEY_SCOPE), async (req: Request, res: Re
     const trimmedSearch = search?.trim() ?? '';
     if (trimmedSearch.length > MAX_SEARCH_LENGTH) {
       return sendError(res, 400, 'INVALID_PARAMETER', `search cannot exceed ${MAX_SEARCH_LENGTH} characters`);
+    }
+
+    const trimmedAuthor = author?.trim() ?? '';
+    if (trimmedAuthor.length > MAX_USERNAME_LENGTH) {
+      return sendError(res, 400, 'INVALID_PARAMETER', `author cannot exceed ${MAX_USERNAME_LENGTH} characters`);
     }
 
     let page = 1;
@@ -152,6 +160,22 @@ router.get('/stories', requireScope(API_KEY_SCOPE), async (req: Request, res: Re
         { labels: pattern },
         { topic: pattern },
       ];
+    }
+    if (trimmedAuthor) {
+      // `authorName` on the story is denormalized, so resolve the account and match
+      // on `authorId` (indexed) instead. Unknown usernames yield an empty page.
+      const authorUser = await User.findOne({
+        username: { $regex: `^${escapeRegex(trimmedAuthor)}$`, $options: 'i' },
+      })
+        .select('_id')
+        .lean();
+      if (!authorUser) {
+        return res.json({
+          data: [],
+          pagination: { page, limit, total: 0, pages: 0, hasNext: false },
+        });
+      }
+      filter.authorId = authorUser._id;
     }
 
     const sortSpec: Record<string, 1 | -1> = sort === 'oldest' ? { createdAt: 1 } : { createdAt: -1 };
