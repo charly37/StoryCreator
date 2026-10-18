@@ -8,6 +8,7 @@ This project follows a **lean README + detailed docs** pattern:
 - **[docs/](../docs/)**: All detailed documentation organized by topic:
   - `SETUP.md` - Installation, environment setup, MongoDB Atlas, scripts
   - `design.md` - Architecture, features, project structure
+  - `LOGGING.md` - pino logging, `LOG_LEVEL`, VictoriaLogs collector configuration
   - `API.md` - Complete API reference (endpoints, payloads, response codes)
   - `PUBLIC_API.md` - Key-authenticated read/create API (`/api/v1`)
   - `STORY_AGENT.md` - Scheduled story-generation agent, Docker image, Helm CronJob
@@ -112,7 +113,7 @@ Arabic, Chinese, Dutch, English, French, German, Hindi, Italian, Japanese, Korea
 - Route handlers use `req.log` (attached by `pino-http`, mounted with `autoLogging: false` — there are **no access logs**). Services and background jobs use `createLogger('module')` child loggers and add `storyId` where relevant.
 - Levels: `LOG_LEVEL` env (`trace`…`silent`); defaults are `debug` in dev, `info` in production, `silent` when `NODE_ENV=test`. Output is one JSON line per record on stdout with string `level`, ISO `time`, `msg`, and `service`; `pino-pretty` is a dev-only dependency.
 - Never log secrets: API keys, `Authorization`/`X-API-Key` headers, cookies, passwords, or request bodies. Redaction paths are configured in the logger, but do not log sensitive values deliberately.
-- VictoriaLogs maps `msg` → `_msg` and `time` → `_time`. Never add high-cardinality fields (`req.id`, `apiKeyId`, `storyId`) to VictoriaLogs stream fields.
+- VictoriaLogs maps `msg` → `_msg` and `time` → `_time`. Never add high-cardinality fields (`req.id`, `storyId`) to VictoriaLogs stream fields; use only container/pod/namespace fields. Full details, including vlagent/Fluent Bit/Vector setup: `docs/LOGGING.md`.
 
 ### Internationalization (i18n)
 - Client-side only, using `react-i18next`

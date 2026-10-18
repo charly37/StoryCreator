@@ -63,7 +63,6 @@ app.use(
       res.setHeader('X-Request-Id', id);
       return id;
     },
-    customProps: (req) => (req.apiKey ? { apiKeyId: req.apiKey.id } : {}),
   })
 );
 

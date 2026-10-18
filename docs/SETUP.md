@@ -193,32 +193,16 @@ helm upgrade --install story-creator helm/story-creator \
 
 Update `helm/story-creator/values.yaml` (or pass `--set`) to change the domain (`bilingualstory.net` by default), image tag, or resource limits.
 
-### Logging (VictoriaLogs)
+### Logging
 
-The backend writes structured JSON to stdout with `pino`; Docker and Kubernetes
-capture it and VictoriaLogs ingests it. There are no HTTP access logs — only
-startup messages and server-side errors. Set the level per environment with
-`app.logLevel` in the Helm values (rendered as `LOG_LEVEL`, default `info`).
+The backend writes structured JSON to stdout with `pino`. Locally set
+`LOG_LEVEL` in `.env`; in Kubernetes set `app.logLevel` in the Helm values
+(default `info`, rendered as `LOG_LEVEL`).
 
-VictoriaLogs needs these ingestion parameters because pino uses its standard
-field names:
-
-```text
-_msg_field=msg
-_time_field=time
-_stream_fields=kubernetes.namespace,kubernetes.node.name,kubernetes.pod.name,kubernetes.container.name
-```
-
-Useful LogsQL queries:
-
-```logsql
-level:error
-req.id:"<request-id-from-x-request-id-response-header>"
-storyId:"<story-id>"
-```
-
-Do not add `req.id`, `apiKeyId`, or `storyId` to `_stream_fields` — they are
-high-cardinality fields and belong in regular log fields only.
+There are no HTTP access logs — only startup messages and errors. See
+[LOGGING.md](LOGGING.md) for the record format, the complete list of logged
+events, and the VictoriaLogs collector configuration (`_msg_field=msg`,
+`_time_field=time`, stream fields, vlagent/Fluent Bit/Vector examples).
 
 ### Scheduled story agent (CronJob)
 

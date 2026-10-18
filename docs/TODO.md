@@ -65,3 +65,13 @@ The Profile page currently displays account information but does not allow the u
 ## Pagination on "My Stories" Page
 
 `GET /api/stories/mine` returns all user stories with no pagination. For users with many stories this could become slow. Add cursor- or page-based pagination consistent with the public browse endpoint.
+
+---
+
+## Flush Logs on Shutdown
+
+The backend has no `SIGTERM`/`SIGINT` handling, so pino's asynchronous stdout
+write can lose the last records when Kubernetes terminates a pod. Add shutdown
+handlers that stop accepting connections, call `logger.flush()`, and exit, plus
+`uncaughtException`/`unhandledRejection` handlers that log at `fatal` and flush
+before exiting. See [LOGGING.md](LOGGING.md#troubleshooting).
