@@ -181,6 +181,29 @@ Sessions are stored in MongoDB (`connect-mongo`). The session cookie has a 7-day
 
 > For production, set `cookie.secure: true` and serve over HTTPS.
 
+## Logging
+
+The backend logs with **pino** to stdout as one JSON object per line, which is
+the format Docker/Kubernetes log collection expects. There are no HTTP access
+logs: `pino-http` is mounted with `autoLogging: false` and only attaches a
+request id (`req.id`, also returned in the `X-Request-Id` response header) and a
+request-scoped logger (`req.log`) for correlating error records.
+
+Each record contains string `time` (ISO 8601), `level`, `msg`, `service` and,
+where relevant, `module`, `req.id`, `apiKeyId`, `storyId`, and the serialized
+`err` object (type, message, stack). Credentials are removed by the logger's
+redaction rules (`Authorization`, `X-API-Key`, `Cookie`, passwords); request
+bodies and API keys are never logged.
+
+The level comes from `LOG_LEVEL` (`trace`…`silent`), defaulting to `debug` in
+development, `info` in production, and `silent` when `NODE_ENV=test`. In
+development only, `pino-pretty` renders human-readable output; the runtime image
+installs production dependencies only, so JSON is always used there.
+
+VictoriaLogs must map pino's field names at ingestion: `_msg_field=msg`,
+`_time_field=time`, and container/pod labels for `_stream_fields`. Do not add
+high-cardinality fields (`req.id`, `apiKeyId`, `storyId`) to stream fields.
+
 ## Story Automation
 
 `DialectHubAgent/StoryCreatorAgent.py` runs as a Kubernetes CronJob

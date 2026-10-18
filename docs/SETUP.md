@@ -23,6 +23,8 @@ NODE_ENV=development
 PORT=3000
 # Optional — public API v1 requests per minute per key (default: 60)
 PUBLIC_API_RATE_LIMIT_PER_MIN=60
+# Optional — trace | debug | info | warn | error | fatal | silent
+LOG_LEVEL=debug
 ```
 
 Replace `<db_username>` and `<db_password>` with your actual MongoDB Atlas credentials.
@@ -190,6 +192,33 @@ helm upgrade --install story-creator helm/story-creator \
 ```
 
 Update `helm/story-creator/values.yaml` (or pass `--set`) to change the domain (`bilingualstory.net` by default), image tag, or resource limits.
+
+### Logging (VictoriaLogs)
+
+The backend writes structured JSON to stdout with `pino`; Docker and Kubernetes
+capture it and VictoriaLogs ingests it. There are no HTTP access logs — only
+startup messages and server-side errors. Set the level per environment with
+`app.logLevel` in the Helm values (rendered as `LOG_LEVEL`, default `info`).
+
+VictoriaLogs needs these ingestion parameters because pino uses its standard
+field names:
+
+```text
+_msg_field=msg
+_time_field=time
+_stream_fields=kubernetes.namespace,kubernetes.node.name,kubernetes.pod.name,kubernetes.container.name
+```
+
+Useful LogsQL queries:
+
+```logsql
+level:error
+req.id:"<request-id-from-x-request-id-response-header>"
+storyId:"<story-id>"
+```
+
+Do not add `req.id`, `apiKeyId`, or `storyId` to `_stream_fields` — they are
+high-cardinality fields and belong in regular log fields only.
 
 ### Scheduled story agent (CronJob)
 

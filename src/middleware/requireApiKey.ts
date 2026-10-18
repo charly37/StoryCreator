@@ -53,7 +53,7 @@ export async function requireApiKey(req: Request, res: Response, next: NextFunct
     req.apiKey = identity;
     next();
   } catch (error) {
-    console.error('[apiKey] Authentication failed:', error);
+    req.log.error({ err: error }, '[apiKey] Authentication failed');
     sendError(res, 500, 'SERVER_ERROR', 'Server error while authenticating the API key');
   }
 }

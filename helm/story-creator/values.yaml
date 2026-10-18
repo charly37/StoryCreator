@@ -22,6 +22,8 @@ app:
   port: 3000
   # Requests per minute per API key on /api/v1
   publicApiRateLimitPerMin: 60
+  # trace | debug | info | warn | error | fatal | silent
+  logLevel: info
 
 ingress:
   host: bilingualstory.net

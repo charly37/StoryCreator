@@ -31,7 +31,7 @@ async function requireCreatePermission(req: Request, res: Response, next: NextFu
     }
     next();
   } catch (error) {
-    console.error('Error checking creator permission:', error);
+    req.log.error({ err: error }, 'Error checking creator permission');
     res.status(500).json({ message: 'Server error checking permissions' });
   }
 }
@@ -44,7 +44,7 @@ router.get('/mine', requireAuth, async (req: Request, res: Response) => {
       .sort({ updatedAt: -1 });
     res.json(stories);
   } catch (error) {
-    console.error('Error fetching user stories:', error);
+    req.log.error({ err: error }, 'Error fetching user stories');
     res.status(500).json({ message: 'Server error fetching stories' });
   }
 });
@@ -76,7 +76,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     res.json({ stories, total, page: parseInt(page as string, 10), pages: Math.ceil(total / limit) });
   } catch (error) {
-    console.error('Error fetching stories:', error);
+    req.log.error({ err: error }, 'Error fetching stories');
     res.status(500).json({ message: 'Server error fetching stories' });
   }
 });
@@ -91,7 +91,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
     res.json(story);
   } catch (error) {
-    console.error('Error fetching story:', error);
+    req.log.error({ err: error }, 'Error fetching story');
     res.status(500).json({ message: 'Server error fetching story' });
   }
 });
@@ -148,7 +148,7 @@ router.post('/', requireAuth, requireCreatePermission, async (req: Request, res:
     await story.save();
     res.status(201).json(story);
   } catch (error) {
-    console.error('Error creating story:', error);
+    req.log.error({ err: error }, 'Error creating story');
     res.status(500).json({ message: 'Server error creating story' });
   }
 });
@@ -209,7 +209,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     await story.save();
     res.json(story);
   } catch (error) {
-    console.error('Error updating story:', error);
+    req.log.error({ err: error }, 'Error updating story');
     res.status(500).json({ message: 'Server error updating story' });
   }
 });
@@ -249,7 +249,7 @@ router.post('/:id/chapters', requireAuth, async (req: Request, res: Response) =>
 
     res.status(201).json(story);
   } catch (error) {
-    console.error('Error inserting chapter:', error);
+    req.log.error({ err: error }, 'Error inserting chapter');
     res.status(500).json({ message: 'Server error inserting chapter' });
   }
 });
@@ -278,7 +278,7 @@ router.delete('/:id/chapters/:index', requireAuth, async (req: Request, res: Res
 
     res.json(story);
   } catch (error) {
-    console.error('Error deleting chapter:', error);
+    req.log.error({ err: error }, 'Error deleting chapter');
     res.status(500).json({ message: 'Server error deleting chapter' });
   }
 });
@@ -294,7 +294,7 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
     await story.deleteOne();
     res.json({ message: 'Story deleted' });
   } catch (error) {
-    console.error('Error deleting story:', error);
+    req.log.error({ err: error }, 'Error deleting story');
     res.status(500).json({ message: 'Server error deleting story' });
   }
 });
@@ -314,7 +314,7 @@ router.post('/:id/publish', requireAuth, async (req: Request, res: Response) => 
     await story.save();
     res.json({ published: story.published });
   } catch (error) {
-    console.error('Error publishing story:', error);
+    req.log.error({ err: error }, 'Error publishing story');
     res.status(500).json({ message: 'Server error publishing story' });
   }
 });
@@ -345,7 +345,7 @@ router.post('/:id/generate', requireAuth, requireCreatePermission, async (req: R
 
     res.status(202).json({ message: 'Story generation started', storyId: story._id });
   } catch (error) {
-    console.error('Error starting story generation:', error);
+    req.log.error({ err: error }, 'Error starting story generation');
     res.status(500).json({ message: 'Server error starting story generation' });
   }
 });
@@ -374,6 +374,9 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
     await story.save();
 
     res.status(202).json({ message: 'Chapter regeneration started', storyId: story._id });
+
+    // The request logger stays usable in the background after the response is sent.
+    const backgroundLog = req.log.child({ module: 'regenerateChapter', storyId: story._id.toString() });
 
     setImmediate(async () => {
       try {
@@ -415,12 +418,12 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
         story.aiCallCount = (story.aiCallCount ?? 0) + 1;
         await story.save();
       } catch (error) {
-        console.error('Background chapter regeneration failed:', error);
+        backgroundLog.error({ err: error }, 'Background chapter regeneration failed');
         await Story.updateOne({ _id: story._id }, { $set: { generating: false } });
       }
     });
   } catch (error) {
-    console.error('Error starting chapter regeneration:', error);
+    req.log.error({ err: error }, 'Error starting chapter regeneration');
     res.status(500).json({ message: 'Server error starting chapter regeneration' });
   }
 });
@@ -478,7 +481,7 @@ router.post('/:id/clone', requireAuth, requireCreatePermission, async (req: Requ
     await clone.save();
     res.status(201).json(clone);
   } catch (error) {
-    console.error('Error cloning story:', error);
+    req.log.error({ err: error }, 'Error cloning story');
     res.status(500).json({ message: 'Server error cloning story' });
   }
 });

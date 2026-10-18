@@ -47,7 +47,7 @@ router.post('/register', async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Registration error:', error);
+    req.log.error({ err: error }, 'Registration error');
     res.status(500).json({ message: 'Server error during registration' });
   }
 });
@@ -84,7 +84,7 @@ router.post('/login', async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
+    req.log.error({ err: error }, 'Login error');
     res.status(500).json({ message: 'Server error during login' });
   }
 });
@@ -122,7 +122,7 @@ router.get('/check-auth', async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Check auth error:', error);
+    req.log.error({ err: error }, 'Check auth error');
     res.status(500).json({ message: 'Server error checking authentication' });
   }
 });
@@ -151,7 +151,7 @@ router.post('/update-language', async (req: Request, res: Response) => {
 
     res.json({ uiLanguage: user.uiLanguage });
   } catch (error) {
-    console.error('Update language error:', error);
+    req.log.error({ err: error }, 'Update language error');
     res.status(500).json({ message: 'Server error updating language' });
   }
 });

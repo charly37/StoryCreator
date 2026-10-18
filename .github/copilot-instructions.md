@@ -106,6 +106,14 @@ Arabic, Chinese, Dutch, English, French, German, Hindi, Italian, Japanese, Korea
 - `secure: false` in dev — **must be `true` in production** (Traefik handles HTTPS termination at ingress)
 - `touchAfter: 24h` prevents unnecessary session DB writes
 
+### Logging
+- Server-side logging uses **pino** (`src/config/logger.ts`). Never use `console.*` in backend code — the only exception is the CLI script `src/scripts/migrate-to-chapters.ts`. `console.*` under `src/client/` goes to the browser and is unrelated.
+- Always pass errors as `{ err: error }` (pino only serializes the dedicated `err` key); never `{ error }`.
+- Route handlers use `req.log` (attached by `pino-http`, mounted with `autoLogging: false` — there are **no access logs**). Services and background jobs use `createLogger('module')` child loggers and add `storyId` where relevant.
+- Levels: `LOG_LEVEL` env (`trace`…`silent`); defaults are `debug` in dev, `info` in production, `silent` when `NODE_ENV=test`. Output is one JSON line per record on stdout with string `level`, ISO `time`, `msg`, and `service`; `pino-pretty` is a dev-only dependency.
+- Never log secrets: API keys, `Authorization`/`X-API-Key` headers, cookies, passwords, or request bodies. Redaction paths are configured in the logger, but do not log sensitive values deliberately.
+- VictoriaLogs maps `msg` → `_msg` and `time` → `_time`. Never add high-cardinality fields (`req.id`, `apiKeyId`, `storyId`) to VictoriaLogs stream fields.
+
 ### Internationalization (i18n)
 - Client-side only, using `react-i18next`
 - UI languages: `en` (English), `fr` (French) — stored as `user.uiLanguage`

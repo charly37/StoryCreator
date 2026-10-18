@@ -2,6 +2,9 @@ import mongoose from 'mongoose';
 import Story from '../models/Story';
 import { aiService } from './aiService';
 import { AI_MODELS, DEFAULT_AI_MODEL } from '../client/utils/aiModels';
+import { createLogger } from '../config/logger';
+
+const log = createLogger('storyGeneration');
 
 /**
  * Models exposed to API clients. `gpt-5-mini-high` is a UI-only label in
@@ -65,6 +68,7 @@ export async function startStoryGeneration(
  * deferred `publishWhenReady` intent is only honoured when content exists.
  */
 async function runStoryGeneration(storyId: string, model?: string): Promise<void> {
+  const storyLog = log.child({ storyId });
   try {
     const story = await Story.findById(storyId);
     if (!story) return;
@@ -118,7 +122,7 @@ async function runStoryGeneration(storyId: string, model?: string): Promise<void
 
     await story.save();
   } catch (error) {
-    console.error('Background story generation failed:', error);
+    storyLog.error({ err: error }, 'Background story generation failed');
     const message = error instanceof Error ? error.message : String(error);
     // updateOne bypasses validation so a partially-populated in-memory document
     // cannot throw again and crash the process.
@@ -132,7 +136,7 @@ async function runStoryGeneration(storyId: string, model?: string): Promise<void
         },
       }
     ).catch((updateError) => {
-      console.error('Failed to record story generation failure:', updateError);
+      storyLog.error({ err: updateError }, 'Failed to record story generation failure');
     });
   }
 }

@@ -25,6 +25,8 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "mongoose": "^9.11.2",
     "openai": "^7.33.0",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
     "react-i18next": "^17.0.16",
     "react-router-dom": "^7.18.4"
   },
@@ -44,6 +46,7 @@
     "css-loader": "^7.1.5",
     "esbuild-loader": "^4.5.0",
     "html-webpack-plugin": "^5.6.8",
+    "pino-pretty": "^13.2.0",
     "react": "^19.2.6",
     "react-dom": "^19.3.0",
     "style-loader": "^4.0.0",

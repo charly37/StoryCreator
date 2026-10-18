@@ -204,7 +204,7 @@ router.get('/stories', requireScope(API_KEY_SCOPE), async (req: Request, res: Re
       },
     });
   } catch (error) {
-    console.error('[publicApi] Error fetching stories:', error);
+    req.log.error({ err: error }, '[publicApi] Error fetching stories');
     sendError(res, 500, 'SERVER_ERROR', 'Server error fetching stories');
   }
 });
@@ -365,7 +365,7 @@ router.post('/stories', requireScope(API_KEY_WRITE_SCOPE), async (req: Request, 
         },
       });
   } catch (error) {
-    console.error('[publicApi] Error creating story:', error);
+    req.log.error({ err: error }, '[publicApi] Error creating story');
     sendError(res, 500, 'SERVER_ERROR', 'Server error creating story');
   }
 });
@@ -405,7 +405,7 @@ router.get('/stories/:id', requireScope(API_KEY_SCOPE), async (req: Request, res
       ),
     });
   } catch (error) {
-    console.error('[publicApi] Error fetching story:', error);
+    req.log.error({ err: error }, '[publicApi] Error fetching story');
     sendError(res, 500, 'SERVER_ERROR', 'Server error fetching story');
   }
 });

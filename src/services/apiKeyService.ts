@@ -1,5 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import ApiKey, { IApiKey } from '../models/ApiKey';
+import { createLogger } from '../config/logger';
+
+const log = createLogger('apiKeyService');
 
 /** Prefix of every StoryCreator API key. Stored in cleartext so lookups stay index-friendly. */
 const KEY_PREFIX = 'stc_live_';
@@ -65,7 +68,7 @@ export async function authenticateApiKey(rawKey: string): Promise<ApiKeyIdentity
   if (Date.now() - lastUsed > LAST_USED_TOUCH_MS) {
     // Fire-and-forget: usage tracking must never fail the request.
     void ApiKey.updateOne({ _id: record._id }, { $set: { lastUsedAt: new Date() } }).catch((error) => {
-      console.error('[apiKey] Failed to update lastUsedAt:', error);
+      log.error({ err: error }, '[apiKey] Failed to update lastUsedAt');
     });
   }
 

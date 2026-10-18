@@ -29,7 +29,7 @@ async function requireCreatePermission(req: Request, res: Response, next: NextFu
     }
     next();
   } catch (error) {
-    console.error('Error checking creator permission:', error);
+    req.log.error({ err: error }, 'Error checking creator permission');
     res.status(500).json({ message: 'Server error checking permissions' });
   }
 }
@@ -52,7 +52,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const keys = await ApiKey.find({ ownerId: req.session.userId }).sort({ createdAt: -1 });
     res.json({ keys: keys.map(serializeApiKey), maxKeys: MAX_API_KEYS_PER_USER });
   } catch (error) {
-    console.error('Error fetching API keys:', error);
+    req.log.error({ err: error }, 'Error fetching API keys');
     res.status(500).json({ message: 'Server error fetching API keys' });
   }
 });
@@ -84,7 +84,7 @@ router.post('/', requireAuth, requireCreatePermission, async (req: Request, res:
       warning: 'Store this key now. It cannot be retrieved again.',
     });
   } catch (error) {
-    console.error('Error creating API key:', error);
+    req.log.error({ err: error }, 'Error creating API key');
     res.status(500).json({ message: 'Server error creating API key' });
   }
 });
@@ -103,7 +103,7 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
 
     res.status(204).end();
   } catch (error) {
-    console.error('Error revoking API key:', error);
+    req.log.error({ err: error }, 'Error revoking API key');
     res.status(500).json({ message: 'Server error revoking API key' });
   }
 });
