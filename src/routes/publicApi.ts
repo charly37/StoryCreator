@@ -38,7 +38,7 @@ const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
 
 // Everything the summary needs; chapter bodies are excluded from list responses.
 const LIST_PROJECTION =
-  'title chapters.title sentenceCount nativeLanguage learningLanguage level labels topic authorName creationSource createdViaApiKeyName isAIGenerated createdAt updatedAt';
+  'title chapters.title sentenceCount nativeLanguage learningLanguage level labels topic authorName creationSource createdViaApiKeyName isAIGenerated aiModel createdAt updatedAt';
 
 function sendError(res: Response, status: number, code: string, message: string): void {
   res.status(status).json({ error: { code, message } });

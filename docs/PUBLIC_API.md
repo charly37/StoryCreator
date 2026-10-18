@@ -127,6 +127,7 @@ not resolve to an account returns an empty `data` array with `total: 0`
       "creationSource": "api",
       "createdViaApiKeyName": "key-automation",
       "isAIGenerated": true,
+      "aiModel": "gpt-4o-mini",
       "createdAt": "2026-09-30T12:00:00.000Z",
       "updatedAt": "2026-10-02T08:15:00.000Z"
     }
@@ -258,6 +259,7 @@ include this block.
     "creationSource": "api",
     "createdViaApiKeyName": "key-automation",
     "isAIGenerated": true,
+    "aiModel": "gpt-4o-mini",
     "createdAt": "2026-09-30T12:00:00.000Z",
     "updatedAt": "2026-10-02T08:15:00.000Z",
     "chapters": [
@@ -276,6 +278,9 @@ Attribution fields:
 - `creationSource` is `ui` for website-created stories and `api` for `/api/v1/stories` creations.
 - `createdViaApiKeyName` is a snapshot of the API key name used at creation time (when source is `api`).
 - `publisherDisplayName` is a convenience display field (`authorName` for UI stories, `authorName(keyName)` for API stories).
+- `isAIGenerated` / `aiModel` mirror the UI's generation chip (model used for the AI run).
+
+These fields are returned on every list item as well as on the detail payload.
 
 ```bash
 curl -s "https://your-host/api/v1/stories/66f0a1b2c3d4e5f60718293a" \
