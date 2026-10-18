@@ -29,7 +29,7 @@ External clients
 
 ### 3. **Browse & Discovery**
 - Public browse page lists all published stories with pagination (12 per page).
-- Filters: native language, learning language, difficulty level, and free-text search (title + topic).
+- Filters: native language, learning language, difficulty level, and free-text search (title + labels).
 
 ### 4. **Internationalized UI**
 - The interface itself supports English and French via i18next.
@@ -83,9 +83,11 @@ External clients
 | `nativeLanguage` | String | e.g. `"en"`, `"fr"` |
 | `learningLanguage` | String | Must differ from `nativeLanguage` |
 | `level` | Enum | `beginner` \| `intermediate` \| `advanced` |
-| `topic` | String | Optional free-text topic tag |
+| `labels` | `string[]` | Optional free-text labels |
 | `authorId` | ObjectId → User | |
 | `authorName` | String | Denormalized for read performance |
+| `creationSource` | Enum | `ui` \| `api` (set at creation time) |
+| `createdViaApiKeyName` | String | Snapshot of the API key name when `creationSource = api` |
 | `published` | Boolean | Default `false` |
 | `generating` | Boolean | True while an async AI job is running |
 | `isAIGenerated` | Boolean | Set once AI generation completes |

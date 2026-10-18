@@ -133,7 +133,7 @@ Browse published stories with optional filters and pagination.
 | `nativeLang` | Filter by native language code (e.g. `en`) |
 | `learningLang` | Filter by learning language code (e.g. `fr`) |
 | `level` | `beginner`, `intermediate`, or `advanced` |
-| `search` | Full-text search on title (both languages) and topic |
+| `search` | Full-text search on title (both languages) and labels |
 | `page` | Page number, default `1` (12 results per page) |
 
 **Response `200`**
@@ -148,6 +148,11 @@ Browse published stories with optional filters and pagination.
 ```
 
 Story objects in list views omit the `sentences` array for performance.
+
+Publisher attribution notes:
+- Stories created from the website have `creationSource: "ui"`.
+- Stories created through `/api/v1/stories` have `creationSource: "api"` and include `createdViaApiKeyName`.
+- UI surfaces can use those fields to display an API attribution badge while keeping `authorName` unchanged.
 
 ---
 
@@ -178,7 +183,7 @@ Returns a single story including all sentences.
   "nativeLanguage": "en",
   "learningLanguage": "fr",
   "level": "beginner",
-  "topic": "animals",
+  "labels": ["animals", "friendship"],
   "seed": "A cat who learns to sail.",
   "characters": [
     {
@@ -206,7 +211,8 @@ Returns a single story including all sentences.
 | `nativeLanguage` | yes | Must differ from `learningLanguage` |
 | `learningLanguage` | yes | |
 | `level` | yes | `beginner` / `intermediate` / `advanced` |
-| `topic` | no | Free-text tag |
+| `labels` | no | Array of free-text labels (deduplicated, max 20) |
+| `topic` | no | Legacy single-label alias; converted into `labels` when provided |
 | `seed` | no | Story premise used for AI generation |
 | `aiGuideline` | no | Private writing-style guideline reused for generation/regeneration |
 | `characters` | no | Array of `{ name, role, description, appearance }`; blank names are dropped, max 20 |
@@ -214,6 +220,8 @@ Returns a single story including all sentences.
 | `chapters` | no | Array of `{ title: { lang1, lang2 }, seed, targetSentences }`; defaults to `targetChapters` empty chapters |
 
 Each chapter carries a reader-facing bilingual `title` and a private `seed`. The `seed` is only an AI authoring premise — it is **never shown to readers** and is preserved across generation/regeneration. `aiGuideline` is also private authoring metadata, used to steer writing style during generation/regeneration and never shown to readers. When a chapter `title` is empty the reader falls back to a localized "Chapter N" heading.
+
+Website-created stories default to `creationSource: "ui"`.
 
 **Response `201`:** The created story object.
 
@@ -226,7 +234,7 @@ Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `can
 *Auth required. Creator access required.* Deep-copy an existing story into a new draft owned by the authenticated user.
 
 - You may clone your own stories (drafts or published) or any **published** story by another author. Cloning another user's draft returns `403`.
-- Copies `title` (with `" (copy)"` appended to `title.lang1`), `chapters` (including chapter titles and sentences), `characters`, `nativeLanguage`, `learningLanguage`, `level`, `topic`, `seed`, and `targetChapters`.
+- Copies `title` (with `" (copy)"` appended to `title.lang1`), `chapters` (including chapter titles and sentences), `characters`, `nativeLanguage`, `learningLanguage`, `level`, `labels`, `seed`, and `targetChapters`.
 - The clone always starts as a draft (`published: false`). `isAIGenerated` is copied from the source.
 - Returns `400` if the source story is still generating.
 

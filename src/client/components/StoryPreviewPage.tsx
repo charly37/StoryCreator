@@ -38,8 +38,11 @@ interface Story {
   nativeLanguage: string;
   learningLanguage: string;
   level: 'beginner' | 'intermediate' | 'advanced';
-  topic: string;
+  labels?: string[];
+  topic?: string;
   authorName: string;
+  creationSource?: 'ui' | 'api';
+  createdViaApiKeyName?: string;
   aiModel?: string;
   isAIGenerated: boolean;
   seed: string;
@@ -111,6 +114,12 @@ const StoryPreviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   }
 
   if (!story) return null;
+
+  const storyLabels = Array.isArray(story.labels)
+    ? story.labels
+    : typeof story.topic === 'string' && story.topic.trim() !== ''
+      ? [story.topic.trim()]
+      : [];
 
   // Flatten chapters into a single navigable list
   const flatSentences: FlatSentence[] = story.chapters.flatMap((chapter, ci) =>
@@ -207,7 +216,9 @@ const StoryPreviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
                   label={`${getLanguageName(story.nativeLanguage)} → ${getLanguageName(story.learningLanguage)}`}
                   size="small" variant="outlined"
                 />
-                {story.topic && <Chip label={story.topic} size="small" variant="outlined" />}
+                {storyLabels.map((label) => (
+                  <Chip key={label} label={label} size="small" variant="outlined" />
+                ))}
                 <Chip
                   label={
                     story.isAIGenerated
@@ -218,6 +229,14 @@ const StoryPreviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
                   color={story.isAIGenerated ? 'info' : 'default'}
                   variant="outlined"
                 />
+                {story.creationSource === 'api' && story.createdViaApiKeyName && (
+                  <Chip
+                    label={t('stories.apiSourceTag', { keyName: story.createdViaApiKeyName })}
+                    size="small"
+                    color="secondary"
+                    variant="outlined"
+                  />
+                )}
               </Box>
               <Typography variant="h5" sx={{ fontWeight: 700 }}>{story.title.lang1}</Typography>
               <Typography

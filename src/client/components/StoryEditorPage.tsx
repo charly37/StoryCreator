@@ -36,6 +36,20 @@ const DEFAULT_SENTENCES = 12;
 const MAX_CHAPTERS = 10;
 const MAX_CHARACTERS = 20;
 
+const parseLabels = (value: string): string[] => {
+  const seen = new Set<string>();
+  return value
+    .split(',')
+    .map((label) => label.trim())
+    .filter((label) => {
+      if (!label) return false;
+      const key = label.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
 const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
@@ -46,7 +60,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const [nativeLanguage, setNativeLanguage] = useState('');
   const [learningLanguage, setLearningLanguage] = useState('');
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
-  const [topic, setTopic] = useState('');
+  const [labelsInput, setLabelsInput] = useState('');
   const [seed, setSeed] = useState('');
   const [chapterSpecs, setChapterSpecs] = useState<ChapterSpec[]>([{ title: { lang1: '', lang2: '' }, seed: '', targetSentences: DEFAULT_SENTENCES }]);
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -68,7 +82,12 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         setNativeLanguage(data.nativeLanguage || '');
         setLearningLanguage(data.learningLanguage || '');
         setLevel(data.level || 'beginner');
-        setTopic(data.topic || '');
+        const labelsFromApi = Array.isArray(data.labels)
+          ? data.labels.filter((label: unknown): label is string => typeof label === 'string')
+          : typeof data.topic === 'string' && data.topic.trim() !== ''
+            ? [data.topic.trim()]
+            : [];
+        setLabelsInput(labelsFromApi.join(', '));
         setSeed(data.seed || '');
         if (data.aiModel) setAiModel(data.aiModel);
         setAiGuideline(data.aiGuideline || '');
@@ -137,7 +156,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         nativeLanguage,
         learningLanguage,
         level,
-        topic,
+        labels: parseLabels(labelsInput),
         seed,
         aiModel,
         aiGuideline,
@@ -278,10 +297,10 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
           />
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <TextField
-              label={t('editor.topic')}
-              placeholder={t('editor.topicPlaceholder')}
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
+              label={t('editor.labels')}
+              placeholder={t('editor.labelsPlaceholder')}
+              value={labelsInput}
+              onChange={(e) => setLabelsInput(e.target.value)}
               sx={{ flex: 1, minWidth: 200 }}
             />
             <FormControl sx={{ minWidth: 180 }}>

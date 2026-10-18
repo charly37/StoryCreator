@@ -41,6 +41,27 @@ produce different stories.
 CLI reference, Docker image, Helm CronJob configuration, idempotency behaviour
 and troubleshooting: **[docs/STORY_AGENT.md](../docs/STORY_AGENT.md)**.
 
+## Reading a story
+
+`StoryCreatorGetter.py` fetches one story with `GET /api/v1/stories/:id` and
+prints the bilingual text. It needs a key with the `stories:read` scope and no
+OpenAI key.
+
+```bash
+# Default story id 6ad3da2d233a762967c9e718
+python StoryCreatorGetter.py
+
+# Explicit id; JSON instead of parallel text; full response saved to disk
+python StoryCreatorGetter.py 66f0a1b2c3d4e5f60718293a --format json --output story.json
+```
+
+Options: `--api-url`, `--api-key`, `--format text|json`, `--timeout`, `--output`.
+The story id can also come from `STORYCREATOR_STORY_ID`.
+
+Exit codes: `0` on success, `1` for API/auth/network errors, `2` when the story
+is not found (unpublished or invisible to the key). A write-scoped key can read
+its own drafts and sees the `status` block (`generating` / `ready` / `failed`).
+
 ## Docker
 
 Build from the repository root (the GitHub Actions workflow already does this):

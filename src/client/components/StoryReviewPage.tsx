@@ -37,7 +37,8 @@ interface Story {
   nativeLanguage: string;
   learningLanguage: string;
   level: 'beginner' | 'intermediate' | 'advanced';
-  topic: string;
+  labels?: string[];
+  topic?: string;
   seed: string;
   aiModel: string;
   aiGuideline: string;
@@ -48,6 +49,20 @@ interface Story {
 
 const LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
 const MAX_CHARACTERS = 20;
+
+const parseLabels = (value: string): string[] => {
+  const seen = new Set<string>();
+  return value
+    .split(',')
+    .map((label) => label.trim())
+    .filter((label) => {
+      if (!label) return false;
+      const key = label.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
 
 const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const { id } = useParams<{ id: string }>();
@@ -65,7 +80,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const [nativeLanguage, setNativeLanguage] = useState('');
   const [learningLanguage, setLearningLanguage] = useState('');
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
-  const [topic, setTopic] = useState('');
+  const [labelsInput, setLabelsInput] = useState('');
   const [seed, setSeed] = useState('');
   const [characters, setCharacters] = useState<Character[]>([]);
   const [aiGuideline, setAiGuideline] = useState('');
@@ -125,7 +140,12 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
     setNativeLanguage(story.nativeLanguage);
     setLearningLanguage(story.learningLanguage);
     setLevel(story.level);
-    setTopic(story.topic);
+    const labels = Array.isArray(story.labels)
+      ? story.labels
+      : typeof story.topic === 'string' && story.topic.trim() !== ''
+        ? [story.topic.trim()]
+        : [];
+    setLabelsInput(labels.join(', '));
     setSeed(story.seed || '');
     if (story.aiModel) setAiModel(story.aiModel);
     setAiGuideline(story.aiGuideline || '');
@@ -175,7 +195,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
         nativeLanguage,
         learningLanguage,
         level,
-        topic,
+        labels: parseLabels(labelsInput),
         seed,
         aiModel,
         aiGuideline,
@@ -407,8 +427,9 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
                 {LEVELS.map((lv) => <MenuItem key={lv} value={lv}>{t(`levels.${lv}`)}</MenuItem>)}
               </Select>
             </FormControl>
-            <TextField label={t('editor.topic')} value={topic}
-              onChange={(e) => setTopic(e.target.value)} disabled={busy} sx={{ flex: 1, minWidth: 160 }} />
+            <TextField label={t('editor.labels')} value={labelsInput}
+              onChange={(e) => setLabelsInput(e.target.value)} disabled={busy} sx={{ flex: 1, minWidth: 160 }}
+              placeholder={t('editor.labelsPlaceholder')} />
           </Box>
 
           {/* Story seed — editable; applies on the next chapter or full-story regeneration */}

@@ -5,6 +5,8 @@ export const MAX_AI_GUIDELINE_LENGTH = 2000;
 export const MAX_CHAPTERS_PER_STORY = 10;
 export const MAX_TARGET_SENTENCES = 100;
 export const DEFAULT_SENTENCES_PER_CHAPTER = 12;
+export const MAX_LABELS = 20;
+export const MAX_LABEL_LENGTH = 40;
 
 export interface SanitizedCharacter {
   name: string;
@@ -38,6 +40,33 @@ export function sanitizeCharacters(input: unknown): SanitizedCharacter[] {
 export function sanitizeAIGuideline(input: unknown): string {
   if (typeof input !== 'string') return '';
   return input.trim().slice(0, MAX_AI_GUIDELINE_LENGTH);
+}
+
+/**
+ * Returns a deduplicated label list from a structured `labels` array and/or a
+ * legacy single `topic` field. `labels` takes precedence when provided.
+ */
+export function sanitizeLabels(labelsInput: unknown, legacyTopicInput?: unknown): string[] {
+  const rawValues = Array.isArray(labelsInput)
+    ? labelsInput
+    : typeof legacyTopicInput === 'string'
+      ? [legacyTopicInput]
+      : [];
+
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const value of rawValues) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim().slice(0, MAX_LABEL_LENGTH);
+    if (!trimmed) continue;
+    const dedupeKey = trimmed.toLowerCase();
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    labels.push(trimmed);
+    if (labels.length >= MAX_LABELS) break;
+  }
+
+  return labels;
 }
 
 /** Clamps an arbitrary value to an integer within `[min, max]`, falling back to `fallback`. */

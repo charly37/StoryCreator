@@ -17,6 +17,7 @@ export const MAX_API_KEYS_PER_USER = 5;
 export interface ApiKeyIdentity {
   id: string;
   ownerId: string;
+  name: string;
   scopes: string[];
 }
 
@@ -71,6 +72,7 @@ export async function authenticateApiKey(rawKey: string): Promise<ApiKeyIdentity
   return {
     id: record._id.toString(),
     ownerId: record.ownerId.toString(),
+    name: record.name,
     scopes: record.scopes ?? [],
   };
 }

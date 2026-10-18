@@ -17,6 +17,7 @@ import {
   clampInt,
   sanitizeAIGuideline,
   sanitizeCharacters,
+  sanitizeLabels,
 } from '../services/storyInput';
 import { sanitizeTitle } from '../services/aiService';
 import {
@@ -32,12 +33,11 @@ const LANGUAGE_CODES = new Set(LANGUAGES.map((language) => language.code));
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 50;
 const MAX_SEARCH_LENGTH = 100;
-const MAX_TOPIC_LENGTH = 200;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
 
 // Everything the summary needs; chapter bodies are excluded from list responses.
 const LIST_PROJECTION =
-  'title chapters.title sentenceCount nativeLanguage learningLanguage level topic authorName isAIGenerated createdAt updatedAt';
+  'title chapters.title sentenceCount nativeLanguage learningLanguage level labels topic authorName creationSource createdViaApiKeyName isAIGenerated createdAt updatedAt';
 
 function sendError(res: Response, status: number, code: string, message: string): void {
   res.status(status).json({ error: { code, message } });
@@ -149,6 +149,7 @@ router.get('/stories', requireScope(API_KEY_SCOPE), async (req: Request, res: Re
       filter.$or = [
         { 'title.lang1': pattern },
         { 'title.lang2': pattern },
+        { labels: pattern },
         { topic: pattern },
       ];
     }
@@ -232,7 +233,7 @@ router.post('/stories', requireScope(API_KEY_WRITE_SCOPE), async (req: Request, 
       return sendError(res, 400, 'INVALID_PARAMETER', 'seed is required');
     }
 
-    const topic = typeof body.topic === 'string' ? body.topic.trim().slice(0, MAX_TOPIC_LENGTH) : '';
+    const labels = sanitizeLabels(body.labels, body.topic);
 
     const aiModel =
       typeof body.aiModel === 'string' && body.aiModel.trim() !== '' ? body.aiModel.trim() : DEFAULT_AI_MODEL;
@@ -297,12 +298,15 @@ router.post('/stories', requireScope(API_KEY_WRITE_SCOPE), async (req: Request, 
       nativeLanguage,
       learningLanguage,
       level,
-      topic,
+      labels,
       seed,
       aiGuideline: sanitizeAIGuideline(body.aiGuideline),
       aiModel,
       authorId: owner._id,
       authorName: owner.username,
+      creationSource: 'api',
+      createdViaApiKeyName: req.apiKey!.name,
+      createdViaApiKeyId: req.apiKey!.id,
       published: false,
       publishWhenReady: published,
       ...(idempotencyKey ? { idempotencyKey } : {}),

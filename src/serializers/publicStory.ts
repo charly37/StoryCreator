@@ -18,8 +18,11 @@ export interface StoryLike {
   nativeLanguage?: string;
   learningLanguage?: string;
   level?: string;
+  labels?: string[];
   topic?: string;
   authorName?: string;
+  creationSource?: string;
+  createdViaApiKeyName?: string;
   isAIGenerated?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -42,8 +45,11 @@ export interface PublicStoryBase {
   nativeLanguage: string;
   learningLanguage: string;
   level: string;
-  topic: string;
+  labels: string[];
   authorName: string;
+  publisherDisplayName: string;
+  creationSource: 'ui' | 'api';
+  createdViaApiKeyName?: string;
   isAIGenerated: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -72,6 +78,20 @@ export interface OwnerStatusInput {
 }
 
 function baseFields(story: StoryLike): PublicStoryBase {
+  const labels = Array.isArray(story.labels)
+    ? story.labels.filter((label): label is string => typeof label === 'string')
+    : typeof story.topic === 'string' && story.topic.trim() !== ''
+      ? [story.topic.trim()]
+      : [];
+  const authorName = story.authorName ?? '';
+  const creationSource = story.creationSource === 'api' ? 'api' : 'ui';
+  const createdViaApiKeyName = typeof story.createdViaApiKeyName === 'string'
+    ? story.createdViaApiKeyName.trim()
+    : '';
+  const publisherDisplayName = creationSource === 'api' && createdViaApiKeyName
+    ? `${authorName}(${createdViaApiKeyName})`
+    : authorName;
+
   return {
     id: String(story._id),
     title: {
@@ -82,8 +102,11 @@ function baseFields(story: StoryLike): PublicStoryBase {
     nativeLanguage: story.nativeLanguage ?? '',
     learningLanguage: story.learningLanguage ?? '',
     level: story.level ?? '',
-    topic: story.topic ?? '',
-    authorName: story.authorName ?? '',
+    labels,
+    authorName,
+    publisherDisplayName,
+    creationSource,
+    ...(createdViaApiKeyName ? { createdViaApiKeyName } : {}),
     isAIGenerated: story.isAIGenerated === true,
     createdAt: story.createdAt,
     updatedAt: story.updatedAt,

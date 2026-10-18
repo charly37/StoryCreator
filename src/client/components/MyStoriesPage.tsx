@@ -30,6 +30,8 @@ interface StoryCard {
   published: boolean;
   generating: boolean;
   isAIGenerated: boolean;
+  creationSource?: 'ui' | 'api';
+  createdViaApiKeyName?: string;
   seed: string;
   aiCallCount: number;
   updatedAt: string;
@@ -209,6 +211,14 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                     size="small"
                     variant={story.published ? 'filled' : 'outlined'}
                   />
+                  {story.creationSource === 'api' && story.createdViaApiKeyName && (
+                    <Chip
+                      label={t('stories.apiSourceTag', { keyName: story.createdViaApiKeyName })}
+                      color="secondary"
+                      size="small"
+                      variant="outlined"
+                    />
+                  )}
                   {story.generating && (
                     <Chip
                       icon={<AutoAwesomeIcon fontSize="small" />}

@@ -22,6 +22,8 @@ interface StoryCard {
   isAIGenerated: boolean;
   seed: string;
   authorName: string;
+  creationSource?: 'ui' | 'api';
+  createdViaApiKeyName?: string;
   sentenceCount: number;
   aiCallCount: number;
   updatedAt: string;
@@ -180,6 +182,14 @@ const StoriesPage: React.FC = () => {
                           color={story.isAIGenerated ? 'info' : 'default'}
                           variant="outlined"
                         />
+                        {story.creationSource === 'api' && story.createdViaApiKeyName && (
+                          <Chip
+                            label={t('stories.apiSourceTag', { keyName: story.createdViaApiKeyName })}
+                            size="small"
+                            color="secondary"
+                            variant="outlined"
+                          />
+                        )}
                       </Box>
                       <Typography variant="h6" sx={{ fontWeight: 600 }} gutterBottom noWrap>
                         {story.title.lang1}

@@ -27,13 +27,16 @@ export interface IStory extends Document {
   nativeLanguage: string;
   learningLanguage: string;
   level: 'beginner' | 'intermediate' | 'advanced';
-  topic: string;
+  labels: string[];
   seed: string;
   targetChapters: number;
   aiModel: string;
   aiGuideline: string;
   authorId: mongoose.Types.ObjectId;
   authorName: string;
+  creationSource: 'ui' | 'api';
+  createdViaApiKeyName?: string;
+  createdViaApiKeyId?: mongoose.Types.ObjectId;
   published: boolean;
   generating: boolean;
   isAIGenerated: boolean;
@@ -85,13 +88,16 @@ const storySchema = new Schema<IStory>(
     nativeLanguage: { type: String, required: true },
     learningLanguage: { type: String, required: true },
     level: { type: String, enum: ['beginner', 'intermediate', 'advanced'], required: true },
-    topic: { type: String, default: '' },
+    labels: { type: [String], default: [] },
     seed: { type: String, default: '' },
     targetChapters: { type: Number, default: 1 },
     aiModel: { type: String, default: 'gpt-4o-mini' },
     aiGuideline: { type: String, default: '' },
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     authorName: { type: String, required: true },
+    creationSource: { type: String, enum: ['ui', 'api'], default: 'ui' },
+    createdViaApiKeyName: { type: String, default: '' },
+    createdViaApiKeyId: { type: Schema.Types.ObjectId, ref: 'ApiKey', default: undefined },
     published: { type: Boolean, default: false },
     generating: { type: Boolean, default: false },
     isAIGenerated: { type: Boolean, default: false },

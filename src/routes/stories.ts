@@ -8,6 +8,7 @@ import {
   MAX_CHAPTERS_PER_STORY,
   sanitizeAIGuideline,
   sanitizeCharacters,
+  sanitizeLabels,
 } from '../services/storyInput';
 
 const router = express.Router();
@@ -63,6 +64,7 @@ router.get('/', async (req: Request, res: Response) => {
       filter.$or = [
         { 'title.lang1': { $regex: search, $options: 'i' } },
         { 'title.lang2': { $regex: search, $options: 'i' } },
+        { labels: { $regex: search, $options: 'i' } },
         { topic: { $regex: search, $options: 'i' } },
       ];
     }
@@ -97,7 +99,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/stories
 router.post('/', requireAuth, requireCreatePermission, async (req: Request, res: Response) => {
   try {
-    const { title, nativeLanguage, learningLanguage, level, topic } = req.body;
+    const { title, nativeLanguage, learningLanguage, level, labels, topic } = req.body;
 
     if (!title?.lang1) {
       return res.status(400).json({ message: 'Title is required' });
@@ -135,7 +137,7 @@ router.post('/', requireAuth, requireCreatePermission, async (req: Request, res:
       nativeLanguage,
       learningLanguage,
       level,
-      topic: topic || '',
+      labels: sanitizeLabels(labels, topic),
       seed: req.body.seed || '',
       aiGuideline: sanitizeAIGuideline(req.body.aiGuideline),
       authorId: req.session.userId,
@@ -160,7 +162,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    const { title, nativeLanguage, learningLanguage, level, topic } = req.body;
+    const { title, nativeLanguage, learningLanguage, level, labels, topic } = req.body;
 
     if (nativeLanguage && learningLanguage && nativeLanguage === learningLanguage) {
       return res.status(400).json({ message: 'Native and learning languages must be different' });
@@ -170,7 +172,9 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     if (nativeLanguage) story.nativeLanguage = nativeLanguage;
     if (learningLanguage) story.learningLanguage = learningLanguage;
     if (level) story.level = level;
-    if (topic !== undefined) story.topic = topic;
+    if (labels !== undefined || topic !== undefined) {
+      story.labels = sanitizeLabels(labels, topic);
+    }
     if (req.body.seed !== undefined) story.seed = req.body.seed;
     if (req.body.aiModel !== undefined) story.aiModel = req.body.aiModel;
     if (req.body.aiGuideline !== undefined) story.aiGuideline = sanitizeAIGuideline(req.body.aiGuideline);
@@ -438,6 +442,7 @@ router.post('/:id/clone', requireAuth, requireCreatePermission, async (req: Requ
 
     const author = await User.findById(req.session.userId).select('username');
     if (!author) return res.status(401).json({ message: 'User not found' });
+    const legacyTopic = (source as unknown as { topic?: unknown }).topic;
 
     const clone = new Story({
       title: {
@@ -459,7 +464,7 @@ router.post('/:id/clone', requireAuth, requireCreatePermission, async (req: Requ
       nativeLanguage: source.nativeLanguage,
       learningLanguage: source.learningLanguage,
       level: source.level,
-      topic: source.topic,
+      labels: sanitizeLabels(source.labels, legacyTopic),
       seed: source.seed,
       aiGuideline: source.aiGuideline,
       targetChapters: source.targetChapters,

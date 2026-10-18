@@ -8,6 +8,7 @@ declare global {
       apiKey?: {
         id: string;
         ownerId: string;
+        name: string;
         scopes: string[];
       };
     }

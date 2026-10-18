@@ -97,7 +97,7 @@ List published stories, newest first.
 | `nativeLang` | string | — | Native-language code (see `/metadata`), e.g. `en` |
 | `learningLang` | string | — | Learning-language code, e.g. `pt` |
 | `level` | string | — | `beginner`, `intermediate` or `advanced` |
-| `search` | string | — | Case-insensitive match on either title or topic (max 100 chars) |
+| `search` | string | — | Case-insensitive match on either title or labels (max 100 chars) |
 | `sort` | string | `newest` | `newest` or `oldest` |
 | `page` | integer | `1` | 1-based page number |
 | `limit` | integer | `12` | Page size, clamped to **50** |
@@ -118,8 +118,11 @@ values return `400 INVALID_PARAMETER`.
       "nativeLanguage": "pt",
       "learningLanguage": "en",
       "level": "beginner",
-      "topic": "animals",
+      "labels": ["animals", "friendship"],
       "authorName": "alice",
+      "publisherDisplayName": "alice(key-automation)",
+      "creationSource": "api",
+      "createdViaApiKeyName": "key-automation",
       "isAIGenerated": true,
       "createdAt": "2026-09-30T12:00:00.000Z",
       "updatedAt": "2026-10-02T08:15:00.000Z"
@@ -161,7 +164,8 @@ background. The response is `202 Accepted` with a `Location` header and a
 | `learningLanguage` | string | yes | Supported language code; must differ from `nativeLanguage` |
 | `level` | string | yes | `beginner`, `intermediate` or `advanced` |
 | `seed` | string | yes | Story premise used by the AI |
-| `topic` | string | no | Free-text topic (max 200 chars) |
+| `labels` | array | no | Free-text labels (`string[]`, deduplicated, max 20) |
+| `topic` | string | no | Legacy single-label alias; converted into `labels` when provided |
 | `characters` | array | no | `[{ name, role, description, appearance }]`, max 20 |
 | `aiGuideline` | string | no | Private style guidance (max 2000 chars) |
 | `aiModel` | string | no | `gpt-4o-mini` (default), `gpt-4.1-mini`, `gpt-4o`, `gpt-5-mini` |
@@ -238,8 +242,11 @@ include this block.
     "nativeLanguage": "pt",
     "learningLanguage": "en",
     "level": "beginner",
-    "topic": "animals",
+    "labels": ["animals", "friendship"],
     "authorName": "alice",
+    "publisherDisplayName": "alice(key-automation)",
+    "creationSource": "api",
+    "createdViaApiKeyName": "key-automation",
     "isAIGenerated": true,
     "createdAt": "2026-09-30T12:00:00.000Z",
     "updatedAt": "2026-10-02T08:15:00.000Z",
@@ -254,6 +261,11 @@ include this block.
   }
 }
 ```
+
+Attribution fields:
+- `creationSource` is `ui` for website-created stories and `api` for `/api/v1/stories` creations.
+- `createdViaApiKeyName` is a snapshot of the API key name used at creation time (when source is `api`).
+- `publisherDisplayName` is a convenience display field (`authorName` for UI stories, `authorName(keyName)` for API stories).
 
 ```bash
 curl -s "https://your-host/api/v1/stories/66f0a1b2c3d4e5f60718293a" \
