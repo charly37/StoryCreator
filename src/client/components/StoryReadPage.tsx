@@ -11,6 +11,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
 import { getAIModelLabel } from '../utils/aiModels';
@@ -62,6 +63,25 @@ const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
   advanced: 'error',
 };
 
+const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Box
+    component="kbd"
+    sx={{
+      border: '1px solid',
+      borderColor: 'divider',
+      borderRadius: 1,
+      px: 0.5,
+      py: 0.25,
+      fontFamily: 'monospace',
+      fontSize: '0.75rem',
+      lineHeight: 1.4,
+      bgcolor: 'action.hover',
+    }}
+  >
+    {children}
+  </Box>
+);
+
 const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -73,7 +93,6 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   // tracks which sentences have their translation revealed
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
-  const [allRevealed, setAllRevealed] = useState(false);
   const [cloning, setCloning] = useState(false);
   const [actionError, setActionError] = useState('');
 
@@ -89,6 +108,82 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
       .catch((err) => setError(err.message === 'not-found' ? 'not-found' : 'error'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Derived values must be computed before the early returns below so that every
+  // hook is called in the same order on each render.
+  const storyLabels = Array.isArray(story?.labels)
+    ? story.labels
+    : typeof story?.topic === 'string' && story.topic.trim() !== ''
+      ? [story.topic.trim()]
+      : [];
+
+  // Flatten chapters into a single navigable list
+  const flatSentences: FlatSentence[] = (story?.chapters ?? []).flatMap((chapter, ci) =>
+    (chapter.sentences ?? []).map((s, si) => ({
+      chapterIndex: ci,
+      lang1: s.lang1,
+      lang2: s.lang2,
+      isFirstInChapter: si === 0,
+      chapterTitle: chapter.title,
+    }))
+  );
+
+  const total = flatSentences.length;
+  const sentence = flatSentences[currentIndex];
+  const isRevealed = revealed.has(currentIndex);
+  const allRevealed = total > 0 && revealed.size === total;
+
+  // Keyboard shortcuts: ← / → move between sentences, ↑ / ↓ hide / reveal the translation.
+  // Works globally, so readers never have to click before using the keyboard.
+  useEffect(() => {
+    const ARROW_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Let browser shortcuts (Ctrl/⌘ + arrows) through
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+      ) {
+        return;
+      }
+
+      if (!ARROW_KEYS.includes(event.key)) return;
+      // Stop arrow keys from scrolling the page
+      event.preventDefault();
+      if (total === 0) return;
+
+      switch (event.key) {
+        case 'ArrowLeft':
+          setCurrentIndex((i) => Math.max(0, i - 1));
+          break;
+        case 'ArrowRight':
+          setCurrentIndex((i) => Math.min(total - 1, i + 1));
+          break;
+        case 'ArrowUp':
+          setRevealed((prev) => {
+            if (!prev.has(currentIndex)) return prev;
+            const next = new Set(prev);
+            next.delete(currentIndex);
+            return next;
+          });
+          break;
+        case 'ArrowDown':
+          setRevealed((prev) => {
+            if (prev.has(currentIndex)) return prev;
+            const next = new Set(prev);
+            next.add(currentIndex);
+            return next;
+          });
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex, total]);
 
   if (loading) {
     return (
@@ -115,27 +210,6 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
 
   if (!story) return null;
 
-  const storyLabels = Array.isArray(story.labels)
-    ? story.labels
-    : typeof story.topic === 'string' && story.topic.trim() !== ''
-      ? [story.topic.trim()]
-      : [];
-
-  // Flatten chapters into a single navigable list
-  const flatSentences: FlatSentence[] = (story.chapters ?? []).flatMap((chapter, ci) =>
-    (chapter.sentences ?? []).map((s, si) => ({
-      chapterIndex: ci,
-      lang1: s.lang1,
-      lang2: s.lang2,
-      isFirstInChapter: si === 0,
-      chapterTitle: chapter.title,
-    }))
-  );
-
-  const total = flatSentences.length;
-  const sentence = flatSentences[currentIndex];
-  const isRevealed = revealed.has(currentIndex);
-
   const toggleReveal = (index: number) => {
     setRevealed((prev) => {
       const next = new Set(prev);
@@ -150,7 +224,6 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
     } else {
       setRevealed(new Set(flatSentences.map((_, i) => i)));
     }
-    setAllRevealed((v) => !v);
   };
 
   const handleClone = async () => {
@@ -313,6 +386,31 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
           >
             {t('reader.next')}
           </Button>
+        </Box>
+
+        {/* Keyboard shortcut hint — hidden on touch-sized screens */}
+        <Box
+          sx={{
+            display: { xs: 'none', sm: 'flex' },
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            gap: 1.5,
+            mt: 2,
+            color: 'text.secondary',
+          }}
+        >
+          <KeyboardIcon sx={{ fontSize: 18 }} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Kbd>←</Kbd>
+            <Kbd>→</Kbd>
+            <Typography variant="caption">{t('reader.kbSentenceNav')}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Kbd>↑</Kbd>
+            <Kbd>↓</Kbd>
+            <Typography variant="caption">{t('reader.kbTranslation')}</Typography>
+          </Box>
         </Box>
       </Container>
     </Box>

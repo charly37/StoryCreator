@@ -108,7 +108,9 @@
     "showAll": "Afficher toutes les traductions",
     "hideAll": "Masquer toutes les traductions",
     "learningLabel": "Apprentissage",
-    "nativeLabel": "Natif"
+    "nativeLabel": "Natif",
+    "kbSentenceNav": "phrase précédente / suivante",
+    "kbTranslation": "masquer / afficher la traduction"
   },
   "editor": {
     "createTitle": "Écrire une nouvelle histoire",

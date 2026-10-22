@@ -20,6 +20,7 @@ External clients
 - Every story has a title and an ordered list of sentences in two languages (`lang1` and `lang2`).
 - `lang1` is the author's native language; `lang2` is the language being learned.
 - Readers can toggle between languages sentence-by-sentence while reading.
+- The reader also supports keyboard navigation: `←` / `→` move between sentences and `↑` / `↓` hide / reveal the native translation, mirroring the on-screen buttons. A caption under the navigation row advertises the shortcuts (hidden on small screens).
 
 ### 2. **Story Lifecycle**
 - Stories are created as drafts (`published: false`) and only visible to their author.
