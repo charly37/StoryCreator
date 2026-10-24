@@ -85,6 +85,11 @@ async function runStoryGeneration(storyId: string, model?: string): Promise<void
     }));
     const hadCharacters = characters.length > 0;
 
+    const providedTitle = {
+      lang1: story.title?.lang1?.trim() ?? '',
+      lang2: story.title?.lang2?.trim() ?? '',
+    };
+
     const generated = await aiService.generateStory(
       story.seed,
       story.nativeLanguage,
@@ -93,7 +98,8 @@ async function runStoryGeneration(storyId: string, model?: string): Promise<void
       characters,
       story.level,
       model,
-      story.aiGuideline
+      story.aiGuideline,
+      providedTitle
     );
 
     story.chapters = generated.chapters.map((chapter, index) => ({
@@ -108,7 +114,20 @@ async function runStoryGeneration(storyId: string, model?: string): Promise<void
       story.characters = generated.characters;
     }
 
-    story.title.lang2 = generated.title;
+    // Title is optional at creation. When the author left lang1 blank, take the
+    // AI's bilingual title; otherwise preserve the author's title and only fill
+    // the missing language (the AI is asked to translate it).
+    const fallbackTitle = generated.chapters[0]?.title ?? { lang1: '', lang2: '' };
+    if (!providedTitle.lang1) {
+      story.title.lang1 =
+        generated.title.lang1 || generated.title.lang2 || fallbackTitle.lang1 || '';
+      story.title.lang2 =
+        generated.title.lang2 || generated.title.lang1 || fallbackTitle.lang2 || '';
+    } else if (!providedTitle.lang2) {
+      story.title.lang2 =
+        generated.title.lang2 || generated.title.lang1 || fallbackTitle.lang2 || '';
+    }
+
     story.isAIGenerated = true;
     story.generating = false;
     story.generationError = '';

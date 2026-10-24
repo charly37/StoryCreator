@@ -24,24 +24,14 @@ export interface GeneratedChapter {
 }
 
 export interface GeneratedStory {
-  title: string;
+  title: { lang1: string; lang2: string };
   characters: CharacterSpec[];
   chapters: GeneratedChapter[];
 }
 
-export interface SentencePatch {
-  chapterIndex: number;
-  sentenceIndex: number;
-  lang1: string;
-  lang2: string;
-  feedback: string;
-}
-
-export interface PatchedSentence {
-  chapterIndex: number;
-  sentenceIndex: number;
-  lang1: string;
-  lang2: string;
+export interface StoryTitleSpec {
+  lang1?: string;
+  lang2?: string;
 }
 
 export interface RegeneratedChapter {
@@ -60,17 +50,9 @@ export interface IAIService {
     characters: CharacterSpec[],
     level: string,
     model?: string,
-    aiGuideline?: string
+    aiGuideline?: string,
+    storyTitle?: StoryTitleSpec
   ): Promise<GeneratedStory>;
-  patchSentences(
-    patches: SentencePatch[],
-    generalFeedback: string,
-    nativeLanguage: string,
-    learningLanguage: string,
-    level: string,
-    characters: CharacterSpec[],
-    model?: string
-  ): Promise<PatchedSentence[]>;
   regenerateChapter(
     chapterIndex: number,
     newSeed: string,
@@ -162,12 +144,15 @@ class OpenAIService implements IAIService {
     characters: CharacterSpec[],
     level: string,
     model = 'gpt-4o-mini',
-    aiGuideline = ''
+    aiGuideline = '',
+    storyTitle?: StoryTitleSpec
   ): Promise<GeneratedStory> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
     const levelGuidance = LEVEL_GUIDANCE[level] ?? LEVEL_GUIDANCE.intermediate;
     const N = chapterSpecs.length;
+    const providedTitleLang1 = storyTitle?.lang1?.trim() ?? '';
+    const providedTitleLang2 = storyTitle?.lang2?.trim() ?? '';
 
     const sanitizedGuideline = aiGuideline.trim().slice(0, 2000);
     const guidelineBlock = sanitizedGuideline
@@ -183,7 +168,10 @@ ${guidelineBlock}
 
 Return a JSON object with exactly this structure — no extra text or markdown:
 {
-  "title": "<story title in ${learningName}>",
+  "title": {
+    "lang1": "<story title in ${nativeName}>",
+    "lang2": "<story title in ${learningName}>"
+  },
   "characters": [
     {
       "name": "<character name>",
@@ -209,6 +197,8 @@ Return a JSON object with exactly this structure — no extra text or markdown:
 Rules:
 - Return exactly ${N} chapter objects in the "chapters" array
 - Chapter i must contain exactly the sentence count listed below
+- Give the story a short, reader-facing title (2–8 words) expressed in both languages
+- If an author-provided title is given below, use it verbatim for lang1 and translate it faithfully for lang2
 - Give every chapter a short, reader-facing title (2–6 words) expressed in both languages
 - "seed" is an internal authoring note used for later regeneration — it is NOT shown to readers; keep it brief and in English
 - If a chapter has a provided seed, use it as the premise; if blank, invent a coherent one
@@ -224,7 +214,11 @@ Rules:
 
     const castList = characterLines(characters) || '(none provided — invent a coherent cast)';
 
-    const userContent = `Story seed: ${seed}\n\nCharacters:\n${castList}\n\nChapters:\n${chapterList}`;
+    const providedTitle = providedTitleLang1
+      ? `Author-provided title (lang1): "${providedTitleLang1}"${providedTitleLang2 ? ` | (lang2): "${providedTitleLang2}"` : ''}`
+      : 'Author-provided title: none — invent one in both languages.';
+
+    const userContent = `${providedTitle}\n\nStory seed: ${seed}\n\nCharacters:\n${castList}\n\nChapters:\n${chapterList}`;
 
     const response = await this.client.chat.completions.create({
       model,
@@ -236,9 +230,12 @@ Rules:
     });
 
     const raw = response.choices[0]?.message?.content ?? '{}';
-    const parsed = JSON.parse(raw) as { title?: string; characters?: unknown[]; chapters?: GeneratedChapter[] };
+    const parsed = JSON.parse(raw) as { title?: unknown; characters?: unknown[]; chapters?: GeneratedChapter[] };
 
-    const title = typeof parsed.title === 'string' ? parsed.title : '';
+    // New prompt returns a bilingual object; tolerate a plain string for safety.
+    const title = typeof parsed.title === 'string'
+      ? { lang1: parsed.title.trim(), lang2: parsed.title.trim() }
+      : sanitizeTitle(parsed.title);
     const rawChapters = Array.isArray(parsed.chapters) ? parsed.chapters : [];
     const rawCharacters = Array.isArray(parsed.characters) ? parsed.characters : [];
 
@@ -266,61 +263,6 @@ Rules:
     });
 
     return { title, characters: generatedCharacters, chapters };
-  }
-
-  async patchSentences(
-    patches: SentencePatch[],
-    generalFeedback: string,
-    nativeLanguage: string,
-    learningLanguage: string,
-    level: string,
-    characters: CharacterSpec[],
-    model = 'gpt-4o-mini'
-  ): Promise<PatchedSentence[]> {
-    const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
-    const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
-    const levelGuidance = LEVEL_GUIDANCE[level] ?? LEVEL_GUIDANCE.intermediate;
-
-    const sentenceList = patches
-      .map((p) => `Ch${p.chapterIndex + 1}/S${p.sentenceIndex + 1} — ${nativeName}: "${p.lang1}" | ${learningName}: "${p.lang2}"\nFeedback: ${p.feedback}`)
-      .join('\n\n');
-
-    const systemPrompt = `You are editing specific sentences of a bilingual story for a language learner.
-Level: ${level} — ${levelGuidance}
-
-Revise only the sentences provided based on their feedback and return them improved in both languages.
-
-Return a JSON object with exactly this structure — no extra text:
-{
-  "patches": [
-    { "chapterIndex": <0-based chapter index>, "sentenceIndex": <0-based sentence index>, "lang1": "<revised in ${nativeName}>", "lang2": "<revised in ${learningName}>" }
-  ]
-}
-
-Rules:
-- Return exactly one object per input sentence, preserving chapterIndex and sentenceIndex
-- Apply the per-sentence feedback, using the general feedback as additional context
-- Ensure lang1 and lang2 express the same meaning
-- Maintain the story level throughout`;
-
-    const userContent = [
-      generalFeedback ? `General feedback: ${generalFeedback}` : '',
-      characterLines(characters) ? `Keep the cast consistent with:\n${characterLines(characters)}` : '',
-      sentenceList,
-    ].filter(Boolean).join('\n\n');
-
-    const response = await this.client.chat.completions.create({
-      model,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent },
-      ],
-    });
-
-    const raw = response.choices[0]?.message?.content ?? '{}';
-    const parsed = JSON.parse(raw) as { patches?: PatchedSentence[] };
-    return Array.isArray(parsed.patches) ? parsed.patches : [];
   }
 
   async regenerateChapter(

@@ -151,7 +151,7 @@ Express catch-all `app.get('/{*path}', ...)` serves `public/index.html` for all 
 - `GET /` — Browse published stories (filters: `nativeLang`, `learningLang`, `level`, `search`; pagination 12/page)
 - `GET /mine` — User's own drafts + published (auth required)
 - `GET /:id` — Full story with chapters + sentences (403 if draft and not author)
-- `POST /` — Create new draft (auth + creator access; accepts `seed`, `characters`, `chapters`)
+- `POST /` — Create new draft (auth + creator access; optional `title` — AI-generated when blank; accepts `seed`, `characters`, `chapters`)
 - `PUT /:id` — Update story (auth + author check; accepts `seed`, `characters`, chapter metadata)
 - `DELETE /:id` — Delete story (auth + author check)
 - `POST /:id/publish` — Toggle published flag (auth + author check; requires ≥1 sentence)
@@ -174,7 +174,7 @@ Key-authenticated: `stories:read` for published-story reads, `stories:write` for
 - `GET /stories` — Filters `nativeLang`, `learningLang`, `level`, `search`, `author` (exact username, case-insensitive),
   `sort`, `page`, `limit` (clamped to 50); returns `{ data, pagination }`; requires `stories:read`. Unknown `author` → empty page (not 404)
 - `GET /stories/:id` — Published story with chapters + sentence pairs; drafts return **404** for read-only keys. Write-scoped owners can read their own drafts and receive a `status` block (`generating` / `ready` / `failed` + `generationError`)
-- `POST /stories` — Requires `stories:write`; creates a draft from `title.lang1`, languages, `level`, `seed` (+ optional `topic`, `characters`, `aiGuideline`, `aiModel`, `targetChapters`, `chapters`, `published`), starts AI generation, returns `202 { data: { id, status, published, pollUrl } }` + `Location`; supports `Idempotency-Key`
+- `POST /stories` — Requires `stories:write`; creates a draft from languages, `level`, `seed` (+ optional `title`, `topic`, `characters`, `aiGuideline`, `aiModel`, `targetChapters`, `chapters`, `published`), starts AI generation, returns `202 { data: { id, status, published, pollUrl } }` + `Location`; supports `Idempotency-Key`
 - `GET /metadata` — Languages, levels, pagination limits
 - Unknown `/api/v1/*` paths return a JSON 404 (terminal router handler)
 

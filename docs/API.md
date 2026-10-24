@@ -206,7 +206,7 @@ Returns a single story including all sentences.
 
 | Field | Required | Notes |
 |---|---|---|
-| `title.lang1` | yes | |
+| `title.lang1` | no | Optional — when blank the AI generates both title languages |
 | `title.lang2` | no | Usually filled in by AI generation |
 | `nativeLanguage` | yes | Must differ from `learningLanguage` |
 | `learningLanguage` | yes | |
@@ -221,6 +221,8 @@ Returns a single story including all sentences.
 
 Each chapter carries a reader-facing bilingual `title` and a private `seed`. The `seed` is only an AI authoring premise — it is **never shown to readers** and is preserved across generation/regeneration. `aiGuideline` is also private authoring metadata, used to steer writing style during generation/regeneration and never shown to readers. When a chapter `title` is empty the reader falls back to a localized "Chapter N" heading.
 
+The story `title` is optional. Leave `title.lang1` blank and AI generation produces a bilingual title (like chapter titles); a provided `title.lang1` is preserved and the AI translates it for `title.lang2`.
+
 Website-created stories default to `creationSource: "ui"`.
 
 **Response `201`:** The created story object.
@@ -234,7 +236,7 @@ Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `can
 *Auth required. Creator access required.* Deep-copy an existing story into a new draft owned by the authenticated user.
 
 - You may clone your own stories (drafts or published) or any **published** story by another author. Cloning another user's draft returns `403`.
-- Copies `title` (with `" (copy)"` appended to `title.lang1`), `chapters` (including chapter titles and sentences), `characters`, `nativeLanguage`, `learningLanguage`, `level`, `labels`, `seed`, and `targetChapters`.
+- Copies `title` (with `" (copy)"` appended to `title.lang1` when non-empty; a blank title stays blank so the AI can generate one), `chapters` (including chapter titles and sentences), `characters`, `nativeLanguage`, `learningLanguage`, `level`, `labels`, `seed`, and `targetChapters`.
 - The clone always starts as a draft (`published: false`). `isAIGenerated` is copied from the source.
 - Returns `400` if the source story is still generating.
 
@@ -307,6 +309,7 @@ Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `can
 - The story's `characters` are sent to the AI as the cast. If the cast was empty, the AI's invented cast is written back to `characters` after generation; author-entered characters are preserved.
 - The story's `aiGuideline` is injected as writing-style guidance when provided.
 - Each chapter gets a short bilingual `title` from the AI. Author-provided chapter `seed` values are preserved; the AI's seed is only stored where the author left it blank.
+- When the story `title` is blank, the AI generates it in both languages; author-provided title values are preserved.
 
 **Response `202`:** `{ message, storyId }`
 

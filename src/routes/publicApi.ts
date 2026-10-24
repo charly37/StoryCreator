@@ -228,12 +228,8 @@ router.post('/stories', requireScope(API_KEY_WRITE_SCOPE), async (req: Request, 
   try {
     const body = (req.body ?? {}) as Record<string, unknown>;
 
-    const title = (body.title ?? {}) as { lang1?: unknown; lang2?: unknown };
-    const titleLang1 = typeof title.lang1 === 'string' ? title.lang1.trim() : '';
-    const titleLang2 = typeof title.lang2 === 'string' ? title.lang2.trim() : '';
-    if (!titleLang1) {
-      return sendError(res, 400, 'INVALID_PARAMETER', 'title.lang1 is required');
-    }
+    // Title is optional: when omitted, AI generation supplies both languages.
+    const title = sanitizeTitle(body.title);
 
     const nativeLanguage = typeof body.nativeLanguage === 'string' ? body.nativeLanguage.trim() : '';
     const learningLanguage = typeof body.learningLanguage === 'string' ? body.learningLanguage.trim() : '';
@@ -315,7 +311,7 @@ router.post('/stories', requireScope(API_KEY_WRITE_SCOPE), async (req: Request, 
     }
 
     const story = new Story({
-      title: { lang1: titleLang1, lang2: titleLang2 },
+      title,
       chapters,
       targetChapters,
       characters: sanitizeCharacters(body.characters),

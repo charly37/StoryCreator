@@ -169,7 +169,7 @@ background. The response is `202 Accepted` with a `Location` header and a
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `title.lang1` | string | yes | Title in the native language |
+| `title.lang1` | string | no | Title in the native language — leave blank and AI generation supplies both languages |
 | `title.lang2` | string | no | Title in the learning language (the AI fills it when blank) |
 | `nativeLanguage` | string | yes | Supported language code (see `/metadata`) |
 | `learningLanguage` | string | yes | Supported language code; must differ from `nativeLanguage` |

@@ -57,6 +57,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const canCreate = !!user.canCreateStories;
 
   const [titleLang1, setTitleLang1] = useState('');
+  const [titleLang2, setTitleLang2] = useState('');
   const [nativeLanguage, setNativeLanguage] = useState('');
   const [learningLanguage, setLearningLanguage] = useState('');
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
@@ -79,6 +80,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
       .then((res) => res.json())
       .then((data) => {
         setTitleLang1(data.title?.lang1 || '');
+        setTitleLang2(data.title?.lang2 || '');
         setNativeLanguage(data.nativeLanguage || '');
         setLearningLanguage(data.learningLanguage || '');
         setLevel(data.level || 'beginner');
@@ -129,10 +131,6 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
       return false;
     }
     if (!validateLanguages(nativeLanguage, learningLanguage)) return false;
-    if (!titleLang1.trim()) {
-      setError('Please fill in the story title.');
-      return false;
-    }
     if (!seed.trim()) {
       setError('Please write your story seed before generating.');
       return false;
@@ -152,7 +150,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
     try {
       // Create or update the draft first so we have an ID
       const metaPayload = {
-        title: { lang1: titleLang1, lang2: '' },
+        title: { lang1: titleLang1.trim(), lang2: titleLang2 },
         nativeLanguage,
         learningLanguage,
         level,
@@ -293,7 +291,8 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
             label={t('editor.titleIn', { lang: nativeLangName })}
             value={titleLang1}
             onChange={(e) => setTitleLang1(e.target.value)}
-            fullWidth required sx={{ mb: 2 }}
+            helperText={t('editor.titleOptionalHint')}
+            fullWidth sx={{ mb: 2 }}
           />
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <TextField

@@ -99,11 +99,8 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/stories
 router.post('/', requireAuth, requireCreatePermission, async (req: Request, res: Response) => {
   try {
-    const { title, nativeLanguage, learningLanguage, level, labels, topic } = req.body;
+    const { nativeLanguage, learningLanguage, level, labels, topic } = req.body;
 
-    if (!title?.lang1) {
-      return res.status(400).json({ message: 'Title is required' });
-    }
     if (!nativeLanguage || !learningLanguage) {
       return res.status(400).json({ message: 'Both languages are required' });
     }
@@ -130,7 +127,7 @@ router.post('/', requireAuth, requireCreatePermission, async (req: Request, res:
       : Array.from({ length: targetChapters }, () => ({ title: { lang1: '', lang2: '' }, seed: '', targetSentences: DEFAULT_SENTENCES_PER_CHAPTER, sentences: [] }));
 
     const story = new Story({
-      title,
+      title: sanitizeTitle(req.body.title),
       chapters,
       targetChapters,
       characters: sanitizeCharacters(req.body.characters),
@@ -168,7 +165,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Native and learning languages must be different' });
     }
 
-    if (title) story.title = title;
+    if (title !== undefined) story.title = sanitizeTitle(title);
     if (nativeLanguage) story.nativeLanguage = nativeLanguage;
     if (learningLanguage) story.learningLanguage = learningLanguage;
     if (level) story.level = level;
@@ -447,10 +444,12 @@ router.post('/:id/clone', requireAuth, requireCreatePermission, async (req: Requ
     if (!author) return res.status(401).json({ message: 'User not found' });
     const legacyTopic = (source as unknown as { topic?: unknown }).topic;
 
+    const sourceTitleLang1 = source.title?.lang1?.trim() ?? '';
     const clone = new Story({
       title: {
-        lang1: `${source.title.lang1} (copy)`,
-        lang2: source.title.lang2,
+        // A blank title stays blank so the AI can generate one on demand.
+        lang1: sourceTitleLang1 ? `${sourceTitleLang1} (copy)` : '',
+        lang2: source.title?.lang2 ?? '',
       },
       chapters: source.chapters.map((c) => ({
         title: { lang1: c.title?.lang1 ?? '', lang2: c.title?.lang2 ?? '' },

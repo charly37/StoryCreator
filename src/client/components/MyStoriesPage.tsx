@@ -229,7 +229,9 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                     />
                   )}
                 </Box>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>{story.title.lang1}</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {story.title.lang1 || (story.generating ? t('myStories.untitledGenerating') : t('myStories.untitled'))}
+                </Typography>
                 <Typography
                   variant="body2"
                   color="text.secondary"

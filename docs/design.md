@@ -73,7 +73,7 @@ External clients
 
 | Field | Type | Notes |
 |---|---|---|
-| `title.lang1` | String | Title in native language |
+| `title.lang1` | String | Title in native language (optional — AI-generated when blank) |
 | `title.lang2` | String | Title in learning language (filled in by AI generation) |
 | `chapters` | `[{ title: { lang1, lang2 }, seed, targetSentences, sentences: [{ lang1, lang2 }] }]` | Ordered chapters, each holding a reader-facing bilingual title, an authoring-only premise, and parallel sentence pairs |
 | `characters` | `[{ name, role, description, appearance }]` | Author-defined cast used to keep AI output consistent |
@@ -169,7 +169,7 @@ src/
   serializers/
     publicStory.ts    — Allow-list shaping for public story responses
   services/
-    aiService.ts      — OpenAI prompts (generate / patch / regenerate)
+    aiService.ts      — OpenAI prompts (generate / regenerate)
     apiKeyService.ts  — Hashing, generation, lookup, last-used tracking
   i18n.ts             — i18next config (client-side)
   locales/

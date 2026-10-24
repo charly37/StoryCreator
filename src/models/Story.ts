@@ -79,7 +79,8 @@ const characterSchema = new Schema<ICharacter>(
 const storySchema = new Schema<IStory>(
   {
     title: {
-      lang1: { type: String, required: true },
+      // Optional: when blank, AI generation fills in both languages.
+      lang1: { type: String, default: '' },
       lang2: { type: String, default: '' },
     },
     chapters: { type: [chapterSchema], default: [] },
