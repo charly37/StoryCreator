@@ -17,17 +17,17 @@
     "bcryptjs": "^3.0.3",
     "connect-mongo": "^6.0.0",
     "cors": "^2.8.6",
-    "dotenv": "^18.0.8",
+    "dotenv": "^18.0.9",
     "express": "^5.3.0",
     "express-rate-limit": "^8.7.1",
     "express-session": "^1.19.0",
-    "i18next": "^26.5.2",
-    "i18next-browser-languagedetector": "^8.2.1",
-    "mongoose": "^9.11.2",
-    "openai": "^7.38.0",
+    "i18next": "^26.5.10",
+    "i18next-browser-languagedetector": "^8.2.2",
+    "mongoose": "^9.11.4",
+    "openai": "^7.43.0",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
-    "react-i18next": "^17.1.0",
+    "react-i18next": "^17.1.8",
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
@@ -52,8 +52,8 @@
     "style-loader": "^4.0.0",
     "tsx": "^4.19.2",
     "typescript": "^7.0.2",
-    "webpack": "5.112.0",
+    "webpack": "5.112.2",
     "webpack-cli": "7.2.3",
-    "webpack-dev-server": "^6.0.0"
+    "webpack-dev-server": "^6.1.0"
   }
 }
