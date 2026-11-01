@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout code
@@ -43,7 +43,7 @@ jobs:
 
   docker-build:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: |
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
@@ -160,7 +160,7 @@ jobs:
 
   k8s-validate:
     needs: docker-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: |
       github.event_name == 'pull_request' ||
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
