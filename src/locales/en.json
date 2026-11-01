@@ -99,7 +99,10 @@
   "reader": {
     "showTranslation": "Show translation",
     "hideTranslation": "Hide translation",
-    "sentence": "Sentence {{current}} of {{total}}",
+    "progress": "Chapter {{chapter}} of {{chapters}} — {{percent}}% of the story",
+    "chapterN": "Chapter {{n}}",
+    "chapterSentence": "{{current}} / {{total}} in chapter",
+    "jumpToChapter": "Jump to chapter",
     "previous": "Previous",
     "next": "Next",
     "backToStories": "Back to Stories",
@@ -238,8 +241,7 @@
     }
   },
   "preview": {
-    "goToReview": "Go to Review",
-    "chapterN": "Chapter {{n}}"
+    "goToReview": "Go to Review"
   },
   "review": {
     "title": "Review Story",

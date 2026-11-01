@@ -44,7 +44,10 @@ storyCreatorAgent:
   enabled: true
   # Mondays at 08:00 (cluster timezone)
   schedule: "0 8 * * 1"
-  suspend: false
+  # Temporarily paused: story creation moved to the caller side while the change
+  # is validated. Set back to false (or set enabled: false to remove the CronJob
+  # entirely) once the external trigger is confirmed working.
+  suspend: true
   startingDeadlineSeconds: 300
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3

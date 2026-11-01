@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Paper, Button, Chip, CircularProgress,
-  Alert, LinearProgress, IconButton, Tooltip,
+  Alert, LinearProgress, IconButton, Tooltip, Divider, Menu, MenuItem,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -11,6 +11,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
@@ -18,6 +19,7 @@ import { getAIModelLabel } from '../utils/aiModels';
 import { formatSeedPreview } from '../utils/seedPreview';
 import { formatRelativeDate } from '../utils/relativeDate';
 import { cloneStory } from '../utils/cloneStory';
+import { getChapterContext, getChapterStartIndex, getStoryPercent } from '../utils/readingProgress';
 import { AppUser } from '../App';
 
 interface Sentence {
@@ -95,6 +97,7 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const [cloning, setCloning] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [chapterMenuAnchor, setChapterMenuAnchor] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -132,6 +135,15 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
   const sentence = flatSentences[currentIndex];
   const isRevealed = revealed.has(currentIndex);
   const allRevealed = total > 0 && revealed.size === total;
+  // Story-level progress (chapter counter + % of the whole story)
+  const progressPercent = getStoryPercent(currentIndex, total);
+  const chapterContext = getChapterContext(flatSentences, currentIndex, story?.chapters.length ?? 0);
+  // Chapter heading: learning-language title, with the native title revealed on demand
+  const chapterTitleLang2 = sentence?.chapterTitle?.lang2?.trim() ?? '';
+  const chapterTitleLang1 = sentence?.chapterTitle?.lang1?.trim() ?? '';
+  const chapterHeadingTitle = chapterTitleLang2 || chapterTitleLang1;
+  const chapterHeadingTranslation =
+    chapterTitleLang1 && chapterTitleLang1 !== chapterHeadingTitle ? chapterTitleLang1 : '';
 
   // Keyboard shortcuts: ← / → move between sentences, ↑ / ↓ hide / reveal the translation.
   // Works globally, so readers never have to click before using the keyboard.
@@ -141,6 +153,8 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Let browser shortcuts (Ctrl/⌘ + arrows) through
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      // While the chapter menu is open, arrow keys belong to the menu
+      if (chapterMenuAnchor) return;
 
       const target = event.target as HTMLElement | null;
       if (
@@ -183,7 +197,7 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, total]);
+  }, [currentIndex, total, chapterMenuAnchor]);
 
   if (loading) {
     return (
@@ -322,27 +336,90 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
         {/* Progress bar */}
         <Box sx={{ mb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="caption" color="text.secondary">
-              {t('reader.sentence', { current: currentIndex + 1, total })}
-            </Typography>
+            {total > 0 ? (
+              <Button
+                size="small"
+                variant="text"
+                onClick={(event) => setChapterMenuAnchor(event.currentTarget)}
+                endIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
+                aria-label={t('reader.jumpToChapter')}
+                aria-haspopup="true"
+                aria-expanded={Boolean(chapterMenuAnchor)}
+                sx={{
+                  px: 0.5,
+                  py: 0,
+                  minWidth: 0,
+                  fontSize: '0.75rem',
+                  lineHeight: 1.6,
+                  color: 'text.secondary',
+                  textTransform: 'none',
+                }}
+              >
+                {t('reader.progress', {
+                  chapter: chapterContext.chapterNumber,
+                  chapters: chapterContext.chapterCount,
+                  percent: progressPercent,
+                })}
+              </Button>
+            ) : (
+              <Box />
+            )}
             <Button size="small" onClick={toggleAll} startIcon={allRevealed ? <VisibilityOffIcon /> : <VisibilityIcon />}>
               {allRevealed ? t('reader.hideAll') : t('reader.showAll')}
             </Button>
           </Box>
-          <LinearProgress variant="determinate" value={total > 0 ? ((currentIndex + 1) / total) * 100 : 0} sx={{ borderRadius: 2 }} />
+          <LinearProgress variant="determinate" value={progressPercent} sx={{ borderRadius: 2 }} />
+          <Menu
+            anchorEl={chapterMenuAnchor}
+            open={Boolean(chapterMenuAnchor)}
+            onClose={() => setChapterMenuAnchor(null)}
+            slotProps={{ list: { dense: true, sx: { maxHeight: 320, minWidth: 220 } } }}
+          >
+            {story.chapters.map((chapter, ci) => {
+              const startIndex = getChapterStartIndex(flatSentences, ci);
+              const menuChapterTitle =
+                chapter.title?.lang2?.trim() || chapter.title?.lang1?.trim() || '';
+              const isCurrentChapter = ci + 1 === chapterContext.chapterNumber;
+              return (
+                <MenuItem
+                  key={ci}
+                  selected={isCurrentChapter}
+                  disabled={startIndex < 0}
+                  sx={{ fontWeight: isCurrentChapter ? 700 : 400 }}
+                  onClick={() => {
+                    if (startIndex >= 0) setCurrentIndex(startIndex);
+                    setChapterMenuAnchor(null);
+                  }}
+                >
+                  {t('reader.chapterN', { n: ci + 1 })}
+                  {menuChapterTitle ? ` — ${menuChapterTitle}` : ''}
+                </MenuItem>
+              );
+            })}
+          </Menu>
         </Box>
 
         {/* Sentence card */}
         {total > 0 && sentence && (
           <Paper elevation={2} sx={{ p: 3, mb: 2, minHeight: 140 }}>
-            {/* Chapter header shown at the first sentence of each chapter */}
-            {sentence.isFirstInChapter && story.chapters.length > 1 && (
-              <Typography variant="overline" color="primary" sx={{ display: 'block', mb: 1, fontWeight: 700 }}>
-                {t('preview.chapterN', { n: sentence.chapterIndex + 1 })}
-                {(sentence.chapterTitle?.lang2 || sentence.chapterTitle?.lang1)
-                  ? ` — ${sentence.chapterTitle.lang2 || sentence.chapterTitle.lang1}`
-                  : ''}
-              </Typography>
+            {/* Chapter heading shown at the first sentence of each chapter */}
+            {sentence.isFirstInChapter && (
+              <>
+                <Typography variant="overline" color="primary" sx={{ display: 'block', fontWeight: 700, lineHeight: 1.6 }}>
+                  {t('reader.chapterN', { n: sentence.chapterIndex + 1 })}
+                </Typography>
+                {chapterHeadingTitle && (
+                  <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.4 }}>
+                    {chapterHeadingTitle}
+                  </Typography>
+                )}
+                {isRevealed && chapterHeadingTranslation && (
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', mt: 0.5 }}>
+                    {chapterHeadingTranslation}
+                  </Typography>
+                )}
+                <Divider sx={{ mt: 1, mb: 2 }} />
+              </>
             )}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <Box sx={{ flexGrow: 1 }}>
@@ -377,7 +454,12 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
             {t('reader.previous')}
           </Button>
           <Typography variant="body2" color="text.secondary">
-            {currentIndex + 1} / {total}
+            {total > 0
+              ? t('reader.chapterSentence', {
+                  current: chapterContext.chapterSentence,
+                  total: chapterContext.chapterSentenceCount,
+                })
+              : ''}
           </Typography>
           <Button
             endIcon={<ArrowForwardIosIcon />}

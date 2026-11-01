@@ -99,7 +99,10 @@
   "reader": {
     "showTranslation": "Afficher la traduction",
     "hideTranslation": "Masquer la traduction",
-    "sentence": "Phrase {{current}} sur {{total}}",
+    "progress": "Chapitre {{chapter}} sur {{chapters}} — {{percent}} % de l'histoire",
+    "chapterN": "Chapitre {{n}}",
+    "chapterSentence": "{{current}} / {{total}} dans le chapitre",
+    "jumpToChapter": "Aller au chapitre",
     "previous": "Précédent",
     "next": "Suivant",
     "backToStories": "Retour aux histoires",
@@ -238,8 +241,7 @@
     }
   },
   "preview": {
-    "goToReview": "Aller à la relecture",
-    "chapterN": "Chapitre {{n}}"
+    "goToReview": "Aller à la relecture"
   },
   "review": {
     "title": "Relire l'histoire",
