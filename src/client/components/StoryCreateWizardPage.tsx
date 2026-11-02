@@ -466,7 +466,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 8 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', pt: 12, pb: 8 }}>
         <CircularProgress />
       </Box>
     );
@@ -480,7 +480,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
   ];
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Container maxWidth="md" sx={{ pt: 10, pb: 8 }}>
       <Typography variant="h4" gutterBottom>
         {t('wizard.title')}
       </Typography>

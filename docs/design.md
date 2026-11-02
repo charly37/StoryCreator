@@ -145,8 +145,10 @@ src/client/
     StoriesPage.tsx  — Public browse with filters
     StoryEditorPage.tsx — Story editor (seed, chapters, characters)
     StoryReviewPage.tsx — AI review (chapter/story regenerate, publish/unpublish)
-    StoryPreviewPage.tsx — Pre-publish preview
-    StoryReadPage.tsx   — Bilingual reading view
+    StoryPreviewPage.tsx — Pre-publish preview (wraps StoryReader)
+    StoryReadPage.tsx   — Bilingual reading view (wraps StoryReader)
+    StoryReader.tsx     — Shared reader UI: sentence nav, keyboard shortcuts,
+                          translation toggles, chapter jumps, progress
     LoginPage.tsx
     RegisterPage.tsx
     ProfilePage.tsx     — Account details (username, email, member since, creator access)
