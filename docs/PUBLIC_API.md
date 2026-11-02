@@ -158,6 +158,10 @@ Only **published** stories are ever listed, so `author` implicitly means
 
 ### `POST /api/v1/stories`
 
+> Generation started by this endpoint is always **one-shot**: the interactive outline → chapters →
+> validation flow is website-only. The API pins `generationMode: "quick"`, so prompts, timing and
+> the `status` block are unchanged.
+
 Create a draft and start AI generation. Requires the `stories:write` scope.
 
 The story is created immediately with empty chapters; generation runs in the
@@ -179,7 +183,8 @@ background. The response is `202 Accepted` with a `Location` header and a
 | `topic` | string | no | Legacy single-label alias; converted into `labels` when provided |
 | `characters` | array | no | `[{ name, role, description, appearance }]`, max 20 |
 | `aiGuideline` | string | no | Private style guidance (max 2000 chars) |
-| `aiModel` | string | no | `gpt-4o-mini` (default), `gpt-4.1-mini`, `gpt-4o`, `gpt-5-mini` |
+| `aiModel` | string | no | `gpt-4o-mini` (default), `gpt-4.1-mini`, `gpt-4o`, `gpt-5-mini`, `gpt-5-mini-high`, `gpt-5.6-luna`, `gpt-5.4-mini` — see `/metadata` for the full catalogue with prices and supported thinking levels |
+| `aiReasoningEffort` | string | no | Reasoning models only: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`. Omit it to use the provider default. Values the chosen model does not support return `400 INVALID_PARAMETER` |
 | `targetChapters` | integer | no | 1–10, default `1` (ignored when `chapters` is provided) |
 | `chapters` | array | no | `[{ title?, seed?, targetSentences? }]`, max 10; `targetSentences` 1–100 |
 | `published` | boolean | no | Default `false`. When `true`, the story is published automatically once generation produces content |
@@ -291,7 +296,7 @@ curl -s "https://your-host/api/v1/stories/66f0a1b2c3d4e5f60718293a" \
 
 ### `GET /api/v1/metadata`
 
-Filter values and pagination limits, useful for building UIs.
+Filter values, the model catalogue and pagination limits, useful for building UIs.
 
 ```json
 {
@@ -300,12 +305,35 @@ Filter values and pagination limits, useful for building UIs.
       { "code": "ar", "name": "Arabic", "nativeName": "العربية" }
     ],
     "levels": ["beginner", "intermediate", "advanced"],
+    "defaultModel": "gpt-4o-mini",
+    "models": [
+      {
+        "id": "gpt-4o-mini",
+        "label": "GPT-4o mini",
+        "reasoning": false,
+        "efforts": [],
+        "pinnedEffort": null,
+        "premium": false,
+        "deprecated": true
+      },
+      {
+        "id": "gpt-5.4-mini",
+        "label": "GPT-5.4 mini",
+        "reasoning": true,
+        "efforts": ["none", "low", "medium", "high", "xhigh"],
+        "pinnedEffort": null,
+        "premium": true,
+        "deprecated": false
+      }
+    ],
     "pagination": { "defaultLimit": 12, "maxLimit": 50 }
   }
 }
 ```
 
 The `languages` array always matches the website's supported language list.
+`defaultModel` is deliberately the cheapest entry; entries with `"premium": true`
+cost several times more and are never selected automatically.
 
 ---
 

@@ -21,12 +21,13 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, getLanguageName } from '../utils/languages';
-import { AI_MODELS, DEFAULT_AI_MODEL } from '../utils/aiModels';
+import { AI_MODELS, DEFAULT_AI_MODEL, effortForRequest } from '../utils/aiModels';
 import { cloneStory } from '../utils/cloneStory';
 import { AppUser } from '../App';
+import AiEffortSelect from './AiEffortSelect';
 
 interface Sentence { lang1: string; lang2: string; }
-interface Chapter { title: { lang1: string; lang2: string }; seed: string; targetSentences: number; sentences: Sentence[]; }
+interface Chapter { title: { lang1: string; lang2: string }; seed: string; targetSentences: number; sentences: Sentence[]; issues?: string[]; }
 interface Character { name: string; role: string; description: string; appearance: string; }
 
 interface Story {
@@ -41,10 +42,16 @@ interface Story {
   topic?: string;
   seed: string;
   aiModel: string;
+  /** '' or missing means the provider default thinking level. */
+  aiReasoningEffort?: string;
   aiGuideline: string;
   published: boolean;
   generating: boolean;
   sentenceCount: number;
+  // Staged authoring metadata (absent on quick/API stories).
+  outline?: { synopsis?: { lang1?: string; lang2?: string }; approvedAt?: string };
+  stage?: 'setup' | 'outline' | 'chapters' | 'validation' | 'ready';
+  validationMode?: '' | 'basic' | 'ai_review';
 }
 
 const LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
@@ -94,6 +101,8 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [aiModel, setAiModel] = useState(DEFAULT_AI_MODEL);
+  /** '' = provider default; only sent when the author picks a level. */
+  const [aiEffort, setAiEffort] = useState('');
   // track which chapter is being regenerated
   const [regeneratingChapter, setRegeneratingChapter] = useState<number | null>(null);
   const [regenerateAllOpen, setRegenerateAllOpen] = useState(false);
@@ -148,6 +157,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
     setLabelsInput(labels.join(', '));
     setSeed(story.seed || '');
     if (story.aiModel) setAiModel(story.aiModel);
+    setAiEffort(story.aiReasoningEffort || '');
     setAiGuideline(story.aiGuideline || '');
     const seeds: Record<number, string> = {};
     const targets: Record<number, number> = {};
@@ -198,6 +208,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
         labels: parseLabels(labelsInput),
         seed,
         aiModel,
+        aiReasoningEffort: effortForRequest(aiModel, aiEffort),
         aiGuideline,
         chapters,
         characters,
@@ -232,6 +243,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
           chapterIndex,
           generalFeedback: chapterFeedbacks[chapterIndex]?.trim() ?? '',
           model: aiModel,
+          effort: effortForRequest(aiModel, aiEffort),
         }),
       });
       const data = await res.json();
@@ -292,7 +304,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
       const res = await fetch(`/api/stories/${id}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: aiModel }),
+        body: JSON.stringify({ model: aiModel, effort: effortForRequest(aiModel, aiEffort) }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || t('editor.generateError')); return; }
@@ -443,6 +455,17 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
             {t('review.seedHint')}
           </Alert>
 
+          {(story.outline?.synopsis?.lang1 || story.outline?.synopsis?.lang2) && (
+            <Box sx={{ mb: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>
+                {t('review.synopsis')}
+              </Typography>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-line', color: 'text.secondary' }}>
+                {story.outline?.synopsis?.lang1 || story.outline?.synopsis?.lang2}
+              </Typography>
+            </Box>
+          )}
+
         </Paper>
 
         {/* ── Editable story characters ── */}
@@ -543,21 +566,35 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
             disabled={busy}
             sx={{ mb: 2 }}
           />
-          <FormControl sx={{ minWidth: 260 }}>
-            <InputLabel>{t('editor.aiModel')}</InputLabel>
-            <Select
-              value={aiModel}
-              label={t('editor.aiModel')}
-              onChange={(e) => setAiModel(e.target.value)}
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <FormControl sx={{ minWidth: 260 }}>
+              <InputLabel>{t('editor.aiModel')}</InputLabel>
+              <Select
+                value={aiModel}
+                label={t('editor.aiModel')}
+                onChange={(e) => {
+                  setAiModel(e.target.value);
+                  setAiEffort('');
+                }}
+                disabled={busy}
+              >
+                {AI_MODELS.map((m) => (
+                  <MenuItem key={m.id} value={m.id}>
+                    {m.label} — {m.description}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <AiEffortSelect
+              id="review-ai-effort"
+              label={t('editor.reasoningEffort')}
+              modelId={aiModel}
+              value={aiEffort}
+              onChange={setAiEffort}
               disabled={busy}
-            >
-              {AI_MODELS.map((m) => (
-                <MenuItem key={m.id} value={m.id}>
-                  {m.label} — {m.description}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              minWidth={200}
+            />
+          </Box>
         </Paper>
 
         {/* ── Chapter accordions ── */}
@@ -629,6 +666,21 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
               </Box>
 
               <Divider sx={{ mb: 2 }} />
+
+              {(chapter.issues?.length ?? 0) > 0 && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                    {t('review.findings', { count: chapter.issues?.length ?? 0 })}
+                  </Typography>
+                  <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                    {(chapter.issues ?? []).map((issue, issueIndex) => (
+                      <li key={issueIndex}>
+                        <Typography variant="caption">{issue}</Typography>
+                      </li>
+                    ))}
+                  </Box>
+                </Alert>
+              )}
 
               {/* Sentence list */}
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>

@@ -48,7 +48,18 @@ log = logging.getLogger("storycreator-agent")
 DEFAULT_API_URL = "http://localhost:3000"
 SUPPORTED_LEVELS = ("beginner", "intermediate", "advanced")
 # Mirrors ALLOWED_AI_MODELS in src/services/storyGenerationService.ts.
-ALLOWED_STORY_MODELS = ("gpt-4o-mini", "gpt-4.1-mini", "gpt-4o", "gpt-5-mini")
+# The last two entries are opt-in: the server default stays gpt-4o-mini.
+ALLOWED_STORY_MODELS = (
+    "gpt-4o-mini",
+    "gpt-4.1-mini",
+    "gpt-4o",
+    "gpt-5-mini",
+    "gpt-5-mini-high",
+    "gpt-5.6-luna",
+    "gpt-5.4-mini",
+)
+# Values accepted by the server's aiReasoningEffort field.
+REASONING_EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
 
 # Random ingredients used to vary the idea prompt on every run.
 THEMES = [
@@ -274,6 +285,8 @@ def build_story_payload(idea: dict[str, Any], args: argparse.Namespace) -> dict[
         payload["characters"] = idea["characters"]
     if args.ai_model:
         payload["aiModel"] = args.ai_model
+    if args.ai_reasoning_effort:
+        payload["aiReasoningEffort"] = args.ai_reasoning_effort
 
     return payload
 
@@ -457,6 +470,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=ALLOWED_STORY_MODELS,
         default=None,
         help="Optional model used by the server to write the story (default: server default)",
+    )
+    parser.add_argument(
+        "--ai-reasoning-effort",
+        choices=REASONING_EFFORTS,
+        default=None,
+        help="Thinking level for the story model (omit to use the provider default)",
     )
     parser.add_argument(
         "--no-publish",

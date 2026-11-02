@@ -19,6 +19,15 @@ import {
   sanitizeCharacters,
   sanitizeLabels,
 } from '../services/storyInput';
+import {
+  EFFORT_ORDER,
+  SELECTABLE_MODELS,
+  findModelSpec,
+  isEffortSupportedBy,
+  isReasoningEffort,
+  isSelectableModel,
+  type ReasoningEffort,
+} from '../shared/aiModels';
 import { sanitizeTitle } from '../services/aiService';
 import {
   toPublicStoryDetail,
@@ -38,7 +47,7 @@ const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
 
 // Everything the summary needs; chapter bodies are excluded from list responses.
 const LIST_PROJECTION =
-  'title chapters.title sentenceCount nativeLanguage learningLanguage level labels topic authorName creationSource createdViaApiKeyName isAIGenerated aiModel createdAt updatedAt';
+  'title chapters.title sentenceCount nativeLanguage learningLanguage level labels topic authorName creationSource createdViaApiKeyName isAIGenerated aiModel aiReasoningEffort createdAt updatedAt';
 
 function sendError(res: Response, status: number, code: string, message: string): void {
   res.status(status).json({ error: { code, message } });
@@ -209,12 +218,56 @@ router.get('/stories', requireScope(API_KEY_SCOPE), async (req: Request, res: Re
   }
 });
 
-// GET /api/v1/metadata — filter values and pagination limits
+/**
+ * Validates an optional `aiReasoningEffort` against the selected model.
+ *
+ * An empty value means "provider default". Unsupported combinations are rejected
+ * so a caller cannot accidentally request a tier the model does not implement.
+ */
+function resolveApiEffort(
+  aiModel: string,
+  value: unknown
+): { ok: true; effort: ReasoningEffort | '' } | { ok: false; message: string } {
+  if (value === undefined || value === null || value === '') return { ok: true, effort: '' };
+  if (typeof value !== 'string' || !isReasoningEffort(value)) {
+    return { ok: false, message: `aiReasoningEffort must be one of: ${EFFORT_ORDER.join(', ')}` };
+  }
+
+  const spec = findModelSpec(aiModel);
+  if (!spec?.reasoning) {
+    return { ok: false, message: 'aiReasoningEffort is only supported by reasoning models' };
+  }
+  if (spec.pinnedEffort) {
+    return value === spec.pinnedEffort
+      ? { ok: true, effort: spec.pinnedEffort }
+      : { ok: false, message: `${spec.label} fixes aiReasoningEffort to "${spec.pinnedEffort}"` };
+  }
+  if (!isEffortSupportedBy(spec, value)) {
+    return {
+      ok: false,
+      message: `aiReasoningEffort "${value}" is not supported by ${spec.label}. Use one of: ${spec.efforts.join(', ')}`,
+    };
+  }
+
+  return { ok: true, effort: value };
+}
+
+// GET /api/v1/metadata — filter values, model catalogue and pagination limits
 router.get('/metadata', requireScope(API_KEY_SCOPE), (_req: Request, res: Response) => {
   res.json({
     data: {
       languages: LANGUAGES,
       levels: LEVELS,
+      defaultModel: DEFAULT_AI_MODEL,
+      models: SELECTABLE_MODELS.map((model) => ({
+        id: model.id,
+        label: model.label,
+        reasoning: model.reasoning,
+        efforts: model.efforts,
+        pinnedEffort: model.pinnedEffort ?? null,
+        premium: model.premium,
+        deprecated: model.deprecated,
+      })),
       pagination: {
         defaultLimit: DEFAULT_LIMIT,
         maxLimit: MAX_LIMIT,
@@ -257,8 +310,13 @@ router.post('/stories', requireScope(API_KEY_WRITE_SCOPE), async (req: Request, 
 
     const aiModel =
       typeof body.aiModel === 'string' && body.aiModel.trim() !== '' ? body.aiModel.trim() : DEFAULT_AI_MODEL;
-    if (!ALLOWED_AI_MODELS.includes(aiModel)) {
+    if (!isSelectableModel(aiModel)) {
       return sendError(res, 400, 'INVALID_PARAMETER', `aiModel must be one of: ${ALLOWED_AI_MODELS.join(', ')}`);
+    }
+
+    const effort = resolveApiEffort(aiModel, body.aiReasoningEffort);
+    if (!effort.ok) {
+      return sendError(res, 400, 'INVALID_PARAMETER', effort.message);
     }
 
     const published = body.published === true;
@@ -322,9 +380,13 @@ router.post('/stories', requireScope(API_KEY_WRITE_SCOPE), async (req: Request, 
       seed,
       aiGuideline: sanitizeAIGuideline(body.aiGuideline),
       aiModel,
+      ...(effort.effort ? { aiReasoningEffort: effort.effort } : {}),
       authorId: owner._id,
       authorName: owner.username,
       creationSource: 'api',
+      // The public API is always one-shot: interactive/staged generation is a
+      // website-only flow, so this is pinned rather than inferred.
+      generationMode: 'quick',
       createdViaApiKeyName: req.apiKey!.name,
       createdViaApiKeyId: req.apiKey!.id,
       published: false,
@@ -343,7 +405,7 @@ router.post('/stories', requireScope(API_KEY_WRITE_SCOPE), async (req: Request, 
       throw error;
     }
 
-    const started = await startStoryGeneration(story._id.toString(), aiModel);
+    const started = await startStoryGeneration(story._id.toString(), aiModel, effort.effort);
     if (!started.ok) {
       await Story.updateOne({ _id: story._id }, { $set: { generating: false } });
       return sendError(res, 500, 'SERVER_ERROR', `Unable to start story generation (${started.code})`);

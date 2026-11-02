@@ -11,8 +11,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import GroupsIcon from '@mui/icons-material/Groups';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, getLanguageName } from '../utils/languages';
-import { AI_MODELS, DEFAULT_AI_MODEL } from '../utils/aiModels';
+import { AI_MODELS, DEFAULT_AI_MODEL, effortForRequest } from '../utils/aiModels';
 import { AppUser } from '../App';
+import AiEffortSelect from './AiEffortSelect';
 
 interface StoryEditorPageProps {
   user: AppUser;
@@ -66,6 +67,8 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const [chapterSpecs, setChapterSpecs] = useState<ChapterSpec[]>([{ title: { lang1: '', lang2: '' }, seed: '', targetSentences: DEFAULT_SENTENCES }]);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [aiModel, setAiModel] = useState(DEFAULT_AI_MODEL);
+  /** '' = provider default; only sent when the author picks a level. */
+  const [aiEffort, setAiEffort] = useState('');
   const [aiGuideline, setAiGuideline] = useState('');
 
   const [loading, setLoading] = useState(!!id);
@@ -92,6 +95,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         setLabelsInput(labelsFromApi.join(', '));
         setSeed(data.seed || '');
         if (data.aiModel) setAiModel(data.aiModel);
+        setAiEffort(data.aiReasoningEffort || '');
         setAiGuideline(data.aiGuideline || '');
         setCharacters(
           Array.isArray(data.characters)
@@ -157,6 +161,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         labels: parseLabels(labelsInput),
         seed,
         aiModel,
+        aiReasoningEffort: effortForRequest(aiModel, aiEffort),
         aiGuideline,
         characters,
         targetChapters: chapterSpecs.length,
@@ -195,7 +200,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
       const genRes = await fetch(`/api/stories/${storyId}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: aiModel }),
+        body: JSON.stringify({ model: aiModel, effort: effortForRequest(aiModel, aiEffort) }),
       });
       const genData = await genRes.json();
       if (!genRes.ok) {
@@ -508,20 +513,33 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
             fullWidth
             sx={{ mb: 2 }}
           />
-          <FormControl sx={{ minWidth: 260 }}>
-            <InputLabel>{t('editor.aiModel')}</InputLabel>
-            <Select
-              value={aiModel}
-              label={t('editor.aiModel')}
-              onChange={(e) => setAiModel(e.target.value)}
-            >
-              {AI_MODELS.map((m) => (
-                <MenuItem key={m.id} value={m.id}>
-                  {m.label} — {m.description}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <FormControl sx={{ minWidth: 260 }}>
+              <InputLabel>{t('editor.aiModel')}</InputLabel>
+              <Select
+                value={aiModel}
+                label={t('editor.aiModel')}
+                onChange={(e) => {
+                  setAiModel(e.target.value);
+                  setAiEffort('');
+                }}
+              >
+                {AI_MODELS.map((m) => (
+                  <MenuItem key={m.id} value={m.id}>
+                    {m.label} — {m.description}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <AiEffortSelect
+              id="editor-ai-effort"
+              label={t('editor.reasoningEffort')}
+              modelId={aiModel}
+              value={aiEffort}
+              onChange={setAiEffort}
+              minWidth={200}
+            />
+          </Box>
         </Paper>
 
         {/* Actions */}

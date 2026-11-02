@@ -2,13 +2,36 @@ import express, { Request, Response, NextFunction } from 'express';
 import Story from '../models/Story';
 import User from '../models/User';
 import { aiService, sanitizeSentences, sanitizeTitle } from '../services/aiService';
-import { startStoryGeneration } from '../services/storyGenerationService';
+import {
+  ALLOWED_AI_MODELS,
+  skipValidation,
+  startChapterGeneration,
+  startOutlineGeneration,
+  startStoryGeneration,
+  startValidation,
+  StagedStartFailure,
+  ValidationModeArg,
+} from '../services/storyGenerationService';
+import { sweepStalledJob } from '../services/storyJobService';
+import {
+  DEFAULT_AI_MODEL,
+  EFFORT_ORDER,
+  findModelSpec,
+  isEffortSupportedBy,
+  isReasoningEffort,
+  isSelectableModel,
+  normalizeEffort,
+  type ReasoningEffort,
+} from '../shared/aiModels';
 import {
   DEFAULT_SENTENCES_PER_CHAPTER,
   MAX_CHAPTERS_PER_STORY,
   sanitizeAIGuideline,
   sanitizeCharacters,
+  sanitizeGenerationMode,
   sanitizeLabels,
+  sanitizeSynopsis,
+  sanitizeValidationMode,
 } from '../services/storyInput';
 
 const router = express.Router();
@@ -89,6 +112,8 @@ router.get('/:id', async (req: Request, res: Response) => {
     if (!story.published && story.authorId.toString() !== req.session.userId) {
       return res.status(403).json({ message: 'Story not published' });
     }
+    // Release a staged job whose heartbeat went quiet (crashed/restarted process).
+    await sweepStalledJob(story);
     res.json(story);
   } catch (error) {
     req.log.error({ err: error }, 'Error fetching story');
@@ -126,6 +151,14 @@ router.post('/', requireAuth, requireCreatePermission, async (req: Request, res:
         }))
       : Array.from({ length: targetChapters }, () => ({ title: { lang1: '', lang2: '' }, seed: '', targetSentences: DEFAULT_SENTENCES_PER_CHAPTER, sentences: [] }));
 
+    const outlineSelection = resolveModelSelection(
+      req.body?.outlineAiModel,
+      req.body?.outlineReasoningEffort
+    );
+    if (!outlineSelection.ok) {
+      return res.status(400).json({ message: outlineSelection.message, code: 'INVALID_MODEL' });
+    }
+
     const story = new Story({
       title: sanitizeTitle(req.body.title),
       chapters,
@@ -137,6 +170,10 @@ router.post('/', requireAuth, requireCreatePermission, async (req: Request, res:
       labels: sanitizeLabels(labels, topic),
       seed: req.body.seed || '',
       aiGuideline: sanitizeAIGuideline(req.body.aiGuideline),
+      generationMode: sanitizeGenerationMode(req.body.generationMode),
+      ...(outlineSelection.model ? { outlineAiModel: outlineSelection.model } : {}),
+      ...(outlineSelection.effort ? { outlineReasoningEffort: outlineSelection.effort } : {}),
+      outline: { synopsis: sanitizeSynopsis(req.body.synopsis) },
       authorId: req.session.userId,
       authorName: author.username,
       published: false,
@@ -173,9 +210,41 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
       story.labels = sanitizeLabels(labels, topic);
     }
     if (req.body.seed !== undefined) story.seed = req.body.seed;
-    if (req.body.aiModel !== undefined) story.aiModel = req.body.aiModel;
+    if (req.body.aiModel !== undefined || req.body.aiReasoningEffort !== undefined) {
+      // Changing the model resets the thinking level: the old one may not exist
+      // on the new model, and an unintended tier would cost the author money.
+      const selection = resolveModelSelection(
+        req.body.aiModel ?? story.aiModel,
+        req.body.aiReasoningEffort ?? (req.body.aiModel !== undefined ? '' : story.aiReasoningEffort)
+      );
+      if (!selection.ok) {
+        return res.status(400).json({ message: selection.message, code: 'INVALID_MODEL' });
+      }
+      if (selection.model) story.aiModel = selection.model;
+      story.aiReasoningEffort = selection.effort ?? '';
+    }
     if (req.body.aiGuideline !== undefined) story.aiGuideline = sanitizeAIGuideline(req.body.aiGuideline);
     if (req.body.characters !== undefined) story.characters = sanitizeCharacters(req.body.characters);
+    if (req.body.outlineAiModel !== undefined || req.body.outlineReasoningEffort !== undefined) {
+      const selection = resolveModelSelection(
+        req.body.outlineAiModel ?? story.outlineAiModel,
+        req.body.outlineReasoningEffort ??
+          (req.body.outlineAiModel !== undefined ? '' : story.outlineReasoningEffort)
+      );
+      if (!selection.ok) {
+        return res.status(400).json({ message: selection.message, code: 'INVALID_MODEL' });
+      }
+      if (selection.model) story.outlineAiModel = selection.model;
+      story.outlineReasoningEffort = selection.effort ?? '';
+    }
+    if (req.body.synopsis !== undefined) {
+      // `set()` with a dotted path keeps this safe for documents created before
+      // the outline sub-document existed.
+      story.set('outline.synopsis', sanitizeSynopsis(req.body.synopsis));
+    }
+    if (req.body.validationMode !== undefined) {
+      story.validationMode = sanitizeValidationMode(req.body.validationMode);
+    }
     if (req.body.targetChapters !== undefined) {
       story.targetChapters = Math.min(Math.max(parseInt(req.body.targetChapters, 10) || 1, 1), 10);
     }
@@ -328,8 +397,12 @@ router.post('/:id/generate', requireAuth, requireCreatePermission, async (req: R
       return res.status(400).json({ message: 'A story seed is required' });
     }
 
-    const { model } = req.body as { model?: string };
-    const result = await startStoryGeneration(String(req.params.id), model);
+    const selection = resolveModelSelection(req.body?.model, req.body?.effort);
+    if (!selection.ok) {
+      return res.status(400).json({ message: selection.message, code: 'INVALID_MODEL' });
+    }
+
+    const result = await startStoryGeneration(String(req.params.id), selection.model, selection.effort);
     if (!result.ok) {
       if (result.code === 'ALREADY_GENERATING') {
         return res.status(409).json({ message: 'Story is already generating', code: 'STORY_GENERATING' });
@@ -359,6 +432,11 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
     const chapterIndex = parseInt(req.body.chapterIndex, 10);
     if (isNaN(chapterIndex) || chapterIndex < 0 || chapterIndex >= story.chapters.length) {
       return res.status(400).json({ message: 'Invalid chapter index' });
+    }
+
+    const selection = resolveModelSelection(req.body?.model, req.body?.effort);
+    if (!selection.ok) {
+      return res.status(400).json({ message: selection.message, code: 'INVALID_MODEL' });
     }
 
     const chapter = story.chapters[chapterIndex];
@@ -393,8 +471,9 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
             description: c.description,
             appearance: c.appearance,
           })),
-          req.body.model,
-          story.aiGuideline
+          selection.model ?? story.aiModel,
+          story.aiGuideline,
+          selection.effort ?? normalizeEffort(story.aiReasoningEffort)
         );
         for (const r of results) {
           if (r.index >= 0 && r.index < story.chapters.length) {
@@ -424,6 +503,249 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
     res.status(500).json({ message: 'Server error starting chapter regeneration' });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Interactive (staged) authoring: outline -> chapters -> optional validation.
+// Additive only: `/generate` above keeps its one-shot behaviour untouched.
+// ---------------------------------------------------------------------------
+
+function mapStagedFailure(res: Response, code: StagedStartFailure): void {
+  switch (code) {
+    case 'ALREADY_GENERATING':
+      res.status(409).json({ message: 'Story is already generating', code: 'STORY_GENERATING' });
+      return;
+    case 'MISSING_SEED':
+      res.status(400).json({ message: 'A story seed is required' });
+      return;
+    case 'MISSING_OUTLINE':
+      res.status(400).json({ message: 'Generate and review the outline first', code: 'OUTLINE_REQUIRED' });
+      return;
+    case 'NO_CHAPTERS':
+      res.status(400).json({ message: 'Add at least one chapter first', code: 'NO_CHAPTERS' });
+      return;
+    case 'WRONG_STAGE':
+      res.status(400).json({ message: 'This story is not in interactive mode', code: 'NOT_STAGED' });
+      return;
+    default:
+      res.status(404).json({ message: 'Story not found' });
+  }
+}
+
+type ModelSelectionResult =
+  | { ok: true; model?: string; effort?: ReasoningEffort }
+  | { ok: false; message: string };
+
+/**
+ * Validates a (model, thinking level) pair against the shared catalogue.
+ *
+ * An empty effort means "provider default" and is always accepted. A level the
+ * chosen model does not support is rejected rather than clamped, so an author is
+ * never billed for a tier they did not ask for.
+ */
+function resolveModelSelection(modelValue: unknown, effortValue: unknown): ModelSelectionResult {
+  let model: string | undefined;
+  if (modelValue !== undefined && modelValue !== null && modelValue !== '') {
+    if (typeof modelValue !== 'string' || !isSelectableModel(modelValue)) {
+      return {
+        ok: false,
+        message: `Unsupported AI model. Use one of: ${ALLOWED_AI_MODELS.join(', ')}`,
+      };
+    }
+    model = modelValue;
+  }
+
+  if (effortValue === undefined || effortValue === null || effortValue === '') {
+    return { ok: true, model };
+  }
+  if (typeof effortValue !== 'string' || !isReasoningEffort(effortValue)) {
+    return {
+      ok: false,
+      message: `Unsupported thinking level. Use one of: ${EFFORT_ORDER.join(', ')}`,
+    };
+  }
+
+  const spec = findModelSpec(model ?? DEFAULT_AI_MODEL);
+  if (!spec?.reasoning) {
+    return {
+      ok: false,
+      message: 'The selected model has no thinking levels. Use a reasoning model or omit the effort.',
+    };
+  }
+  if (spec.pinnedEffort) {
+    return effortValue === spec.pinnedEffort
+      ? { ok: true, model, effort: spec.pinnedEffort }
+      : { ok: false, message: `${spec.label} fixes the thinking level to "${spec.pinnedEffort}".` };
+  }
+  if (!isEffortSupportedBy(spec, effortValue)) {
+    return {
+      ok: false,
+      message: `Thinking level "${effortValue}" is not supported by ${spec.label}. Use one of: ${spec.efforts.join(', ')}`,
+    };
+  }
+
+  return { ok: true, model, effort: effortValue };
+}
+
+async function loadOwnedStory(req: Request, res: Response) {
+  const story = await Story.findById(req.params.id);
+  if (!story) {
+    res.status(404).json({ message: 'Story not found' });
+    return null;
+  }
+  if (story.authorId.toString() !== req.session.userId) {
+    res.status(403).json({ message: 'Not authorized' });
+    return null;
+  }
+  return story;
+}
+
+// POST /api/stories/:id/outline — stage 1: plan the story (optionally revise it)
+router.post('/:id/outline', requireAuth, requireCreatePermission, async (req: Request, res: Response) => {
+  try {
+    const story = await loadOwnedStory(req, res);
+    if (!story) return;
+    if (story.generationMode !== 'staged') {
+      return res.status(400).json({ message: 'This story is not in interactive mode', code: 'NOT_STAGED' });
+    }
+    if (!story.seed?.trim()) {
+      return res.status(400).json({ message: 'A story seed is required' });
+    }
+    if (story.chapters.length === 0) {
+      return res.status(400).json({ message: 'Add at least one chapter first', code: 'NO_CHAPTERS' });
+    }
+
+    const selection = resolveModelSelection(req.body?.model, req.body?.effort);
+    if (!selection.ok) {
+      return res.status(400).json({ message: selection.message, code: 'INVALID_MODEL' });
+    }
+
+    const feedback = typeof req.body?.feedback === 'string' ? req.body.feedback : undefined;
+    const result = await startOutlineGeneration(
+      String(story._id),
+      selection.model,
+      feedback,
+      selection.effort
+    );
+    if (!result.ok) return mapStagedFailure(res, result.code);
+
+    res.status(202).json({ message: 'Outline generation started', storyId: story._id, stage: 'outline' });
+  } catch (error) {
+    req.log.error({ err: error }, 'Error starting outline generation');
+    res.status(500).json({ message: 'Server error starting outline generation' });
+  }
+});
+
+// POST /api/stories/:id/generate-chapters — stage 2: write the approved outline
+router.post(
+  '/:id/generate-chapters',
+  requireAuth,
+  requireCreatePermission,
+  async (req: Request, res: Response) => {
+    try {
+      const story = await loadOwnedStory(req, res);
+      if (!story) return;
+      if (story.generationMode !== 'staged') {
+        return res.status(400).json({ message: 'This story is not in interactive mode', code: 'NOT_STAGED' });
+      }
+
+      const selection = resolveModelSelection(req.body?.model, req.body?.effort);
+      if (!selection.ok) {
+        return res.status(400).json({ message: selection.message, code: 'INVALID_MODEL' });
+      }
+
+      const result = await startChapterGeneration(String(story._id), selection.model, selection.effort);
+      if (!result.ok) return mapStagedFailure(res, result.code);
+
+      res.status(202).json({
+        message: 'Chapter generation started',
+        storyId: story._id,
+        stage: 'chapters',
+        totalChapters: story.chapters.length,
+      });
+    } catch (error) {
+      req.log.error({ err: error }, 'Error starting chapter generation');
+      res.status(500).json({ message: 'Server error starting chapter generation' });
+    }
+  }
+);
+
+// POST /api/stories/:id/validate — stage 3 (optional): 'basic' | 'ai_review' | 'none'
+router.post('/:id/validate', requireAuth, requireCreatePermission, async (req: Request, res: Response) => {
+  try {
+    const story = await loadOwnedStory(req, res);
+    if (!story) return;
+    if (story.generationMode !== 'staged') {
+      return res.status(400).json({ message: 'This story is not in interactive mode', code: 'NOT_STAGED' });
+    }
+
+    const mode = req.body?.mode;
+    if (mode !== 'basic' && mode !== 'ai_review' && mode !== 'none') {
+      return res
+        .status(400)
+        .json({ message: "mode must be 'basic', 'ai_review' or 'none'", code: 'INVALID_MODE' });
+    }
+
+    if (mode === 'none') {
+      const skipped = await skipValidation(String(story._id));
+      if (!skipped) {
+        return res.status(409).json({ message: 'Story is already generating', code: 'STORY_GENERATING' });
+      }
+      return res.json({ message: 'Validation skipped', stage: 'ready', validationMode: '' });
+    }
+
+    const selection = resolveModelSelection(req.body?.model, req.body?.effort);
+    if (!selection.ok) {
+      return res.status(400).json({ message: selection.message, code: 'INVALID_MODEL' });
+    }
+
+    const requestedMode: ValidationModeArg = mode;
+    const result = await startValidation(
+      String(story._id),
+      requestedMode,
+      selection.model,
+      selection.effort
+    );
+    if (!result.ok) return mapStagedFailure(res, result.code);
+
+    res.status(202).json({
+      message: 'Validation started',
+      storyId: story._id,
+      stage: 'validation',
+      mode: requestedMode,
+    });
+  } catch (error) {
+    req.log.error({ err: error }, 'Error starting validation');
+    res.status(500).json({ message: 'Server error starting validation' });
+  }
+});
+
+// POST /api/stories/:id/reset-outline — go back to stage 1 to re-iterate on the plan
+router.post(
+  '/:id/reset-outline',
+  requireAuth,
+  requireCreatePermission,
+  async (req: Request, res: Response) => {
+    try {
+      const story = await loadOwnedStory(req, res);
+      if (!story) return;
+      if (story.generationMode !== 'staged') {
+        return res.status(400).json({ message: 'This story is not in interactive mode', code: 'NOT_STAGED' });
+      }
+      if (story.generating) {
+        return res.status(409).json({ message: 'Story is already generating', code: 'STORY_GENERATING' });
+      }
+
+      await Story.updateOne(
+        { _id: story._id },
+        { $set: { stage: 'outline' }, $unset: { 'outline.approvedAt': '' } }
+      );
+      res.json({ message: 'Back to the outline stage', stage: 'outline' });
+    } catch (error) {
+      req.log.error({ err: error }, 'Error resetting outline stage');
+      res.status(500).json({ message: 'Server error resetting outline stage' });
+    }
+  }
+);
 
 // POST /api/stories/:id/clone — deep-copy a story into a new draft owned by the requester
 router.post('/:id/clone', requireAuth, requireCreatePermission, async (req: Request, res: Response) => {

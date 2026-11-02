@@ -31,6 +31,7 @@ Key architectural patterns:
 - **Bilingual content model**: every `Story` stores parallel-text pairs — `title.lang1`/`title.lang2` and `chapters[].sentences[].lang1`/`chapters[].sentences[].lang2`.
 - **Authoring aids**: `seed` (story premise) and `characters[]` (`{ name, role, description, appearance }`) guide AI generation; both are editable in the editor and the cast is editable in the review page.
 - **Draft/Published separation**: stories default to `published: false`; explicit publish action required (must have ≥1 sentence).
+- **Two generation modes**: `generationMode: 'quick'` (default; one call, used by `/editor` and `POST /api/v1/stories`) and `'staged'` (interactive wizard: outline → chapters → optional validation). Staged is website-only and opt-in; never branch the one-shot path on it.
 - **Author denormalization**: `authorName` stored on `Story` for efficient browse queries without joins.
 
 ## Critical Workflows
@@ -156,7 +157,15 @@ Express catch-all `app.get('/{*path}', ...)` serves `public/index.html` for all 
 - `DELETE /:id` — Delete story (auth + author check)
 - `POST /:id/publish` — Toggle published flag (auth + author check; requires ≥1 sentence)
 - `POST /:id/generate` — Start async AI generation (auth + author + creator access; requires a `seed`; auto-populates an empty cast; `409 STORY_GENERATING` if already running; delegates to `services/storyGenerationService.ts`)
-- `POST /:id/regenerate-chapter` — Regenerate one chapter via AI (auth + author + creator access; body `{ chapterIndex, generalFeedback? }`)
+- `POST /:id/regenerate-chapter` — Regenerate one chapter via AI (auth + author + creator access; body `{ chapterIndex, generalFeedback?, model?, effort? }`)
+
+**Staged (interactive) endpoints** — additive; only for `generationMode: 'staged'` (`400 NOT_STAGED` otherwise), model ids checked against `ALLOWED_AI_MODELS` and the optional `effort` checked against that model's supported levels:
+- `POST /:id/outline` — Stage 1: plan only (bilingual synopsis, cast, chapter titles/premises). Body `{ model?, effort?, feedback? }`; `feedback` = adjust the current plan.
+- `POST /:id/generate-chapters` — Stage 2: write the approved outline one chapter at a time (sequential, rolling recaps). Sets `outline.approvedAt`.
+- `POST /:id/validate` — Stage 3 (optional). Body `{ mode: 'basic' | 'ai_review' | 'none', model?, effort? }`; findings go to `chapters[].issues`.
+- `POST /:id/reset-outline` — back to stage `outline`, clears `outline.approvedAt`, keeps prose.
+
+All four are `202` + fire-and-forget; progress is read from `GET /api/stories/:id` (`stage`, `jobProgress`, `generating`, `generationError`).
 
 **Creator access**: story creation and all three AI endpoints sit behind the
 `requireCreatePermission` middleware in `src/routes/stories.ts`, which returns
@@ -174,8 +183,8 @@ Key-authenticated: `stories:read` for published-story reads, `stories:write` for
 - `GET /stories` — Filters `nativeLang`, `learningLang`, `level`, `search`, `author` (exact username, case-insensitive),
   `sort`, `page`, `limit` (clamped to 50); returns `{ data, pagination }`; requires `stories:read`. Unknown `author` → empty page (not 404)
 - `GET /stories/:id` — Published story with chapters + sentence pairs; drafts return **404** for read-only keys. Write-scoped owners can read their own drafts and receive a `status` block (`generating` / `ready` / `failed` + `generationError`)
-- `POST /stories` — Requires `stories:write`; creates a draft from languages, `level`, `seed` (+ optional `title`, `topic`, `characters`, `aiGuideline`, `aiModel`, `targetChapters`, `chapters`, `published`), starts AI generation, returns `202 { data: { id, status, published, pollUrl } }` + `Location`; supports `Idempotency-Key`
-- `GET /metadata` — Languages, levels, pagination limits
+- `POST /stories` — Requires `stories:write`; creates a draft from languages, `level`, `seed` (+ optional `title`, `topic`, `characters`, `aiGuideline`, `aiModel`, `aiReasoningEffort`, `targetChapters`, `chapters`, `published`), starts AI generation, returns `202 { data: { id, status, published, pollUrl } }` + `Location`; supports `Idempotency-Key`
+- `GET /metadata` — Languages, levels, pagination limits, and the full model catalogue (`models[]` with `efforts`, `pinnedEffort`, `premium`, `deprecated`, plus `defaultModel`)
 - Unknown `/api/v1/*` paths return a JSON 404 (terminal router handler)
 
 Auth middleware: `src/middleware/requireApiKey.ts` (`Authorization: Bearer <key>`, fallback `X-API-Key`).
@@ -205,7 +214,9 @@ local subset interface that must be kept in sync).
 `comparePassword(candidate)` method available on the model instance.
 
 ### Story (`src/models/Story.ts`)
-Key fields: `title.{lang1,lang2}`, `chapters[].{seed,targetSentences,sentences[]{lang1,lang2}}`, `characters[].{name,role,description,appearance}`, `seed`, `targetChapters`, `sentenceCount` (auto), `nativeLanguage`, `learningLanguage`, `level`, `topic`, `authorId`, `authorName`, `published`, `generating`, `isAIGenerated`, `generationError`, `publishWhenReady`, `idempotencyKey` (partial unique with `authorId`), `aiCallCount`, timestamps. There is **no** `approved` field.
+Key fields: `title.{lang1,lang2}`, `chapters[].{seed,targetSentences,sentences[]{lang1,lang2},recap,issues}`, `characters[].{name,role,description,appearance}`, `seed`, `targetChapters`, `sentenceCount` (auto), `nativeLanguage`, `learningLanguage`, `level`, `topic`, `authorId`, `authorName`, `published`, `generating`, `isAIGenerated`, `generationError`, `publishWhenReady`, `idempotencyKey` (partial unique with `authorId`), `aiCallCount`, `aiModel`, `aiReasoningEffort`, staged fields `generationMode`, `stage` (`setup|outline|chapters|validation|ready`), `outline.{synopsis,approvedAt}`, `outlineAiModel`, `outlineReasoningEffort`, `validationMode`, `jobProgress`, `generatingSince`, timestamps. There is **no** `approved` field.
+
+Staged jobs must write via targeted `updateOne` (never a full `save()` on a stale document) and refresh the `generatingSince` heartbeat; `sweepStalledJob()` (called from `GET /api/stories/:id`) releases a job that went quiet for `GENERATION_STALL_MINUTES` (default 15). `sentenceCount` is not recomputed by `updateOne` — call `recountSentences()`.
 
 **Indexes:**
 - `{ nativeLanguage, learningLanguage, published }` — compound index for browse queries

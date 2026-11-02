@@ -75,3 +75,28 @@ write can lose the last records when Kubernetes terminates a pod. Add shutdown
 handlers that stop accepting connections, call `logger.flush()`, and exit, plus
 `uncaughtException`/`unhandledRejection` handlers that log at `fatal` and flush
 before exiting. See [LOGGING.md](LOGGING.md#troubleshooting).
+
+---
+
+## Resume an Interrupted Staged Generation
+
+Staged stories keep partial progress: chapters already written stay on the story, and
+`GET /api/stories/:id` releases a job whose heartbeat went quiet (`generatingSince` +
+`GENERATION_STALL_MINUTES`, default 15). But there is no "resume from chapter N" action — the only
+retry is `POST /api/stories/:id/generate-chapters`, which rewrites every chapter and pays for all
+of them again.
+
+Add a `fromChapter` option (or detect empty chapters automatically) so an interrupted run — pod
+restart, provider timeout — only regenerates the missing chapters.
+
+---
+
+## Chat-Style Outline Iteration
+
+Stage 1 supports direct editing plus a single free-text "adjust with AI" box, so each round of
+feedback is stateless. A conversational thread would let the author argue with the planner across
+turns without re-sending the whole plan. Needs a messages collection and a thread UI, which is why
+it was left out of the first version.
+
+
+

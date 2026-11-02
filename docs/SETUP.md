@@ -25,6 +25,14 @@ PORT=3000
 PUBLIC_API_RATE_LIMIT_PER_MIN=60
 # Optional — trace | debug | info | warn | error | fatal | silent
 LOG_LEVEL=debug
+# Optional — minutes without progress before a staged generation job is released (default: 15)
+GENERATION_STALL_MINUTES=15
+# Optional — per-call timeout for staged AI calls in ms (default: 180000)
+AI_CALL_TIMEOUT_MS=180000
+# Optional — per-call timeout for one-shot generation in ms (default: 600000)
+AI_LONG_CALL_TIMEOUT_MS=600000
+# Optional — output budget sent with reasoning calls, covers reasoning + visible tokens (default: 32000)
+AI_MAX_COMPLETION_TOKENS=32000
 ```
 
 Replace `<db_username>` and `<db_password>` with your actual MongoDB Atlas credentials.

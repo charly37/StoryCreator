@@ -19,6 +19,7 @@ interface StoryCard {
   learningLanguage: string;
   level: string;
   aiModel?: string;
+  aiReasoningEffort?: string;
   isAIGenerated: boolean;
   seed: string;
   authorName: string;
@@ -175,7 +176,7 @@ const StoriesPage: React.FC = () => {
                         <Chip
                           label={
                             story.isAIGenerated
-                              ? t('stories.aiModelTag', { model: getAIModelLabel(story.aiModel) })
+                              ? t('stories.aiModelTag', { model: getAIModelLabel(story.aiModel, story.aiReasoningEffort) })
                               : t('stories.manualTag')
                           }
                           size="small"

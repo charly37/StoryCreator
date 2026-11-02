@@ -26,6 +26,7 @@ interface StoryCard {
   learningLanguage: string;
   level: string;
   aiModel?: string;
+  aiReasoningEffort?: string;
   sentenceCount: number;
   published: boolean;
   generating: boolean;
@@ -35,6 +36,10 @@ interface StoryCard {
   seed: string;
   aiCallCount: number;
   updatedAt: string;
+  // Staged (interactive) authoring — absent on quick/API stories.
+  generationMode?: 'quick' | 'staged';
+  stage?: 'setup' | 'outline' | 'chapters' | 'validation' | 'ready';
+  jobProgress?: { done?: number; total?: number; currentLabel?: string };
 }
 
 const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
@@ -144,10 +149,21 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
+                onClick={() => navigate('/create')}
+                disabled={!user.canCreateStories}
+              >
+                {t('wizard.entry')}
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+            <span>
+              <Button
+                variant="text"
                 onClick={() => navigate('/editor')}
                 disabled={!user.canCreateStories}
               >
-                {t('common.writeStory')}
+                {t('wizard.quickEntry')}
               </Button>
             </span>
           </Tooltip>
@@ -198,7 +214,7 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                   <Chip
                     label={
                       story.isAIGenerated
-                        ? t('stories.aiModelTag', { model: getAIModelLabel(story.aiModel) })
+                        ? t('stories.aiModelTag', { model: getAIModelLabel(story.aiModel, story.aiReasoningEffort) })
                         : t('stories.manualTag')
                     }
                     size="small"
@@ -228,6 +244,18 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                       variant="outlined"
                     />
                   )}
+                  {story.generationMode === 'staged' && story.stage && story.stage !== 'ready' && (
+                    <Chip
+                      label={
+                        story.stage === 'chapters' && story.jobProgress?.total
+                          ? `${t('wizard.stageLabels.chapters')} ${story.jobProgress.done ?? 0}/${story.jobProgress.total}`
+                          : t(`wizard.stageLabels.${story.stage}`)
+                      }
+                      color="info"
+                      size="small"
+                      variant="outlined"
+                    />
+                  )}
                 </Box>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   {story.title.lang1 || (story.generating ? t('myStories.untitledGenerating') : t('myStories.untitled'))}
@@ -251,6 +279,16 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                 </Typography>
               </CardContent>
               <CardActions sx={{ px: 2, pb: 2, gap: 1, flexWrap: 'wrap' }}>
+                {story.generationMode === 'staged' && story.stage !== 'ready' && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<AutoAwesomeIcon />}
+                    onClick={() => navigate(`/create/${story._id}`)}
+                  >
+                    {t('wizard.continue')}
+                  </Button>
+                )}
                 <Button
                   size="small" startIcon={<AutoStoriesIcon />}
                   onClick={() => navigate(`/preview/${story._id}`)}

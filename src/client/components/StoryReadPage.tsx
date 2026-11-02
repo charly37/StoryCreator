@@ -52,6 +52,7 @@ interface Story {
   creationSource?: 'ui' | 'api';
   createdViaApiKeyName?: string;
   aiModel?: string;
+  aiReasoningEffort?: string;
   isAIGenerated: boolean;
   seed: string;
   aiCallCount: number;
@@ -296,7 +297,7 @@ const StoryReadPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
                 <Chip
                   label={
                     story.isAIGenerated
-                      ? t('stories.aiModelTag', { model: getAIModelLabel(story.aiModel) })
+                      ? t('stories.aiModelTag', { model: getAIModelLabel(story.aiModel, story.aiReasoningEffort) })
                       : t('stories.manualTag')
                   }
                   size="small"

@@ -59,6 +59,17 @@
     },
     "browseStories": "Parcourir les histoires",
     "startWriting": "Commencer à écrire",
+    "newTag": "Nouveau",
+    "quickCreate": "Vous préférez l'éditeur classique ? Création rapide",
+    "wizardIntro": {
+      "title": "Une nouvelle façon de créer des histoires",
+      "body": "Vous pouvez maintenant construire une histoire étape par étape : planifiez-la, validez le plan, puis laissez l'IA écrire les chapitres.",
+      "point1": "Étape 1 — l'IA propose un résumé et un plan de chapitres que vous pouvez modifier ou faire réviser.",
+      "point2": "Étape 2 — les chapitres sont écrits un par un, chacun tenant compte des précédents.",
+      "point3": "Étape 3 — contrôles de qualité facultatifs, avec le coût en appels IA annoncé à l'avance.",
+      "classic": "Utiliser l'éditeur classique",
+      "tryIt": "Essayer maintenant"
+    },
     "featuredStories": "Histoires récentes",
     "noStories": "Pas encore d'histoires. Soyez le premier à en écrire une !",
     "writeCta": "Vous souhaitez partager vos propres histoires ?",
@@ -178,9 +189,105 @@
     "aiSettings": "Paramètres du générateur IA",
     "aiModel": "Modèle",
     "aiModelHint": "Sélectionnez le modèle IA à utiliser pour la génération. Un meilleur modèle améliore la qualité mais augmente le coût.",
+    "reasoningEffort": "Niveau de réflexion",
+    "reasoningEffortHint": "Laissez la valeur par défaut du fournisseur pour conserver la vitesse et le coût actuels. Une réflexion plus poussée coûte plus cher et est plus lente.",
     "aiGuideline": "Consigne d'écriture (optionnel)",
     "aiGuidelinePlaceholder": "ex. Garder un ton chaleureux et optimiste, avec des dialogues simples et des détails sensoriels.",
     "aiGuidelineHint": "Note privée d'auteur. Cette consigne de style est appliquée à la génération et à la regénération, et n'est pas visible par les lecteurs."
+  },
+  "effort": {
+    "providerDefault": "Valeur par défaut du fournisseur",
+    "none": "Aucun",
+    "minimal": "Minimal",
+    "low": "Faible",
+    "medium": "Moyen",
+    "high": "Élevé",
+    "xhigh": "Très élevé",
+    "max": "Maximum"
+  },
+  "wizard": {
+    "title": "Créer une histoire étape par étape",
+    "subtitle": "Planifiez d'abord l'histoire, validez-la quand elle vous convient, puis laissez l'IA écrire les chapitres.",
+    "steps": {
+      "setup": "Réglages",
+      "outline": "Plan",
+      "chapters": "Chapitres",
+      "done": "Terminé"
+    },
+    "entry": "Créer étape par étape",
+    "quickEntry": "Création rapide",
+    "continue": "Continuer la création",
+    "stageLabels": {
+      "setup": "Pas commencé",
+      "outline": "Plan en cours",
+      "chapters": "Rédaction des chapitres",
+      "validation": "Contrôles de qualité",
+      "ready": "Prêt"
+    },
+    "setup": {
+      "title": "Prémisse et réglages",
+      "hint": "Décrivez ce que vous voulez. L'IA propose d'abord un résumé et un plan de chapitres — pas encore de texte.",
+      "labelsHint": "Séparés par des virgules, ex. Voyage, Cuisine",
+      "seedHint": "Meilleure est la prémisse, meilleur sera le plan. Vous pourrez l'affiner ensuite.",
+      "chapterCount": "Nombre de chapitres",
+      "outlineModel": "Modèle pour la planification et les contrôles",
+      "outlineModelHint": "Planifie l'histoire et sert de modèle par défaut pour la relecture facultative.",
+      "thinking": "Niveau de réflexion",
+      "createDraft": "Créer le brouillon et planifier le plan",
+      "yourLanguage": "votre langue",
+      "learningLanguageFallback": "langue d'apprentissage"
+    },
+    "outline": {
+      "title": "Plan de l'histoire",
+      "planning": "Planification de l'histoire…",
+      "empty": "Pas encore de plan — générez-en un pour obtenir un résumé et des prémisses de chapitres modifiables.",
+      "synopsis": "Résumé de l'histoire ({{lang}})",
+      "synopsisHint": "Toute l'intrigue en quelques phrases. Modifiez-le librement — les chapitres en découlent.",
+      "feedbackLabel": "Demander des changements à l'IA (facultatif)",
+      "feedbackPlaceholder": "ex. Rends la fin plus optimiste et ajoute un personnage rival au chapitre 2.",
+      "generate": "Générer le plan",
+      "adjust": "Ajuster avec l'IA",
+      "approve": "Valider et écrire les chapitres",
+      "writingModel": "Modèle pour la rédaction",
+      "writingModelHint": "Utilisé pour chaque chapitre de cette histoire.",
+      "thinking": "Niveau de réflexion"
+    },
+    "chapters": {
+      "title": "Rédaction des chapitres",
+      "progress": "Chapitre {{done}} sur {{total}}",
+      "sentenceCount": "{{count}} phrases",
+      "issues": "{{count}} remarques",
+      "pending": "En attente"
+    },
+    "validation": {
+      "title": "Contrôles de qualité",
+      "hint": "Facultatif. Les chapitres sont déjà écrits — les contrôles ajoutent seulement des remarques.",
+      "none": "Ignorer les contrôles",
+      "basic": "Contrôles de base (gratuits)",
+      "aiReview": "Relecture IA ({{count}} appels)",
+      "reviewModel": "Modèle pour la relecture",
+      "thinking": "Niveau de réflexion",
+      "costHint": "Les contrôles de base sont gratuits. La relecture IA fait un appel supplémentaire par chapitre avec {{model}}."
+    },
+    "done": {
+      "title": "Votre histoire est prête",
+      "summary": "{{chapters}} chapitres · {{sentences}} phrases",
+      "issues": "{{count}} remarques à consulter",
+      "review": "Ouvrir la page de relecture",
+      "preview": "Aperçu lecteur",
+      "publish": "Publier",
+      "unpublish": "Dépublier",
+      "backToOutline": "Revenir au plan"
+    },
+    "errors": {
+      "loadFailed": "Impossible de charger cette histoire.",
+      "languagesRequired": "Veuillez choisir les deux langues.",
+      "seedRequired": "Décrivez d'abord la prémisse de votre histoire.",
+      "outlineFailed": "Impossible de lancer la génération du plan.",
+      "chaptersFailed": "Impossible de lancer la génération des chapitres.",
+      "validationFailed": "Impossible de lancer les contrôles de qualité.",
+      "generic": "Une erreur est survenue. Veuillez réessayer."
+    }
   },
   "myStories": {
     "title": "Mes histoires",
@@ -244,6 +351,8 @@
     "goToReview": "Aller à la relecture"
   },
   "review": {
+    "synopsis": "Résumé de l'histoire",
+    "findings": "Remarques qualité ({{count}})",
     "title": "Relire l'histoire",
     "sentences": "Phrases",
     "applying": "Application en cours…",

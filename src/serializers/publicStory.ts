@@ -25,6 +25,7 @@ export interface StoryLike {
   createdViaApiKeyName?: string;
   isAIGenerated?: boolean;
   aiModel?: string;
+  aiReasoningEffort?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -53,6 +54,8 @@ export interface PublicStoryBase {
   createdViaApiKeyName?: string;
   isAIGenerated: boolean;
   aiModel: string;
+  /** Explicit thinking level, or '' when the provider default is used. */
+  aiReasoningEffort: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -111,6 +114,7 @@ function baseFields(story: StoryLike): PublicStoryBase {
     ...(createdViaApiKeyName ? { createdViaApiKeyName } : {}),
     isAIGenerated: story.isAIGenerated === true,
     aiModel: typeof story.aiModel === 'string' ? story.aiModel : '',
+    aiReasoningEffort: typeof story.aiReasoningEffort === 'string' ? story.aiReasoningEffort : '',
     createdAt: story.createdAt,
     updatedAt: story.updatedAt,
   };

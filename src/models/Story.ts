@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { AI_EFFORT_VALUES, DEFAULT_AI_MODEL } from '../shared/aiModels';
 
 export interface ISentence {
   lang1: string;
@@ -17,6 +18,31 @@ export interface IChapter {
   seed: string;
   targetSentences: number;
   sentences: ISentence[];
+  /** One-line recap of the written chapter, used as rolling context in staged generation. */
+  recap?: string;
+  /** Validation findings for this chapter (deterministic checks and/or AI review). */
+  issues?: string[];
+}
+
+/** Position in the interactive staged-creation flow. */
+export type StoryStage = 'setup' | 'outline' | 'chapters' | 'validation' | 'ready';
+
+/** 'quick' = one-shot generation (default, used by the API); 'staged' = outline -> chapters -> validation. */
+export type GenerationMode = 'quick' | 'staged';
+
+/** '' = not chosen yet. */
+export type ValidationMode = '' | 'basic' | 'ai_review';
+
+export interface IStoryOutline {
+  synopsis: { lang1: string; lang2: string };
+  approvedAt?: Date;
+}
+
+export interface IJobProgress {
+  stage: StoryStage | '';
+  done: number;
+  total: number;
+  currentLabel: string;
 }
 
 export interface IStory extends Document {
@@ -31,7 +57,20 @@ export interface IStory extends Document {
   seed: string;
   targetChapters: number;
   aiModel: string;
+  /** Explicit thinking level for `aiModel`; '' means the provider default. */
+  aiReasoningEffort: string;
   aiGuideline: string;
+  /** Model used for the outline stage (staged mode only). */
+  outlineAiModel: string;
+  /** Explicit thinking level for `outlineAiModel`; '' means the provider default. */
+  outlineReasoningEffort: string;
+  generationMode: GenerationMode;
+  stage: StoryStage;
+  outline: IStoryOutline;
+  validationMode: ValidationMode;
+  jobProgress: IJobProgress;
+  /** Heartbeat for the running stage: refreshed on every partial write. */
+  generatingSince?: Date;
   authorId: mongoose.Types.ObjectId;
   authorName: string;
   creationSource: 'ui' | 'api';
@@ -62,6 +101,29 @@ const chapterSchema = new Schema<IChapter>(
     seed: { type: String, default: '' },
     targetSentences: { type: Number, default: 12 },
     sentences: { type: [sentenceSchema], default: [] },
+    recap: { type: String, default: '' },
+    issues: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
+const outlineSchema = new Schema<IStoryOutline>(
+  {
+    synopsis: {
+      lang1: { type: String, default: '' },
+      lang2: { type: String, default: '' },
+    },
+    approvedAt: { type: Date, default: undefined },
+  },
+  { _id: false }
+);
+
+const jobProgressSchema = new Schema<IJobProgress>(
+  {
+    stage: { type: String, default: '' },
+    done: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
+    currentLabel: { type: String, default: '' },
   },
   { _id: false }
 );
@@ -92,8 +154,21 @@ const storySchema = new Schema<IStory>(
     labels: { type: [String], default: [] },
     seed: { type: String, default: '' },
     targetChapters: { type: Number, default: 1 },
-    aiModel: { type: String, default: 'gpt-4o-mini' },
+    aiModel: { type: String, default: DEFAULT_AI_MODEL },
+    aiReasoningEffort: { type: String, enum: AI_EFFORT_VALUES, default: '' },
     aiGuideline: { type: String, default: '' },
+    outlineAiModel: { type: String, default: DEFAULT_AI_MODEL },
+    outlineReasoningEffort: { type: String, enum: AI_EFFORT_VALUES, default: '' },
+    generationMode: { type: String, enum: ['quick', 'staged'], default: 'quick' },
+    stage: {
+      type: String,
+      enum: ['setup', 'outline', 'chapters', 'validation', 'ready'],
+      default: 'setup',
+    },
+    outline: { type: outlineSchema, default: () => ({}) },
+    validationMode: { type: String, enum: ['', 'basic', 'ai_review'], default: '' },
+    jobProgress: { type: jobProgressSchema, default: () => ({}) },
+    generatingSince: { type: Date, default: undefined },
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     authorName: { type: String, required: true },
     creationSource: { type: String, enum: ['ui', 'api'], default: 'ui' },

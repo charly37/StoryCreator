@@ -8,6 +8,7 @@ import LandingPage from './components/LandingPage';
 import StoriesPage from './components/StoriesPage';
 import StoryReadPage from './components/StoryReadPage';
 import StoryEditorPage from './components/StoryEditorPage';
+import StoryCreateWizardPage from './components/StoryCreateWizardPage';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import ProfilePage from './components/ProfilePage';
@@ -118,6 +119,20 @@ const AppContent: React.FC = () => {
           <Route
             path="/editor/:id"
             element={user ? <StoryEditorPage user={user} /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/create"
+            element={
+              !user
+                ? <Navigate to="/login" replace />
+                : user.canCreateStories
+                  ? <StoryCreateWizardPage user={user} />
+                  : <CreatorAccessNotice />
+            }
+          />
+          <Route
+            path="/create/:id"
+            element={user ? <StoryCreateWizardPage user={user} /> : <Navigate to="/login" replace />}
           />
           <Route
             path="/login"

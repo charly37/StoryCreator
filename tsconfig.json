@@ -11,6 +11,6 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": ["src/client/**/*"],
+  "include": ["src/client/**/*", "src/shared/**/*"],
   "exclude": ["node_modules"]
 }

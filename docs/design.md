@@ -50,7 +50,17 @@ External clients
 - An optional **Story Characters** panel lets authors define the cast. Each entry has `name`, `role`, `description` and `appearance`. The cast is injected into every AI prompt (generation and chapter regeneration) to keep characterization consistent.
 - If the cast is left empty, the AI invents one and it is written back to the story after generation, so the author can review and refine it. Author-entered characters are never overwritten.
 - `POST /api/stories/:id/generate` runs asynchronously (`generating: true`); the client polls `GET /api/stories/:id` until it completes.
+- **Model and thinking level.** The catalogue lives in `src/shared/aiModels.ts` and is imported by both the server and the client. `gpt-4o-mini` remains the default everywhere (schema defaults, service fallbacks, API defaults, agent) and the two premium entries (`gpt-5.6-luna`, `gpt-5.4-mini`) are strictly opt-in. `reasoning_effort` is sent only when the author explicitly chooses a level: an unset value omits the parameter, so existing stories keep the provider's default behaviour and cost. Reasoning calls use a separate request shape in `aiService.callJson` — no `temperature`/`top_p`/`logprobs`, plus a `max_completion_tokens` budget large enough to cover the hidden reasoning tokens.
 - The Review page (`StoryReviewPage`) allows editing metadata, chapter titles, premises and the cast, reviewing sentence output in read-only mode, regenerating a single chapter, regenerating the whole story, and publishing/unpublishing.
+
+- **Interactive staged mode (opt-in, website only).** Stories created with `generationMode: 'staged'` go through three explicit stages instead of one call:
+  1. **Outline** — planning only: bilingual synopsis, cast, chapter titles and premises. No prose, so it is cheap enough to iterate on; the author edits the fields directly or asks for changes in a free-text feedback box.
+  2. **Chapters** — written one AI call per chapter, in order. Each call receives the synopsis plus the recaps of the chapters already written (bounded context — never the full text of earlier chapters).
+  3. **Validation (optional)** — offered *after* the chapters exist, as a choice with its cost in AI calls: skip, deterministic checks (free), or one AI review call per chapter. Findings are stored per chapter in `chapters[].issues`.
+  - `stage` tracks the position (`setup` → `outline` → `chapters` → `validation` → `ready`); `generating` still means "a job is running in this stage".
+  - UI: `/create` starts a story, `/create/:id` resumes one (the wizard is resumable from My Stories).
+  - `POST /api/v1/stories` and `POST /api/stories/:id/generate` stay **one-shot**; the public API pins `generationMode: 'quick'`.
+  - Robustness: staged jobs write with targeted `updateOne` calls (never a full `save()` on a document read minutes earlier, which would clobber author edits), and a heartbeat (`generatingSince`) lets `GET /api/stories/:id` release a job whose process died (`GENERATION_STALL_MINUTES`, default 15).
 
 ### 7. **Public API & API Keys**
 - Accounts with `canCreateStories` create up to **5** API keys from **Profile → API keys**.
@@ -169,7 +179,9 @@ src/
   serializers/
     publicStory.ts    — Allow-list shaping for public story responses
   services/
-    aiService.ts      — OpenAI prompts (generate / regenerate)
+    aiService.ts      — OpenAI prompts (one-shot generate / regenerate; staged outline / chapter / review)
+    storyGenerationService.ts — Job orchestration (one-shot + staged: outline, chapters, validation)
+    storyJobService.ts — Single-flight job guard, targeted writes, stall sweep, sentence recount
     apiKeyService.ts  — Hashing, generation, lookup, last-used tracking
   i18n.ts             — i18next config (client-side)
   locales/

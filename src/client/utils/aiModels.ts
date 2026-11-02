@@ -1,22 +1,37 @@
-export interface AIModel {
-  id: string;
-  label: string;
-  description: string;
-}
+/**
+ * Client-facing re-exports of the shared model catalogue.
+ *
+ * Kept as a thin shim so existing `../utils/aiModels` imports keep working while
+ * the real definitions live in `src/shared/aiModels.ts` (also used by the server).
+ */
+import type { AIModelSpec, ReasoningEffort } from '../../shared/aiModels';
+import { modelLabel } from '../../shared/aiModels';
 
-// Update this list as new OpenAI models become available.
-// Note: gpt-5-mini thinking levels are UI-only for now — reasoning_effort is not yet wired up.
-export const AI_MODELS: AIModel[] = [
-  { id: 'gpt-4o-mini',       label: 'GPT-4o mini',                 description: 'Default — fast and cost-efficient' },
-  { id: 'gpt-4.1-mini',      label: 'GPT-4.1 mini',                description: 'Better quality, similar price' },
-  { id: 'gpt-4o',            label: 'GPT-4o',                      description: 'Highest quality, higher cost' },
-  { id: 'gpt-5-mini',        label: 'GPT-5 mini (Medium thinking)', description: 'Latest generation, balanced speed and quality' },
-  { id: 'gpt-5-mini-high',   label: 'GPT-5 mini (High thinking)',   description: 'Latest generation, deeper reasoning, slower' },
-];
+export type AIModel = AIModelSpec;
 
-export const DEFAULT_AI_MODEL = 'gpt-4o-mini';
+export {
+  AI_MODELS,
+  AI_EFFORT_VALUES,
+  DEFAULT_AI_MODEL,
+  EFFORT_ORDER,
+  PREMIUM_MODEL_IDS,
+  SELECTABLE_MODELS,
+  STAGED_AI_MODELS,
+  canChooseEffort,
+  effortsFor,
+  effortForRequest,
+  findModelSpec,
+  isEffortSupportedBy,
+  isReasoningEffort,
+  isSelectableModel,
+  modelLabel,
+  resolveSelection,
+  supportsReasoning,
+} from '../../shared/aiModels';
 
-export const getAIModelLabel = (modelId?: string): string => {
-  const model = AI_MODELS.find((m) => m.id === (modelId || DEFAULT_AI_MODEL));
-  return model?.label ?? modelId ?? DEFAULT_AI_MODEL;
-};
+export type { AIModelSpec, ReasoningEffort };
+
+/** Label for a stored model id, optionally including the chosen effort. */
+export const getAIModelLabel = (modelId?: string, effort?: string): string =>
+  modelLabel(modelId, effort);
+

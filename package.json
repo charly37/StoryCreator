@@ -8,6 +8,7 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build:client": "webpack --mode production",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "check:models": "tsx scripts/check-ai-models.ts",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch src/server.ts",
     "dev:client": "webpack serve --mode development",

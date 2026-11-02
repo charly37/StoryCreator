@@ -218,6 +218,9 @@ Returns a single story including all sentences.
 | `characters` | no | Array of `{ name, role, description, appearance }`; blank names are dropped, max 20 |
 | `targetChapters` | no | Planned chapter count (1–10, default 1) |
 | `chapters` | no | Array of `{ title: { lang1, lang2 }, seed, targetSentences }`; defaults to `targetChapters` empty chapters |
+| `generationMode` | no | `quick` (default, one-shot) or `staged` (interactive wizard) |
+| `outlineAiModel` | no | Model used for the outline stage when `generationMode: "staged"` |
+| `synopsis` | no | `{ lang1, lang2 }` outline summary; normally produced by the outline stage |
 
 Each chapter carries a reader-facing bilingual `title` and a private `seed`. The `seed` is only an AI authoring premise — it is **never shown to readers** and is preserved across generation/regeneration. `aiGuideline` is also private authoring metadata, used to steer writing style during generation/regeneration and never shown to readers. When a chapter `title` is empty the reader falls back to a localized "Chapter N" heading.
 
@@ -325,6 +328,56 @@ Returns `403` with `code: "CREATOR_ACCESS_REQUIRED"` when the account lacks `can
 - The story's `aiGuideline` is included as style guidance when provided.
 - Regenerated chapters receive updated bilingual `title`s; an author-provided chapter `seed` is preserved when non-empty.
 - Responds `202` and runs the job in the background.
+
+## Staged (interactive) authoring
+
+Additive, opt-in endpoints used by the `/create` wizard. They only accept stories with
+`generationMode: "staged"`; all other stories get `400 { code: "NOT_STAGED" }`. Model ids are
+validated against the same catalogue as `/api/v1`, and every model route also accepts an optional
+`effort` (`none`…`max`) that must be supported by the chosen model — an unsupported pair returns
+`400 INVALID_MODEL` rather than being clamped.
+
+Each endpoint returns `202` and runs in the background (`generating: true`). While running,
+`GET /api/stories/:id` reports `stage`, `jobProgress: { stage, done, total, currentLabel }` and
+`generationError`. The job heartbeat is `generatingSince`: if it goes quiet for
+`GENERATION_STALL_MINUTES` (default 15) the flag is cleared on the next read.
+
+### `POST /api/stories/:id/outline`
+
+*Auth + creator access + author.* Stage 1 — plan the story (bilingual synopsis, cast, chapter
+titles/premises). Writes no prose.
+
+**Body:** `{ model?, feedback? }` — `feedback` switches the call into "adjust the current plan".
+
+Returns `400` when the seed is blank or the story has no chapters.
+
+### `POST /api/stories/:id/generate-chapters`
+
+*Auth + creator access + author.* Stage 2 — write the approved outline one chapter at a time, in
+order, each fed the synopsis plus the recaps of the previous chapters. Also sets
+`outline.approvedAt`.
+
+**Body:** `{ model? }`
+
+Returns `400 { code: "OUTLINE_REQUIRED" }` when no outline exists yet.
+
+### `POST /api/stories/:id/validate`
+
+*Auth + creator access + author.* Stage 3 (optional) — quality checks after the chapters exist.
+
+**Body:** `{ mode: "basic" | "ai_review" | "none", model? }`
+
+- `basic` — free deterministic checks (sentence count vs target, duplicate pairs, identical
+  translations, length mismatch).
+- `ai_review` — the above plus one AI review call per chapter.
+- `none` — mark the story `ready` immediately, no AI call.
+
+Findings are stored per chapter in `chapters[].issues` and shown on the review page.
+
+### `POST /api/stories/:id/reset-outline`
+
+*Auth + creator access + author.* Return to stage `outline` and clear `outline.approvedAt` so the
+plan can be re-iterated. Keeps existing chapters and sentences. Returns `409` while a job runs.
 
 ## API Keys — `/api/keys`
 

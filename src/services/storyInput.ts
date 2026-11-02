@@ -75,3 +75,78 @@ export function clampInt(value: unknown, min: number, max: number, fallback: num
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(Math.max(parsed, min), max);
 }
+
+export const MAX_SYNOPSIS_LENGTH = 4000;
+export const MAX_ISSUES = 10;
+export const MAX_ISSUE_LENGTH = 240;
+
+export interface SanitizedSynopsis {
+  lang1: string;
+  lang2: string;
+}
+
+function trimString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/** Bilingual outline synopsis. Both sides default to '' (never undefined). */
+export function sanitizeSynopsis(input: unknown): SanitizedSynopsis {
+  const synopsis = (input ?? {}) as { lang1?: unknown; lang2?: unknown };
+  return {
+    lang1: trimString(synopsis.lang1).slice(0, MAX_SYNOPSIS_LENGTH),
+    lang2: trimString(synopsis.lang2).slice(0, MAX_SYNOPSIS_LENGTH),
+  };
+}
+
+export interface SanitizedChapterSpec {
+  title: { lang1: string; lang2: string };
+  seed: string;
+  targetSentences: number;
+}
+
+/**
+ * Chapter specs used by the outline stage. Caps the chapter count and clamps
+ * the target sentence count exactly like the create/update routes do.
+ */
+export function sanitizeOutlineChapters(input: unknown): SanitizedChapterSpec[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((chapter): chapter is Record<string, unknown> => !!chapter && typeof chapter === 'object')
+    .slice(0, MAX_CHAPTERS_PER_STORY)
+    .map((chapter) => {
+      const title = (chapter.title ?? {}) as { lang1?: unknown; lang2?: unknown };
+      return {
+        title: { lang1: trimString(title.lang1), lang2: trimString(title.lang2) },
+        seed: trimString(chapter.seed),
+        targetSentences: clampInt(
+          chapter.targetSentences,
+          1,
+          MAX_TARGET_SENTENCES,
+          DEFAULT_SENTENCES_PER_CHAPTER
+        ),
+      };
+    });
+}
+
+/** Short human-readable validation findings (deterministic checks or AI review). */
+export function sanitizeIssues(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((issue) => trimString(issue).slice(0, MAX_ISSUE_LENGTH))
+    .filter((issue) => issue !== '')
+    .slice(0, MAX_ISSUES);
+}
+
+export type ParsedGenerationMode = 'quick' | 'staged';
+export type ParsedValidationMode = '' | 'basic' | 'ai_review';
+
+/** Unknown/absent values fall back to 'quick' so the one-shot path stays the default. */
+export function sanitizeGenerationMode(input: unknown): ParsedGenerationMode {
+  return input === 'staged' ? 'staged' : 'quick';
+}
+
+/** Human-review mode for the validation stage. 'none' clears a previous choice. */
+export function sanitizeValidationMode(input: unknown): ParsedValidationMode {
+  if (input === 'basic' || input === 'ai_review') return input;
+  return '';
+}

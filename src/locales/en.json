@@ -59,6 +59,17 @@
     },
     "browseStories": "Browse Stories",
     "startWriting": "Start Writing",
+    "newTag": "New",
+    "quickCreate": "Prefer the classic editor? Quick create",
+    "wizardIntro": {
+      "title": "A new way to create stories",
+      "body": "You can now build a story step by step: plan it first, approve the outline, then let the AI write the chapters.",
+      "point1": "Stage 1 — the AI proposes a synopsis and a chapter plan you can edit, or ask it to change.",
+      "point2": "Stage 2 — chapters are written one at a time, each aware of the ones before it.",
+      "point3": "Stage 3 — optional quality checks, with the cost in AI calls shown up front.",
+      "classic": "Use the classic editor",
+      "tryIt": "Try it now"
+    },
     "featuredStories": "Recent Stories",
     "noStories": "No stories yet. Be the first to write one!",
     "writeCta": "Want to share your own stories?",
@@ -178,9 +189,105 @@
     "aiSettings": "AI Generator Settings",
     "aiModel": "Model",
     "aiModelHint": "Select the AI model to use for generation. Better models improve quality but increase cost.",
+    "reasoningEffort": "Thinking level",
+    "reasoningEffortHint": "Leave on the provider default to keep today's speed and cost. Deeper thinking costs more and is slower.",
     "aiGuideline": "Writing guideline (optional)",
     "aiGuidelinePlaceholder": "e.g. Keep a warm, optimistic tone with simple dialogue and vivid sensory details.",
     "aiGuidelineHint": "Private authoring note. This style guideline is applied to generation and regeneration, and is not shown to readers."
+  },
+  "effort": {
+    "providerDefault": "Provider default",
+    "none": "None",
+    "minimal": "Minimal",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "xhigh": "Extra high",
+    "max": "Maximum"
+  },
+  "wizard": {
+    "title": "Create a Story Step by Step",
+    "subtitle": "Plan the story first, approve it once you are happy, then let the AI write the chapters.",
+    "steps": {
+      "setup": "Setup",
+      "outline": "Outline",
+      "chapters": "Chapters",
+      "done": "Done"
+    },
+    "entry": "Create step by step",
+    "quickEntry": "Quick create",
+    "continue": "Continue creating",
+    "stageLabels": {
+      "setup": "Not started",
+      "outline": "Outline in progress",
+      "chapters": "Writing chapters",
+      "validation": "Quality checks",
+      "ready": "Ready"
+    },
+    "setup": {
+      "title": "Story premise and settings",
+      "hint": "Describe what you want. The AI first proposes a synopsis and a chapter plan — no prose yet.",
+      "labelsHint": "Comma-separated, e.g. Travel, Food",
+      "seedHint": "The better the premise, the better the outline. You can refine it later.",
+      "chapterCount": "Number of chapters",
+      "outlineModel": "Model for planning and checks",
+      "outlineModelHint": "Plans the story and is the default model for the optional quality review.",
+      "thinking": "Thinking level",
+      "createDraft": "Create draft and plan the outline",
+      "yourLanguage": "your language",
+      "learningLanguageFallback": "learning language"
+    },
+    "outline": {
+      "title": "Story outline",
+      "planning": "Planning the story…",
+      "empty": "No outline yet — generate one to get a synopsis and chapter premises you can edit.",
+      "synopsis": "Story summary ({{lang}})",
+      "synopsisHint": "The whole arc in a few sentences. Edit it freely — the chapters are written from this.",
+      "feedbackLabel": "Ask the AI for changes (optional)",
+      "feedbackPlaceholder": "e.g. Make the ending more hopeful and add a rival character in chapter 2.",
+      "generate": "Generate outline",
+      "adjust": "Adjust with AI",
+      "approve": "Approve and write chapters",
+      "writingModel": "Model for writing",
+      "writingModelHint": "Used for every chapter of this story.",
+      "thinking": "Thinking level"
+    },
+    "chapters": {
+      "title": "Writing the chapters",
+      "progress": "Chapter {{done}} of {{total}}",
+      "sentenceCount": "{{count}} sentences",
+      "issues": "{{count}} findings",
+      "pending": "Pending"
+    },
+    "validation": {
+      "title": "Quality checks",
+      "hint": "Optional. The chapters are already written — checks only add findings you can act on.",
+      "none": "Skip checks",
+      "basic": "Basic checks (free)",
+      "aiReview": "AI review ({{count}} calls)",
+      "reviewModel": "Model for the review",
+      "thinking": "Thinking level",
+      "costHint": "Basic checks are free. AI review makes one extra call per chapter with {{model}}."
+    },
+    "done": {
+      "title": "Your story is ready",
+      "summary": "{{chapters}} chapters · {{sentences}} sentences",
+      "issues": "{{count}} findings to review",
+      "review": "Open the review page",
+      "preview": "Preview as a reader",
+      "publish": "Publish",
+      "unpublish": "Unpublish",
+      "backToOutline": "Back to the outline"
+    },
+    "errors": {
+      "loadFailed": "Could not load this story.",
+      "languagesRequired": "Please choose both languages.",
+      "seedRequired": "Please describe your story seed first.",
+      "outlineFailed": "Could not start the outline generation.",
+      "chaptersFailed": "Could not start the chapter generation.",
+      "validationFailed": "Could not start the quality checks.",
+      "generic": "Something went wrong. Please try again."
+    }
   },
   "myStories": {
     "title": "My Stories",
@@ -244,6 +351,8 @@
     "goToReview": "Go to Review"
   },
   "review": {
+    "synopsis": "Story summary",
+    "findings": "Quality findings ({{count}})",
     "title": "Review Story",
     "sentences": "Sentences",
     "applying": "Applying…",

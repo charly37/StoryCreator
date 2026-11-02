@@ -111,7 +111,8 @@ python StoryCreatorAgent.py --chapters 3 --sentences-per-chapter 8 --output stor
 | `--chapters` | `3` | 1–10 chapters |
 | `--sentences-per-chapter` | `8` | 1–100 target sentences per chapter |
 | `--model` | `gpt-4.1-mini` | Model used to invent the idea |
-| `--ai-model` | server default | Model used by the server to write the story (`gpt-4o-mini`, `gpt-4.1-mini`, `gpt-4o`, `gpt-5-mini`) |
+| `--ai-model` | server default (`gpt-4o-mini`) | Model used by the server to write the story (`gpt-4o-mini`, `gpt-4.1-mini`, `gpt-4o`, `gpt-5-mini`, `gpt-5-mini-high`, `gpt-5.6-luna`, `gpt-5.4-mini`) |
+| `--ai-reasoning-effort` | provider default | Thinking level for the story model (`none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`); omitted means no `reasoning_effort` is sent |
 | `--no-publish` | — | Keep the story as a draft |
 | `--idempotency-key` | generated | Reuse a key when retrying |
 | `--poll-interval` | `5` | Seconds between status polls |

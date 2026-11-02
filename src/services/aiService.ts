@@ -1,4 +1,8 @@
 import OpenAI from 'openai';
+import { createLogger } from '../config/logger';
+import { DEFAULT_AI_MODEL, resolveSelection, type ReasoningEffort } from '../shared/aiModels';
+
+const log = createLogger('aiService');
 
 export interface GeneratedSentence {
   lang1: string;
@@ -41,6 +45,79 @@ export interface RegeneratedChapter {
   sentences: GeneratedSentence[];
 }
 
+/** A chapter as planned by the outline stage (no sentences yet). */
+export interface OutlineChapterSpec {
+  title: { lang1: string; lang2: string };
+  seed: string;
+  targetSentences: number;
+}
+
+/** Stage 1 output: the high-level story the author approves before any prose exists. */
+export interface StoryOutline {
+  title: { lang1: string; lang2: string };
+  synopsis: { lang1: string; lang2: string };
+  characters: CharacterSpec[];
+  chapters: OutlineChapterSpec[];
+}
+
+export interface GenerateOutlineOptions {
+  seed: string;
+  nativeLanguage: string;
+  learningLanguage: string;
+  level: string;
+  characters: CharacterSpec[];
+  chapterSpecs: OutlineChapterSpec[];
+  model?: string;
+  /** Explicit thinking level; omitted means the provider default. */
+  effort?: ReasoningEffort | '';
+  aiGuideline?: string;
+  storyTitle?: StoryTitleSpec;
+  /** Previous outline + free-text feedback switch the call into 'adjust' mode. */
+  previousOutline?: StoryOutline | null;
+  feedback?: string;
+}
+
+export interface GenerateChapterOptions {
+  storySeed: string;
+  synopsis: { lang1: string; lang2: string };
+  chapterSpec: OutlineChapterSpec;
+  chapterIndex: number;
+  /** One-line recaps of the chapters already written (index aligned, blanks allowed). */
+  previousRecaps: string[];
+  characters: CharacterSpec[];
+  nativeLanguage: string;
+  learningLanguage: string;
+  level: string;
+  model?: string;
+  /** Explicit thinking level; omitted means the provider default. */
+  effort?: ReasoningEffort | '';
+  aiGuideline?: string;
+}
+
+export interface ChapterDraft {
+  title: { lang1: string; lang2: string };
+  seed: string;
+  sentences: GeneratedSentence[];
+  /** One-sentence English summary used as rolling context for the next chapter. */
+  recap: string;
+}
+
+export interface ReviewChapterOptions {
+  sentences: GeneratedSentence[];
+  synopsis: { lang1: string; lang2: string };
+  chapterTitle: string;
+  nativeLanguage: string;
+  learningLanguage: string;
+  level: string;
+  model?: string;
+  /** Explicit thinking level; omitted means the provider default. */
+  effort?: ReasoningEffort | '';
+}
+
+export interface ChapterReview {
+  issues: string[];
+}
+
 export interface IAIService {
   generateStory(
     seed: string,
@@ -51,7 +128,8 @@ export interface IAIService {
     level: string,
     model?: string,
     aiGuideline?: string,
-    storyTitle?: StoryTitleSpec
+    storyTitle?: StoryTitleSpec,
+    effort?: ReasoningEffort | ''
   ): Promise<GeneratedStory>;
   regenerateChapter(
     chapterIndex: number,
@@ -65,8 +143,14 @@ export interface IAIService {
     targetSentences: number,
     characters: CharacterSpec[],
     model?: string,
-    aiGuideline?: string
+    aiGuideline?: string,
+    effort?: ReasoningEffort | ''
   ): Promise<RegeneratedChapter[]>;
+
+  // --- staged generation (opt-in; the one-shot path above is unchanged) ---
+  generateOutline(options: GenerateOutlineOptions): Promise<StoryOutline>;
+  generateChapter(options: GenerateChapterOptions): Promise<ChapterDraft>;
+  reviewChapter(options: ReviewChapterOptions): Promise<ChapterReview>;
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -126,6 +210,60 @@ export function sanitizeTitle(raw: unknown): { lang1: string; lang2: string } {
   };
 }
 
+/** Per-call timeout for staged generation (one chapter should never hang a job). */
+const AI_CALL_TIMEOUT_MS = (() => {
+  const parsed = Number.parseInt(process.env.AI_CALL_TIMEOUT_MS ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 180_000;
+})();
+
+/**
+ * One-shot generation writes a whole story in a single call, so deep thinking
+ * levels need far more headroom than a single chapter.
+ */
+const AI_LONG_CALL_TIMEOUT_MS = (() => {
+  const parsed = Number.parseInt(process.env.AI_LONG_CALL_TIMEOUT_MS ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 600_000;
+})();
+
+/**
+ * Output budget used when a reasoning effort is sent. Reasoning tokens are drawn
+ * from the same allowance as the visible answer, so this must not be tight.
+ * Ignored for classic models (they keep the provider default).
+ */
+const AI_MAX_COMPLETION_TOKENS = (() => {
+  const parsed = Number.parseInt(process.env.AI_MAX_COMPLETION_TOKENS ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 32_000;
+})();
+
+function languageName(code: string): string {
+  return LANGUAGE_NAMES[code] ?? code;
+}
+
+function levelGuidanceFor(level: string): string {
+  return LEVEL_GUIDANCE[level] ?? LEVEL_GUIDANCE.intermediate;
+}
+
+function guidelineBlockFor(aiGuideline?: string): string {
+  const sanitized = (aiGuideline ?? '').trim().slice(0, 2000);
+  if (!sanitized) return '';
+  return `\nAdditional writing guideline from the author:\n${sanitized}\nFollow this guideline consistently unless it conflicts with language accuracy or safety.`;
+}
+
+/** Coerces the AI character array into a clean cast (drops nameless entries). */
+function sanitizeCharactersFromRaw(raw: unknown): CharacterSpec[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object')
+    .map((entry) => ({
+      name: typeof entry.name === 'string' ? entry.name.trim() : '',
+      role: typeof entry.role === 'string' ? entry.role.trim() : '',
+      description: typeof entry.description === 'string' ? entry.description.trim() : '',
+      appearance: typeof entry.appearance === 'string' ? entry.appearance.trim() : '',
+    }))
+    .filter((entry) => entry.name !== '')
+    .slice(0, 20);
+}
+
 class OpenAIService implements IAIService {
   private _client: OpenAI | null = null;
 
@@ -143,9 +281,10 @@ class OpenAIService implements IAIService {
     chapterSpecs: ChapterSpec[],
     characters: CharacterSpec[],
     level: string,
-    model = 'gpt-4o-mini',
+    model?: string,
     aiGuideline = '',
-    storyTitle?: StoryTitleSpec
+    storyTitle?: StoryTitleSpec,
+    effort?: ReasoningEffort | ''
   ): Promise<GeneratedStory> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
@@ -220,17 +359,13 @@ Rules:
 
     const userContent = `${providedTitle}\n\nStory seed: ${seed}\n\nCharacters:\n${castList}\n\nChapters:\n${chapterList}`;
 
-    const response = await this.client.chat.completions.create({
-      model,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent },
-      ],
-    });
-
-    const raw = response.choices[0]?.message?.content ?? '{}';
-    const parsed = JSON.parse(raw) as { title?: unknown; characters?: unknown[]; chapters?: GeneratedChapter[] };
+    const parsed = (await this.callJson({
+      selectionId: model,
+      effort,
+      systemPrompt,
+      userContent,
+      timeoutMs: AI_LONG_CALL_TIMEOUT_MS,
+    })) as { title?: unknown; characters?: unknown[]; chapters?: GeneratedChapter[] };
 
     // New prompt returns a bilingual object; tolerate a plain string for safety.
     const title = typeof parsed.title === 'string'
@@ -276,8 +411,9 @@ Rules:
     level: string,
     targetSentences: number,
     characters: CharacterSpec[],
-    model = 'gpt-4o-mini',
-    aiGuideline = ''
+    model?: string,
+    aiGuideline = '',
+    effort?: ReasoningEffort | ''
   ): Promise<RegeneratedChapter[]> {
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
@@ -323,18 +459,319 @@ Rules:
       `Story context:\n${contextSummary}`,
     ].filter(Boolean).join('\n\n');
 
-    const response = await this.client.chat.completions.create({
-      model,
-      response_format: { type: 'json_object' },
+    const parsed = (await this.callJson({
+      selectionId: model,
+      effort,
+      systemPrompt,
+      userContent: feedback,
+      timeoutMs: AI_LONG_CALL_TIMEOUT_MS,
+    })) as { chapters?: RegeneratedChapter[] };
+    return Array.isArray(parsed.chapters) ? parsed.chapters : [];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Staged generation (opt-in). The one-shot methods above are unchanged.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Single JSON-mode chat completion.
+   *
+   * Two request shapes are required. Classic models — and reasoning models where
+   * the author left the effort unset — receive the plain payload, which keeps
+   * existing behaviour byte-identical. An explicit `reasoning_effort` must be
+   * sent without sampling parameters (`temperature`/`top_p`/`logprobs` are
+   * rejected) and with a budget that also covers the hidden reasoning tokens.
+   */
+  private async callJson(args: {
+    selectionId?: string | null;
+    effort?: ReasoningEffort | string | null;
+    systemPrompt: string;
+    userContent: string;
+    timeoutMs: number;
+  }): Promise<unknown> {
+    const { apiModel, effort } = resolveSelection(args.selectionId, args.effort);
+
+    const base = {
+      model: apiModel,
+      response_format: { type: 'json_object' as const },
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: feedback },
+        { role: 'system' as const, content: args.systemPrompt },
+        { role: 'user' as const, content: args.userContent },
       ],
+    };
+
+    const params = (
+      effort
+        ? { ...base, reasoning_effort: effort, max_completion_tokens: AI_MAX_COMPLETION_TOKENS }
+        : base
+    ) as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming;
+
+    const response = await this.client.chat.completions.create(params, { timeout: args.timeoutMs });
+    const choice = response.choices[0];
+
+    log.debug(
+      {
+        model: apiModel,
+        effort: effort ?? 'provider-default',
+        finishReason: choice?.finish_reason,
+        reasoningTokens: response.usage?.completion_tokens_details?.reasoning_tokens,
+      },
+      'AI JSON completion'
+    );
+
+    if (choice?.finish_reason === 'length') {
+      throw new Error(
+        'The AI response was truncated before it finished. Retry with a lower thinking level.'
+      );
+    }
+
+    const raw = choice?.message?.content ?? '';
+    if (!raw.trim()) {
+      throw new Error('The AI returned an empty response; please retry.');
+    }
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      throw new Error('The AI returned a malformed JSON response; please retry.');
+    }
+  }
+
+  /**
+   * Stage 1 — plans the story: title, bilingual synopsis, cast and chapter
+   * premises. Writes no prose, so it is cheap enough to iterate on.
+   */
+  async generateOutline(options: GenerateOutlineOptions): Promise<StoryOutline> {
+    const nativeName = languageName(options.nativeLanguage);
+    const learningName = languageName(options.learningLanguage);
+    const N = options.chapterSpecs.length;
+    const isAdjustment = !!options.feedback?.trim() || !!options.previousOutline;
+
+    const chapterList = options.chapterSpecs
+      .map((c, i) => `Chapter ${i + 1} (${c.targetSentences} sentences): ${c.seed || '(you decide)'}`)
+      .join('\n');
+    const castList = characterLines(options.characters) || '(none provided — invent a coherent cast)';
+    const titleLine = options.storyTitle?.lang1?.trim()
+      ? `Author-provided title (lang1): "${options.storyTitle.lang1.trim()}"${
+          options.storyTitle.lang2?.trim() ? ` | (lang2): "${options.storyTitle.lang2.trim()}"` : ''
+        }`
+      : 'Author-provided title: none — invent one in both languages.';
+
+    const systemPrompt = `You are planning a bilingual parallel-text story for language learners.
+This is the PLANNING stage: describe the story, do NOT write the story sentences yet.
+
+Level: ${options.level}
+${levelGuidanceFor(options.level)}
+${guidelineBlockFor(options.aiGuideline)}
+
+Return a JSON object with exactly this structure — no extra text or markdown:
+{
+  "title": { "lang1": "<story title in ${nativeName}>", "lang2": "<story title in ${learningName}>" },
+  "synopsis": {
+    "lang1": "<2 to 4 sentences summarising the whole story arc in ${nativeName}>",
+    "lang2": "<the same summary in ${learningName}>"
+  },
+  "characters": [
+    { "name": "<name>", "role": "<role>", "description": "<in English>", "appearance": "<in English>" }
+  ],
+  "chapters": [
+    {
+      "title": { "lang1": "<short chapter title in ${nativeName}>", "lang2": "<short title in ${learningName}>" },
+      "seed": "<what happens in this chapter, in English, 1-2 sentences>"
+    }
+  ]
+}
+
+Rules:
+- Return exactly ${N} chapter objects in the "chapters" array
+- The synopsis summarises the WHOLE arc (beginning, turn, resolution), not a single chapter
+- Chapter seeds are internal authoring notes in English; each must contain concrete events
+- Every chapter must advance the arc and connect to the next one
+- Give the story and every chapter a short, reader-facing title (2–6 words) in both languages
+- If an author-provided title is given below, use it verbatim for lang1 and translate it faithfully for lang2
+- If a chapter premise is provided below, use it; if blank, invent a coherent one
+- Characters: if a cast is provided below use exactly those characters (same names) and fill in missing details; if not, invent a coherent cast and return it
+- lang1 is always ${nativeName}, lang2 is always ${learningName}`;
+
+    const adjustmentBlock = isAdjustment
+      ? `\n\nThis is a REVISION of the plan below. Keep everything the author did not ask to change.
+
+Current plan:\n${JSON.stringify({
+          synopsis: options.previousOutline?.synopsis ?? { lang1: '', lang2: '' },
+          chapters: (options.previousOutline?.chapters ?? []).map((c) => ({
+            title: c.title,
+            seed: c.seed,
+          })),
+        })}
+
+Author feedback:\n${options.feedback?.trim() || '(no specific feedback — improve the plan)'}`
+      : '';
+
+    const userContent = `${titleLine}\n\nStory seed:\n${options.seed}\n\nCharacters:\n${castList}\n\nChapters:\n${chapterList}${adjustmentBlock}`;
+
+    const parsed = (await this.callJson({
+      selectionId: options.model,
+      effort: options.effort,
+      systemPrompt,
+      userContent,
+      timeoutMs: AI_CALL_TIMEOUT_MS,
+    })) as {
+      title?: unknown;
+      synopsis?: unknown;
+      characters?: unknown;
+      chapters?: Array<Record<string, unknown> | null>;
+    };
+
+    const rawChapters = Array.isArray(parsed.chapters) ? parsed.chapters : [];
+    const chapters: OutlineChapterSpec[] = options.chapterSpecs.map((spec, i) => {
+      const rawChapter = rawChapters[i] ?? {};
+      const rawSeed = typeof rawChapter.seed === 'string' ? rawChapter.seed.trim() : '';
+      return {
+        title: sanitizeTitle(rawChapter.title),
+        seed: rawSeed || spec.seed,
+        // Sentence targets are author/database owned — never taken from the model.
+        targetSentences: spec.targetSentences,
+      };
     });
 
-    const raw = response.choices[0]?.message?.content ?? '{}';
-    const parsed = JSON.parse(raw) as { chapters?: RegeneratedChapter[] };
-    return Array.isArray(parsed.chapters) ? parsed.chapters : [];
+    const generatedCharacters = sanitizeCharactersFromRaw(parsed.characters);
+    const title = typeof parsed.title === 'string'
+      ? { lang1: parsed.title.trim(), lang2: parsed.title.trim() }
+      : sanitizeTitle(parsed.title);
+
+    return {
+      title,
+      synopsis: sanitizeTitle(parsed.synopsis),
+      characters: generatedCharacters.length > 0 ? generatedCharacters : options.characters,
+      chapters,
+    };
+  }
+
+  /**
+   * Stage 2 — writes one chapter, continuing from the recaps of the chapters
+   * already written (bounded context: no full-text resend).
+   */
+  async generateChapter(options: GenerateChapterOptions): Promise<ChapterDraft> {
+    const nativeName = languageName(options.nativeLanguage);
+    const learningName = languageName(options.learningLanguage);
+    const total = options.previousRecaps.length;
+
+    const storySoFar = options.previousRecaps
+      .map((recap, i) => (recap.trim() ? `Chapter ${i + 1}: ${recap.trim()}` : ''))
+      .filter(Boolean)
+      .join('\n');
+    const castList = characterLines(options.characters);
+    const synopsisLine =
+      [options.synopsis.lang1, options.synopsis.lang2].filter(Boolean).join(' / ') || '(not provided)';
+
+    const systemPrompt = `You are writing chapter ${options.chapterIndex + 1} of ${total} of a bilingual parallel-text story.
+
+Level: ${options.level}
+${levelGuidanceFor(options.level)}
+${guidelineBlockFor(options.aiGuideline)}
+
+Return a JSON object with exactly this structure — no extra text or markdown:
+{
+  "title": { "lang1": "<short chapter title in ${nativeName}>", "lang2": "<short chapter title in ${learningName}>" },
+  "seed": "<what happens in this chapter, in English, 1-2 sentences>",
+  "recap": "<one sentence in English summarising what happens in THIS chapter>",
+  "sentences": [ { "lang1": "<sentence in ${nativeName}>", "lang2": "<sentence in ${learningName}>" } ]
+}
+
+Rules:
+- Write exactly ${options.chapterSpec.targetSentences} sentence pairs
+- Write ONLY this chapter — do not continue into later chapters
+- Continue naturally from the story so far; keep names, facts and chronology consistent
+- lang1 is always ${nativeName}, lang2 is always ${learningName}
+- Each sentence pair must express the same meaning in both languages
+- Apply the level guidance consistently
+- "seed" and "recap" are internal authoring notes — never shown to readers`;
+
+    const userContent = [
+      `Story synopsis: ${synopsisLine}`,
+      options.storySeed ? `Overall story premise: ${options.storySeed}` : '',
+      castList ? `Cast:\n${castList}` : '',
+      `This chapter's premise: ${options.chapterSpec.seed || '(you decide, consistent with the synopsis)'}`,
+      storySoFar ? `Story so far:\n${storySoFar}` : 'This is the first chapter.',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    const parsed = (await this.callJson({
+      selectionId: options.model,
+      effort: options.effort,
+      systemPrompt,
+      userContent,
+      timeoutMs: AI_CALL_TIMEOUT_MS,
+    })) as {
+      title?: unknown;
+      seed?: unknown;
+      recap?: unknown;
+      sentences?: unknown;
+    };
+
+    const rawSeed = typeof parsed.seed === 'string' ? parsed.seed.trim() : '';
+    const recap = typeof parsed.recap === 'string' ? parsed.recap.trim().slice(0, 400) : '';
+
+    return {
+      title: sanitizeTitle(parsed.title),
+      seed: rawSeed || options.chapterSpec.seed,
+      sentences: sanitizeSentences(parsed.sentences, options.chapterSpec.targetSentences),
+      recap,
+    };
+  }
+
+  /** Stage 3 (optional) — one quality-review call per chapter, returns findings only. */
+  async reviewChapter(options: ReviewChapterOptions): Promise<ChapterReview> {
+    const nativeName = languageName(options.nativeLanguage);
+    const learningName = languageName(options.learningLanguage);
+    const numbered = options.sentences
+      .map((sentence, i) => `${i + 1}. ${sentence.lang1} || ${sentence.lang2}`)
+      .join('\n');
+
+    const systemPrompt = `You are reviewing one chapter of a bilingual parallel-text story for language learners.
+
+Level: ${options.level}
+${levelGuidanceFor(options.level)}
+
+Check ONLY these things:
+- translation accuracy: lang1 (${nativeName}) and lang2 (${learningName}) must express the same meaning
+- language mixing: lang1 must not contain ${learningName} words, and vice versa
+- level fit: vocabulary and sentence length match the level above
+- repetition: the same sentence or idea repeated
+- continuity: contradictions with the story synopsis
+
+Return a JSON object — no extra text:
+{ "issues": ["<issue in English, max 20 words, cite the sentence number>"] }
+
+Rules:
+- Return an empty array when the chapter is fine
+- At most 5 issues, most important first
+- Do NOT rewrite the sentences; only report problems`;
+
+    const userContent = [
+      options.chapterTitle ? `Chapter: ${options.chapterTitle}` : '',
+      `Story synopsis: ${[options.synopsis.lang1, options.synopsis.lang2].filter(Boolean).join(' / ') || '(not provided)'}`,
+      `Sentences (lang1 || lang2):\n${numbered}`,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    const parsed = (await this.callJson({
+      selectionId: options.model,
+      effort: options.effort,
+      systemPrompt,
+      userContent,
+      timeoutMs: AI_CALL_TIMEOUT_MS,
+    })) as { issues?: unknown };
+    const issues = Array.isArray(parsed.issues)
+      ? parsed.issues
+          .map((issue) => (typeof issue === 'string' ? issue.trim() : ''))
+          .filter((issue) => issue !== '')
+          .slice(0, 5)
+      : [];
+
+    return { issues };
   }
 }
 

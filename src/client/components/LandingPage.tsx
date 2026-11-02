@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Button, Grid, Card, CardContent,
   CardActions, Chip, CircularProgress, Tooltip,
+  Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
 } from '@mui/material';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import EditIcon from '@mui/icons-material/Edit';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
 import { getAIModelLabel } from '../utils/aiModels';
@@ -20,6 +22,7 @@ interface StoryCard {
   learningLanguage: string;
   level: string;
   aiModel?: string;
+  aiReasoningEffort?: string;
   isAIGenerated: boolean;
   seed: string;
   authorName: string;
@@ -36,11 +39,15 @@ const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
   advanced: 'error',
 };
 
+/** Remembered so the launch announcement is shown once per browser. */
+const WIZARD_INTRO_KEY = 'storyCreator.wizardIntroSeen';
+
 const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [stories, setStories] = useState<StoryCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wizardIntroOpen, setWizardIntroOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/stories?page=1')
@@ -49,6 +56,51 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  // Announce the step-by-step flow once, and only to accounts that can create
+  // stories and have not used it yet.
+  useEffect(() => {
+    if (!user?.canCreateStories) return;
+    try {
+      if (localStorage.getItem(WIZARD_INTRO_KEY) === '1') return;
+    } catch {
+      return;
+    }
+
+    let cancelled = false;
+    fetch('/api/stories/mine')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: Array<{ generationMode?: string }>) => {
+        if (cancelled) return;
+        const alreadyUsed = Array.isArray(data) && data.some((s) => s.generationMode === 'staged');
+        if (alreadyUsed) {
+          try {
+            localStorage.setItem(WIZARD_INTRO_KEY, '1');
+          } catch {
+            // Storage unavailable — nothing to remember.
+          }
+          return;
+        }
+        setWizardIntroOpen(true);
+      })
+      // A failed request must not suppress the announcement.
+      .catch(() => {
+        if (!cancelled) setWizardIntroOpen(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.canCreateStories]);
+
+  const dismissWizardIntro = () => {
+    try {
+      localStorage.setItem(WIZARD_INTRO_KEY, '1');
+    } catch {
+      // Private mode: the dialog simply shows again next visit.
+    }
+    setWizardIntroOpen(false);
+  };
 
   return (
     <Box sx={{ pt: 8, bgcolor: 'background.default', minHeight: '100vh' }}>
@@ -81,12 +133,18 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
             <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
               <span>
                 <Button
-                  variant="outlined" size="large" startIcon={<EditIcon />}
-                  onClick={() => navigate('/editor')}
+                  variant="outlined" size="large" startIcon={<AutoAwesomeIcon />}
+                  onClick={() => navigate('/create')}
                   disabled={!user.canCreateStories}
                   sx={{ borderColor: 'white', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
                 >
                   {t('landing.startWriting')}
+                  <Chip
+                    label={t('landing.newTag')}
+                    color="secondary"
+                    size="small"
+                    sx={{ ml: 1, height: 18, fontSize: 10 }}
+                  />
                 </Button>
               </span>
             </Tooltip>
@@ -100,6 +158,16 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
             </Button>
           )}
         </Box>
+        {user?.canCreateStories && (
+          <Button
+            size="small"
+            startIcon={<EditIcon fontSize="small" />}
+            onClick={() => navigate('/editor')}
+            sx={{ mt: 2, color: 'rgba(255,255,255,0.85)', '&:hover': { color: 'white' } }}
+          >
+            {t('landing.quickCreate')}
+          </Button>
+        )}
       </Box>
 
       {/* Recent stories grid */}
@@ -120,7 +188,8 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
                 <span>
                   <Button
                     variant="contained"
-                    onClick={() => navigate('/editor')}
+                    startIcon={<AutoAwesomeIcon />}
+                    onClick={() => navigate('/create')}
                     disabled={!user.canCreateStories}
                     sx={{ mt: 2 }}
                   >
@@ -149,7 +218,7 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
                       <Chip
                         label={
                           story.isAIGenerated
-                            ? t('stories.aiModelTag', { model: getAIModelLabel(story.aiModel) })
+                            ? t('stories.aiModelTag', { model: getAIModelLabel(story.aiModel, story.aiReasoningEffort) })
                             : t('stories.manualTag')
                         }
                         size="small"
@@ -210,6 +279,46 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
           </Box>
         )}
       </Container>
+
+      {wizardIntroOpen && (
+        <Dialog open onClose={dismissWizardIntro} maxWidth="sm" fullWidth>
+          <DialogTitle>{t('landing.wizardIntro.title')}</DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ mb: 2 }}>{t('landing.wizardIntro.body')}</DialogContentText>
+            <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+              <li>
+                <Typography variant="body2">{t('landing.wizardIntro.point1')}</Typography>
+              </li>
+              <li>
+                <Typography variant="body2">{t('landing.wizardIntro.point2')}</Typography>
+              </li>
+              <li>
+                <Typography variant="body2">{t('landing.wizardIntro.point3')}</Typography>
+              </li>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                dismissWizardIntro();
+                navigate('/editor');
+              }}
+            >
+              {t('landing.wizardIntro.classic')}
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AutoAwesomeIcon />}
+              onClick={() => {
+                dismissWizardIntro();
+                navigate('/create');
+              }}
+            >
+              {t('landing.wizardIntro.tryIt')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 };
