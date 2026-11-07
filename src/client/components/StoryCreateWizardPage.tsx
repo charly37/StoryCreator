@@ -591,6 +591,16 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
             sx={{ mb: 2 }}
           />
 
+          <TextField
+            fullWidth
+            label={t('editor.aiGuideline')}
+            placeholder={t('editor.aiGuidelinePlaceholder')}
+            helperText={t('editor.aiGuidelineHint')}
+            value={aiGuideline}
+            onChange={(event) => setAiGuideline(event.target.value)}
+            sx={{ mb: 2 }}
+          />
+
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
             <TextField
               type="number"
@@ -715,14 +725,6 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
               onChange={setOutlineEffort}
             />
           </Box>
-          <TextField
-            fullWidth
-            label={t('editor.aiGuideline')}
-            placeholder={t('editor.aiGuidelinePlaceholder')}
-            helperText={t('editor.aiGuidelineHint')}
-            value={aiGuideline}
-            onChange={(event) => setAiGuideline(event.target.value)}
-          />
 
           <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
             <Tooltip title={canCreate ? '' : t('creatorAccess.tooltip')}>
