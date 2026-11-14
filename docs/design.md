@@ -177,6 +177,12 @@ JS-driven layout switches. Breakpoints are MUI defaults: `sm` (600 px) and `md` 
 - **Typography**: `h3`/`h4`/`h5` scale down below `sm` via media queries in the theme (`App.tsx`).
 - **Tabs**: use `variant="scrollable" allowScrollButtonsMobile` (never let tabs squeeze).
 - **Buttons**: `width: { xs: '100%', sm: 'auto' }` inside a stacked action row.
+- **Input mode**: layout stays CSS-only, but *interaction* may adapt to the device's input. The single
+  allowed media query is `useTouchInput()` (`src/client/utils/useTouchInput.ts`, `(any-pointer: coarse)`).
+  `StoryReader` uses it to offer gestures on phones/tablets and keyboard hints on desktop: a horizontal
+  swipe ≥ 50 px (1.5:1 axis dominance, < 800 ms) changes sentence, a tap (≤ 10 px, < 400 ms) toggles the
+  translation. Gestures never call `preventDefault`, so scrolling, pinch-zoom and text selection keep
+  working; mouse input, the arrow keys and the Previous/Next buttons are unaffected.
 
 Verify changes at 360–375 px: `document.body.scrollWidth` must not exceed `window.innerWidth`, and repeat
 the check in `fr` (French strings are 15–25 % longer).

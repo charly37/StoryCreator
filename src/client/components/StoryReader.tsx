@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Paper, Button, Chip, CircularProgress,
@@ -13,6 +13,8 @@ import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
+import SwipeIcon from '@mui/icons-material/Swipe';
+import TouchAppIcon from '@mui/icons-material/TouchApp';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
 import { getAIModelLabel } from '../utils/aiModels';
@@ -20,6 +22,7 @@ import { formatSeedPreview } from '../utils/seedPreview';
 import { formatRelativeDate } from '../utils/relativeDate';
 import { cloneStory } from '../utils/cloneStory';
 import { getChapterContext, getChapterStartIndex, getStoryPercent } from '../utils/readingProgress';
+import { useTouchInput } from '../utils/useTouchInput';
 
 export interface Sentence {
   lang1: string;
@@ -79,6 +82,14 @@ const LEVEL_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
   advanced: 'error',
 };
 
+/** In-flight touch gesture on the sentence card, captured on pointerdown. */
+interface SwipeGesture {
+  pointerId: number;
+  x: number;
+  y: number;
+  time: number;
+}
+
 const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Box
     component="kbd"
@@ -114,6 +125,9 @@ const StoryReader: React.FC<StoryReaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  // Touch devices get swipe navigation and tap-to-translate instead of keyboard hints.
+  const isTouch = useTouchInput();
+  const gestureRef = useRef<SwipeGesture | null>(null);
 
   const [story, setStory] = useState<StoryReaderStory | null>(null);
   const [loading, setLoading] = useState(true);
@@ -259,6 +273,77 @@ const StoryReader: React.FC<StoryReaderProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex, total, chapterMenuAnchor]);
+
+  // Touch gestures on the sentence card: swipe left / right moves one sentence,
+  // a tap toggles the translation. Mouse input is ignored so desktop behaviour and
+  // text selection are unchanged; no preventDefault is used, so vertical page
+  // scrolling, pinch-zoom and long-press selection keep working natively.
+  const handleGestureStart = (event: React.PointerEvent<HTMLElement>) => {
+    if (!isTouch || !event.isPrimary || event.pointerType === 'mouse') return;
+    const target = event.target as HTMLElement | null;
+    // Let taps on in-card controls (e.g. the translation eye) behave normally.
+    if (target?.closest('button, a, input, textarea, select, [role="button"]')) return;
+    gestureRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      time: Date.now(),
+    };
+  };
+
+  useEffect(() => {
+    const SWIPE_MIN_PX = 50;
+    const TAP_MAX_PX = 10;
+    const SWIPE_MAX_MS = 800;
+    const TAP_MAX_MS = 400;
+
+    const finishGesture = (endX: number, endY: number) => {
+      const gesture = gestureRef.current;
+      gestureRef.current = null;
+      if (!gesture) return;
+
+      const dx = endX - gesture.x;
+      const dy = endY - gesture.y;
+      const elapsed = Date.now() - gesture.time;
+      const absX = Math.abs(dx);
+      const absY = Math.abs(dy);
+
+      // Horizontal swipe: dominant horizontal movement over a minimum distance.
+      if (absX >= SWIPE_MIN_PX && absX > absY * 1.5 && elapsed < SWIPE_MAX_MS) {
+        if (total === 0) return;
+        if (dx < 0) setCurrentIndex((i) => Math.min(total - 1, i + 1));
+        else setCurrentIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+
+      // Tap: barely any movement, short duration -> toggle the current translation.
+      if (absX <= TAP_MAX_PX && absY <= TAP_MAX_PX && elapsed < TAP_MAX_MS) {
+        setRevealed((prev) => {
+          const next = new Set(prev);
+          next.has(currentIndex) ? next.delete(currentIndex) : next.add(currentIndex);
+          return next;
+        });
+      }
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (gestureRef.current && event.pointerId === gestureRef.current.pointerId) {
+        finishGesture(event.clientX, event.clientY);
+      }
+    };
+
+    const handlePointerCancel = () => {
+      gestureRef.current = null;
+    };
+
+    // Listen on the window so the gesture resolves even when the finger lifts outside the card.
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
+    return () => {
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerCancel);
+    };
+  }, [currentIndex, total]);
 
   if (loading) {
     return (
@@ -437,7 +522,11 @@ const StoryReader: React.FC<StoryReaderProps> = ({
 
         {/* Sentence card */}
         {total > 0 && sentence && (
-          <Paper elevation={2} sx={{ p: 3, mb: 2, minHeight: 140 }}>
+          <Paper
+            elevation={2}
+            onPointerDown={handleGestureStart}
+            sx={{ p: 3, mb: 2, minHeight: 140 }}
+          >
             {/* Chapter heading shown at the first sentence of each chapter */}
             {sentence.isFirstInChapter && (
               <>
@@ -490,7 +579,11 @@ const StoryReader: React.FC<StoryReaderProps> = ({
           >
             {t('reader.previous')}
           </Button>
-          <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1, textAlign: 'center' }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ flex: 1, minWidth: 0, textAlign: 'center', lineHeight: 1.3 }}
+          >
             {total > 0
               ? t('reader.chapterSentence', {
                   current: chapterContext.chapterSentence,
@@ -508,10 +601,10 @@ const StoryReader: React.FC<StoryReaderProps> = ({
           </Button>
         </Box>
 
-        {/* Keyboard shortcut hint — hidden on touch-sized screens */}
+        {/* Input hint — gestures on touch devices, keyboard shortcuts otherwise */}
         <Box
           sx={{
-            display: { xs: 'none', sm: 'flex' },
+            display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexWrap: 'wrap',
@@ -520,17 +613,32 @@ const StoryReader: React.FC<StoryReaderProps> = ({
             color: 'text.secondary',
           }}
         >
-          <KeyboardIcon sx={{ fontSize: 18 }} />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Kbd>←</Kbd>
-            <Kbd>→</Kbd>
-            <Typography variant="caption">{t('reader.kbSentenceNav')}</Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Kbd>↑</Kbd>
-            <Kbd>↓</Kbd>
-            <Typography variant="caption">{t('reader.kbTranslation')}</Typography>
-          </Box>
+          {isTouch ? (
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <SwipeIcon sx={{ fontSize: 18 }} />
+                <Typography variant="caption">{t('reader.swipeSentenceNav')}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <TouchAppIcon sx={{ fontSize: 18 }} />
+                <Typography variant="caption">{t('reader.tapTranslation')}</Typography>
+              </Box>
+            </>
+          ) : (
+            <>
+              <KeyboardIcon sx={{ fontSize: 18 }} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Kbd>←</Kbd>
+                <Kbd>→</Kbd>
+                <Typography variant="caption">{t('reader.kbSentenceNav')}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Kbd>↑</Kbd>
+                <Kbd>↓</Kbd>
+                <Typography variant="caption">{t('reader.kbTranslation')}</Typography>
+              </Box>
+            </>
+          )}
         </Box>
       </Container>
     </Box>

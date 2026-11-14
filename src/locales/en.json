@@ -126,7 +126,9 @@
     "learningLabel": "Learning",
     "nativeLabel": "Native",
     "kbSentenceNav": "previous / next sentence",
-    "kbTranslation": "hide / show translation"
+    "kbTranslation": "hide / show translation",
+    "swipeSentenceNav": "swipe left or right to change sentence",
+    "tapTranslation": "tap to show / hide translation"
   },
   "editor": {
     "createTitle": "Write a New Story",

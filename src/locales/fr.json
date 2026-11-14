@@ -126,7 +126,9 @@
     "learningLabel": "Apprentissage",
     "nativeLabel": "Natif",
     "kbSentenceNav": "phrase précédente / suivante",
-    "kbTranslation": "masquer / afficher la traduction"
+    "kbTranslation": "masquer / afficher la traduction",
+    "swipeSentenceNav": "glissez à gauche ou à droite pour changer de phrase",
+    "tapTranslation": "touchez pour afficher / masquer la traduction"
   },
   "editor": {
     "createTitle": "Écrire une nouvelle histoire",
