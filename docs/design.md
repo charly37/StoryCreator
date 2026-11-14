@@ -159,6 +159,28 @@ src/client/
     languages.ts     — Supported language list
 ```
 
+### Responsive / mobile conventions
+
+The UI is CSS-only responsive (`sx` objects); there are **no `useMediaQuery` hooks** and no
+JS-driven layout switches. Breakpoints are MUI defaults: `sm` (600 px) and `md` (900 px).
+
+- **Navigation (`Header.tsx`)**: a single `navItems` array feeds both the desktop `Button` cluster
+  (`display: { xs: 'none', md: 'flex' }`) and the mobile left `SwipeableDrawer` (280 px), opened by a
+  hamburger `IconButton` (`display: { xs: 'block', md: 'none' }`). Every drawer row closes the drawer
+  before navigating. `md` is the only nav switch point.
+- **Headers / action rows**: never use a bare `justify-content: space-between` row. Add `flexWrap: 'wrap'`
+  (and `gap`), and `flexDirection: { xs: 'column', sm: 'row' }` when the row holds buttons.
+- **Fixed widths**: replace `minWidth: 220` with `minWidth: { xs: '100%', sm: 220 }` and
+  `width: 140` with `width: { xs: '100%', sm: 140 }` so form controls fill the row on phones.
+- **Padding**: page shells use `pt: { xs: 9, md: 10 }` (56 px AppBar on xs, 64 px on `sm+`), and papers use
+  `p: { xs: 2, sm: 3 }`.
+- **Typography**: `h3`/`h4`/`h5` scale down below `sm` via media queries in the theme (`App.tsx`).
+- **Tabs**: use `variant="scrollable" allowScrollButtonsMobile` (never let tabs squeeze).
+- **Buttons**: `width: { xs: '100%', sm: 'auto' }` inside a stacked action row.
+
+Verify changes at 360–375 px: `document.body.scrollWidth` must not exceed `window.innerWidth`, and repeat
+the check in `fr` (French strings are 15–25 % longer).
+
 ## Backend Structure
 
 ```

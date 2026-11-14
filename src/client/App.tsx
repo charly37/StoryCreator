@@ -27,9 +27,10 @@ const theme = createTheme({
   },
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-    h3: { fontWeight: 700 },
-    h4: { fontWeight: 700 },
-    h5: { fontWeight: 600 },
+    // Headings scale down on phones so long French labels do not overflow.
+    h3: { fontWeight: 700, fontSize: '1.75rem', '@media (min-width:600px)': { fontSize: '3rem' } },
+    h4: { fontWeight: 700, fontSize: '1.5rem', '@media (min-width:600px)': { fontSize: '2.125rem' } },
+    h5: { fontWeight: 600, fontSize: '1.25rem', '@media (min-width:600px)': { fontSize: '1.5rem' } },
   },
   components: {
     MuiButton: {

@@ -103,18 +103,18 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
   };
 
   return (
-    <Box sx={{ pt: 8, bgcolor: 'background.default', minHeight: '100vh' }}>
+    <Box sx={{ pt: { xs: 7, sm: 8 }, bgcolor: 'background.default', minHeight: '100vh' }}>
       {/* Hero */}
       <Box
         sx={{
           background: 'linear-gradient(135deg, #1e40af 0%, #7c3aed 100%)',
           color: 'white',
-          py: 10,
+          py: { xs: 6, md: 10 },
           px: 2,
           textAlign: 'center',
         }}
       >
-        <AutoStoriesIcon sx={{ fontSize: 60, mb: 2, opacity: 0.9 }} />
+        <AutoStoriesIcon sx={{ fontSize: { xs: 48, md: 60 }, mb: 2, opacity: 0.9 }} />
         <Typography variant="h3" sx={{ fontWeight: 800 }} gutterBottom>
           {t('landing.hero.title')}
         </Typography>
@@ -125,18 +125,18 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
           <Button
             variant="contained" size="large"
             onClick={() => navigate('/stories')}
-            sx={{ bgcolor: 'white', color: 'primary.main', '&:hover': { bgcolor: '#e0eaff' } }}
+            sx={{ bgcolor: 'white', color: 'primary.main', '&:hover': { bgcolor: '#e0eaff' }, width: { xs: '100%', sm: 'auto' } }}
           >
             {t('landing.browseStories')}
           </Button>
           {user ? (
             <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
-              <span>
+              <span style={{ display: 'contents' }}>
                 <Button
                   variant="outlined" size="large" startIcon={<AutoAwesomeIcon />}
                   onClick={() => navigate('/create')}
                   disabled={!user.canCreateStories}
-                  sx={{ borderColor: 'white', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+                  sx={{ borderColor: 'white', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }, width: { xs: '100%', sm: 'auto' } }}
                 >
                   {t('landing.startWriting')}
                   <Chip
@@ -152,7 +152,7 @@ const LandingPage: React.FC<{ user: AppUser | null }> = ({ user }) => {
             <Button
               variant="outlined" size="large"
               onClick={() => navigate('/register')}
-              sx={{ borderColor: 'white', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+              sx={{ borderColor: 'white', color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }, width: { xs: '100%', sm: 'auto' } }}
             >
               {t('common.register')}
             </Button>

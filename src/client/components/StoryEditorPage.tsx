@@ -229,7 +229,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
   const nativeLangName = nativeLanguage ? getLanguageName(nativeLanguage) : '…';
 
   return (
-    <Box sx={{ pt: 10, pb: 8, bgcolor: 'background.default', minHeight: '100vh' }}>
+    <Box sx={{ pt: { xs: 9, md: 10 }, pb: 8, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="md">
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 3 }}>
           {t('editor.createTitle')}
@@ -242,7 +242,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
         {/* Languages */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
             {t('common.language')}
           </Typography>
@@ -288,7 +288,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         </Paper>
 
         {/* Story metadata */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
             {t('editor.storyDetails')}
           </Typography>
@@ -307,7 +307,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
               onChange={(e) => setLabelsInput(e.target.value)}
               sx={{ flex: 1, minWidth: 200 }}
             />
-            <FormControl sx={{ minWidth: 180 }}>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 180 } }}>
               <InputLabel>{t('editor.level')}</InputLabel>
               <Select
                 value={level}
@@ -323,7 +323,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         </Paper>
 
         {/* Story characters */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <GroupsIcon color="secondary" fontSize="small" />
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -397,7 +397,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         </Paper>
 
         {/* Seed section */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <AutoAwesomeIcon color="secondary" fontSize="small" />
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -480,7 +480,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
                   value={chapter.targetSentences}
                   onChange={(e) => setChapterSpecs((prev) => prev.map((c, idx) => idx === i ? { ...c, targetSentences: Math.min(100, Math.max(1, parseInt(e.target.value, 10) || DEFAULT_SENTENCES)) } : c))}
                   slotProps={{ htmlInput: { min: 1, max: 100 } }}
-                  sx={{ width: 130 }}
+                  sx={{ width: { xs: '100%', sm: 130 } }}
                 />
               </Box>
             </Box>
@@ -492,7 +492,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         </Paper>
 
         {/* AI Generator Settings */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <AutoAwesomeIcon color="secondary" fontSize="small" />
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -514,7 +514,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
             sx={{ mb: 2 }}
           />
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <FormControl sx={{ minWidth: 260 }}>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 260 } }}>
               <InputLabel>{t('editor.aiModel')}</InputLabel>
               <Select
                 value={aiModel}
@@ -543,7 +543,7 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
         </Paper>
 
         {/* Actions */}
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, alignItems: { xs: 'stretch', sm: 'center' } }}>
           <Tooltip title={canCreate ? '' : t('creatorAccess.tooltip')}>
             <span>
               <Button
@@ -552,12 +552,18 @@ const StoryEditorPage: React.FC<StoryEditorPageProps> = ({ user }) => {
                 startIcon={generating ? <CircularProgress size={18} color="inherit" /> : <AutoAwesomeIcon />}
                 onClick={handleGenerate}
                 disabled={generating || !canCreate}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 {generating ? t('editor.generating') : t('editor.generateStory')}
               </Button>
             </span>
           </Tooltip>
-          <Button variant="text" onClick={() => navigate(-1)} disabled={generating}>
+          <Button
+            variant="text"
+            onClick={() => navigate(-1)}
+            disabled={generating}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          >
             {t('common.cancel')}
           </Button>
         </Box>

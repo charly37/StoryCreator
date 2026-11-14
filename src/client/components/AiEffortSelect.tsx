@@ -41,7 +41,7 @@ const AiEffortSelect: React.FC<AiEffortSelectProps> = ({
   const fixedEffort = spec.pinnedEffort;
 
   return (
-    <FormControl sx={{ minWidth }}>
+    <FormControl sx={{ minWidth: { xs: '100%', sm: minWidth } }}>
       <InputLabel id={id}>{label}</InputLabel>
       <Select
         labelId={id}

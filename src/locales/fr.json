@@ -22,7 +22,9 @@
     "loading": "Chargement...",
     "or": "ou",
     "language": "Langue",
-    "switchLanguage": "Changer de langue"
+    "switchLanguage": "Changer de langue",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu"
   },
   "about": {
     "title": "À propos de StoryCreator",
@@ -260,19 +262,21 @@
       "pending": "En attente"
     },
     "validation": {
-      "title": "Contrôles de qualité",
-      "hint": "Facultatif. Les chapitres sont déjà écrits — les contrôles ajoutent seulement des remarques.",
+      "title": "Contrôles de qualité (facultatif)",
+      "hint": "Les contrôles ne modifient jamais votre texte : ils ajoutent seulement des remarques par chapitre. Ignorer : rien n'est lancé. Basiques : contrôles gratuits (chapitres vides, nombre de phrases, doublons, traductions identiques ou partielles). Relecture IA : un appel par chapitre pour vérifier aussi le sens, le mélange de langues, le niveau et la continuité avec le résumé.",
       "none": "Ignorer les contrôles",
       "basic": "Contrôles de base (gratuits)",
       "aiReview": "Relecture IA ({{count}} appels)",
       "reviewModel": "Modèle pour la relecture",
       "thinking": "Niveau de réflexion",
-      "costHint": "Les contrôles de base sont gratuits. La relecture IA fait un appel supplémentaire par chapitre avec {{model}}."
+      "costHint": "Les contrôles de base sont gratuits. La relecture IA fait un appel supplémentaire par chapitre avec {{model}}.",
+      "findingsTitle": "Où apparaissent les remarques",
+      "findingsHint": "Chaque chapitre concerné affiche une pastille « N remarques ». À la fin des contrôles, vous passez à l'étape suivante : ouvrez-y la page de relecture. Chaque chapitre y liste ses remarques au-dessus des phrases, avec un champ de retour juste au-dessus : cliquez sur « Utiliser les remarques comme retour », ajustez le texte si besoin, puis « Regénérer le chapitre » pour que l'IA le réécrive — ou corrigez les phrases à la main. Rien n'est bloqué : vous pouvez publier même avec des remarques en cours."
     },
     "done": {
       "title": "Votre histoire est prête",
       "summary": "{{chapters}} chapitres · {{sentences}} phrases",
-      "issues": "{{count}} remarques à consulter",
+      "issues": "{{count}} remarques à examiner — ouvrez la page de relecture pour les lire et les corriger avec l'IA.",
       "review": "Ouvrir la page de relecture",
       "preview": "Aperçu lecteur",
       "publish": "Publier",
@@ -372,7 +376,8 @@
     "chapterSeed": "Idée du chapitre (rédaction uniquement)",
     "chapterSeedHint": "Non visible par les lecteurs. Sert d'idée de base lors de la regénération.",
     "chapterFeedback": "Retour sur le chapitre",
-    "chapterFeedbackPlaceholder": "Décrivez ce qu'il faut changer dans ce chapitre",
+    "chapterFeedbackPlaceholder": "Décrivez ce qu'il faut changer — ou collez les remarques qualité du chapitre",
+    "useFindingsAsFeedback": "Utiliser les remarques comme retour",
     "chapterSentences": "{{count}} phrases",
     "targetSentences": "Phrases cibles",
     "generatingBanner": "Génération en cours… La page se rafraîchira automatiquement.",

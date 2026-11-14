@@ -139,8 +139,16 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
   return (
     <Box sx={{ pt: 10, pb: 6, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="md">
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 2,
+            alignItems: { xs: 'stretch', sm: 'center' },
+            mb: 3,
+          }}
+        >
+          <Box sx={{ minWidth: 0, flex: { xs: '1 1 100%', sm: '1 1 auto' } }}>
             <Typography variant="h4" sx={{ fontWeight: 700 }}>{t('myStories.title')}</Typography>
             <Typography variant="body2" color="text.secondary">{user.username}</Typography>
           </Box>
@@ -151,6 +159,7 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                 startIcon={<AddIcon />}
                 onClick={() => navigate('/create')}
                 disabled={!user.canCreateStories}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 {t('wizard.entry')}
               </Button>
@@ -162,6 +171,7 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                 variant="text"
                 onClick={() => navigate('/editor')}
                 disabled={!user.canCreateStories}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 {t('wizard.quickEntry')}
               </Button>
@@ -175,7 +185,12 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          variant="scrollable"
+          allowScrollButtonsMobile
+          sx={{ mb: 3 }}>
           <Tab label={t('myStories.all')} />
           <Tab label={t('myStories.drafts')} />
           <Tab label={t('myStories.published')} />
@@ -327,7 +342,7 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                 <Button
                   size="small" color="error" startIcon={<DeleteIcon />}
                   onClick={() => setDeleteTarget(story)}
-                  sx={{ ml: 'auto' }}
+                  sx={{ ml: { xs: 0, sm: 'auto' } }}
                 >
                   {t('common.delete')}
                 </Button>

@@ -466,7 +466,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', pt: 12, pb: 8 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', pt: { xs: 9, sm: 12 }, pb: 8 }}>
         <CircularProgress />
       </Box>
     );
@@ -480,7 +480,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
   ];
 
   return (
-    <Container maxWidth="md" sx={{ pt: 10, pb: 8 }}>
+    <Container maxWidth="md" sx={{ pt: { xs: 9, md: 10 }, pb: 8 }}>
       <Typography variant="h4" gutterBottom>
         {t('wizard.title')}
       </Typography>
@@ -488,7 +488,14 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
         {t('wizard.subtitle')}
       </Typography>
 
-      <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
+      <Stepper
+        activeStep={activeStep}
+        alternativeLabel
+        sx={{
+          mb: 3,
+          '& .MuiStepLabel-label': { fontSize: { xs: '0.7rem', sm: '0.875rem' }, mt: { xs: 0.5, sm: 1 } },
+        }}
+      >
         {steps.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
@@ -510,7 +517,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
 
       {/* ---------------- Step 1: setup ---------------- */}
       {activeStep === 0 && (
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
             {t('wizard.setup.title')}
           </Typography>
@@ -519,7 +526,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
           </Typography>
 
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
-            <FormControl sx={{ minWidth: 220 }}>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 220 } }}>
               <InputLabel id="wizard-native">{t('editor.nativeLanguage')}</InputLabel>
               <Select
                 labelId="wizard-native"
@@ -534,7 +541,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
                 ))}
               </Select>
             </FormControl>
-            <FormControl sx={{ minWidth: 220 }}>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 220 } }}>
               <InputLabel id="wizard-learning">{t('editor.learningLanguage')}</InputLabel>
               <Select
                 labelId="wizard-learning"
@@ -549,7 +556,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
                 ))}
               </Select>
             </FormControl>
-            <FormControl sx={{ minWidth: 180 }}>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 180 } }}>
               <InputLabel id="wizard-level">{t('editor.level')}</InputLabel>
               <Select
                 labelId="wizard-level"
@@ -608,7 +615,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
               value={chapterCount}
               onChange={(event) => setChapterCount(Math.min(MAX_CHAPTERS, Math.max(1, parseInt(event.target.value, 10) || 1)))}
               slotProps={{ htmlInput: { min: 1, max: MAX_CHAPTERS } }}
-              sx={{ width: 180 }}
+              sx={{ width: { xs: '100%', sm: 180 } }}
             />
             <TextField
               type="number"
@@ -616,7 +623,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
               value={sentencesPerChapter}
               onChange={(event) => setSentencesPerChapter(Math.min(100, Math.max(1, parseInt(event.target.value, 10) || DEFAULT_SENTENCES)))}
               slotProps={{ htmlInput: { min: 1, max: 100 } }}
-              sx={{ width: 180 }}
+              sx={{ width: { xs: '100%', sm: 180 } }}
             />
           </Box>
 
@@ -698,7 +705,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
             {t('editor.aiSettings')}
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
-            <FormControl sx={{ minWidth: 280 }}>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 280 } }}>
               <InputLabel id="wizard-outline-model">{t('wizard.setup.outlineModel')}</InputLabel>
               <Select
                 labelId="wizard-outline-model"
@@ -726,7 +733,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
             />
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mt: 3 }}>
             <Tooltip title={canCreate ? '' : t('creatorAccess.tooltip')}>
               <span>
                 <Button
@@ -735,12 +742,18 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
                   startIcon={busy ? <CircularProgress size={18} color="inherit" /> : <AutoAwesomeIcon />}
                   onClick={handleCreateDraft}
                   disabled={busy || !canCreate}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                 >
                   {t('wizard.setup.createDraft')}
                 </Button>
               </span>
             </Tooltip>
-            <Button variant="text" onClick={() => navigate(-1)} disabled={busy}>
+            <Button
+              variant="text"
+              onClick={() => navigate(-1)}
+              disabled={busy}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
+            >
               {t('common.cancel')}
             </Button>
           </Box>
@@ -749,7 +762,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
 
       {/* ---------------- Step 2: outline ---------------- */}
       {activeStep === 1 && story && (
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
             {t('wizard.outline.title')}
           </Typography>
@@ -857,7 +870,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
                       })
                     }
                     slotProps={{ htmlInput: { min: 1, max: 100 } }}
-                    sx={{ width: 140 }}
+                    sx={{ width: { xs: '100%', sm: 140 } }}
                     disabled={busy}
                   />
                 </Box>
@@ -918,7 +931,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
               <Divider sx={{ my: 2 }} />
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                <FormControl sx={{ minWidth: 260 }}>
+                <FormControl sx={{ minWidth: { xs: '100%', sm: 260 } }}>
                   <InputLabel id="wizard-writing-model">{t('wizard.outline.writingModel')}</InputLabel>
                   <Select
                     labelId="wizard-writing-model"
@@ -964,7 +977,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
 
       {/* ---------------- Step 3: chapters + validation offer ---------------- */}
       {activeStep === 2 && story && (
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
             {t('wizard.chapters.title')}
           </Typography>
@@ -986,7 +999,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
           {story.chapters.map((chapter, index) => (
             <Box
               key={index}
-              sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}
+              sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}
             >
               {chapter.sentences?.length > 0 ? (
                 <CheckCircleIcon fontSize="small" color="success" />
@@ -1023,7 +1036,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
                 <Button variant="outlined" onClick={() => handleValidation('basic')} disabled={busy} sx={{ mt: 1 }}>
                   {t('wizard.validation.basic')}
                 </Button>
-                <FormControl sx={{ minWidth: 240 }}>
+                <FormControl sx={{ minWidth: { xs: '100%', sm: 240 } }}>
                   <InputLabel id="wizard-review-model">{t('wizard.validation.reviewModel')}</InputLabel>
                   <Select
                     labelId="wizard-review-model"
@@ -1060,6 +1073,14 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
                   model: getAIModelLabel(effectiveReviewModel, effectiveReviewEffort),
                 })}
               </Typography>
+              <Alert severity="info" sx={{ mt: 2 }}>
+                <Typography variant="caption" component="div" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  {t('wizard.validation.findingsTitle')}
+                </Typography>
+                <Typography variant="caption" component="div">
+                  {t('wizard.validation.findingsHint')}
+                </Typography>
+              </Alert>
             </>
           )}
 
@@ -1080,7 +1101,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
 
       {/* ---------------- Step 4: done ---------------- */}
       {activeStep === 3 && story && (
-        <Paper elevation={2} sx={{ p: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography variant="h6" gutterBottom>
             {t('wizard.done.title')}
           </Typography>

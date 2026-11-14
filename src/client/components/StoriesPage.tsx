@@ -99,7 +99,7 @@ const StoriesPage: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             size="small"
-            sx={{ flexGrow: 1, minWidth: 220 }}
+            sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 220 } }}
             slotProps={{
               input: {
                 startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
@@ -107,7 +107,7 @@ const StoriesPage: React.FC = () => {
             }}
           />
 
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
             <InputLabel>{t('stories.filterNativeLang')}</InputLabel>
             <Select value={nativeLang} label={t('stories.filterNativeLang')} onChange={(e) => setNativeLang(e.target.value)}>
               <MenuItem value="">{t('stories.allLanguages')}</MenuItem>
@@ -117,7 +117,7 @@ const StoriesPage: React.FC = () => {
             </Select>
           </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 160 }}>
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 160 } }}>
             <InputLabel>{t('stories.filterLearningLang')}</InputLabel>
             <Select value={learningLang} label={t('stories.filterLearningLang')} onChange={(e) => setLearningLang(e.target.value)}>
               <MenuItem value="">{t('stories.allLanguages')}</MenuItem>
@@ -209,8 +209,12 @@ const StoriesPage: React.FC = () => {
                         {formatSeedPreview(story.seed) || t('stories.seedUnavailable')}
                       </Typography>
                     </CardContent>
-                    <CardActions sx={{ px: 2, pb: 2 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
+                    <CardActions sx={{ px: 2, pb: 2, flexWrap: 'wrap', gap: 1 }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ flexGrow: 1, flexBasis: { xs: '100%', sm: 'auto' } }}
+                      >
                         {t('stories.by')} {story.authorName} · {t('stories.sentences', { count: story.sentenceCount })} · {t('stories.updatedAgo', { when: formatRelativeDate(story.updatedAt, i18n.language) })}{((story.aiCallCount ?? 0) > 0 || story.isAIGenerated) ? ` · ${t('stories.aiCalls', { count: Math.max(story.aiCallCount ?? 0, story.isAIGenerated ? 1 : 0) })}` : ''}
                       </Typography>
                       <Button size="small" variant="outlined" onClick={() => navigate(`/stories/${story._id}`)}>
@@ -224,7 +228,7 @@ const StoriesPage: React.FC = () => {
 
             {totalPages > 1 && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                <Pagination count={totalPages} page={page} onChange={handlePageChange} color="primary" />
+                <Pagination count={totalPages} page={page} onChange={handlePageChange} color="primary" size="small" sx={{ '& .MuiPagination-ul': { flexWrap: 'nowrap' } }} />
               </Box>
             )}
           </>

@@ -42,9 +42,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <Box sx={{ pt: 12, pb: 6, bgcolor: 'background.default', minHeight: '100vh' }}>
+    <Box sx={{ pt: { xs: 10, sm: 12 }, pb: 6, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="xs">
-        <Paper elevation={3} sx={{ p: 4 }}>
+        <Paper elevation={3} sx={{ p: { xs: 2.5, sm: 4 } }}>
           <Typography variant="h5" sx={{ fontWeight: 700 }} gutterBottom>
             {t('auth.loginTitle')}
           </Typography>

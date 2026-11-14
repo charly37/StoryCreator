@@ -21,10 +21,10 @@ const AboutPage: React.FC = () => {
   return (
     <Box sx={{ pt: 10, pb: 6, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="lg">
-        <Box sx={{ py: 6 }}>
+        <Box sx={{ py: { xs: 3, md: 6 } }}>
           {/* Header */}
-          <Box sx={{ textAlign: 'center', mb: 6 }}>
-            <InfoIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
+          <Box sx={{ textAlign: 'center', mb: { xs: 3, md: 6 } }}>
+            <InfoIcon sx={{ fontSize: { xs: 48, md: 64 }, color: 'primary.main', mb: 2 }} />
             <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
               {t('about.title')}
             </Typography>
@@ -34,7 +34,7 @@ const AboutPage: React.FC = () => {
           </Box>
 
           {/* What is StoryCreator */}
-          <Paper elevation={2} sx={{ p: 4, mb: 4 }}>
+          <Paper elevation={2} sx={{ p: { xs: 2.5, sm: 4 }, mb: 4 }}>
             <Typography variant="h4" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
               {t('about.purposeTitle')}
             </Typography>
@@ -59,7 +59,7 @@ const AboutPage: React.FC = () => {
           {/* Reading + writing features */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Paper elevation={2} sx={{ p: 4, height: '100%' }}>
+              <Paper elevation={2} sx={{ p: { xs: 2.5, sm: 4 }, height: '100%' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <TranslateIcon sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
                   <Typography variant="h5" sx={{ fontWeight: 600 }}>
@@ -73,7 +73,7 @@ const AboutPage: React.FC = () => {
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
-              <Paper elevation={2} sx={{ p: 4, height: '100%' }}>
+              <Paper elevation={2} sx={{ p: { xs: 2.5, sm: 4 }, height: '100%' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <AutoStoriesIcon sx={{ fontSize: 32, color: 'secondary.main', mr: 2 }} />
                   <Typography variant="h5" sx={{ fontWeight: 600 }}>
@@ -90,7 +90,7 @@ const AboutPage: React.FC = () => {
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
-              <Paper elevation={2} sx={{ p: 4, height: '100%' }}>
+              <Paper elevation={2} sx={{ p: { xs: 2.5, sm: 4 }, height: '100%' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <SchoolIcon sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
                   <Typography variant="h5" sx={{ fontWeight: 600 }}>
@@ -113,7 +113,7 @@ const AboutPage: React.FC = () => {
           </Grid>
 
           {/* Open source */}
-          <Paper elevation={2} sx={{ p: 4, mb: 4 }}>
+          <Paper elevation={2} sx={{ p: { xs: 2.5, sm: 4 }, mb: 4 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <CodeIcon sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
               <Typography variant="h4" sx={{ fontWeight: 600 }}>

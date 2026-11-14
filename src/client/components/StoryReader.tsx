@@ -270,7 +270,7 @@ const StoryReader: React.FC<StoryReaderProps> = ({
 
   if (error) {
     return (
-      <Box sx={{ pt: 12, pb: 6 }}>
+      <Box sx={{ pt: { xs: 9, sm: 12 }, pb: 6 }}>
         <Container maxWidth="md">
           <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(backTo)} sx={{ mb: 2 }}>
             {backLabel}
@@ -288,11 +288,11 @@ const StoryReader: React.FC<StoryReaderProps> = ({
   return (
     <Box sx={{ pt: 10, pb: 6, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="md">
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 3 }}>
           <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(backTo)}>
             {backLabel}
           </Button>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {renderExtraActions?.(story)}
             {(allowClone || showDisabledClone) && (
               <Tooltip title={allowClone ? '' : t('creatorAccess.tooltip')}>
@@ -316,7 +316,7 @@ const StoryReader: React.FC<StoryReaderProps> = ({
         )}
 
         {/* Story header */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3, borderLeft: '4px solid', borderColor: 'primary.main' }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderLeft: '4px solid', borderColor: 'primary.main' }}>
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
             <AutoStoriesIcon sx={{ fontSize: 40, color: 'primary.main', mt: 0.5, flexShrink: 0 }} />
             <Box sx={{ flexGrow: 1 }}>
@@ -371,7 +371,7 @@ const StoryReader: React.FC<StoryReaderProps> = ({
 
         {/* Progress bar */}
         <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 0.5 }}>
             {total > 0 ? (
               <Button
                 size="small"
@@ -481,15 +481,16 @@ const StoryReader: React.FC<StoryReaderProps> = ({
         )}
 
         {/* Navigation */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
           <Button
             startIcon={<ArrowBackIosNewIcon />}
             onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
             disabled={currentIndex === 0}
+            sx={{ flexShrink: 0, px: { xs: 1, sm: 2 } }}
           >
             {t('reader.previous')}
           </Button>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1, textAlign: 'center' }}>
             {total > 0
               ? t('reader.chapterSentence', {
                   current: chapterContext.chapterSentence,
@@ -501,6 +502,7 @@ const StoryReader: React.FC<StoryReaderProps> = ({
             endIcon={<ArrowForwardIosIcon />}
             onClick={() => setCurrentIndex((i) => Math.min(total - 1, i + 1))}
             disabled={total === 0 || currentIndex >= total - 1}
+            sx={{ flexShrink: 0, px: { xs: 1, sm: 2 } }}
           >
             {t('reader.next')}
           </Button>

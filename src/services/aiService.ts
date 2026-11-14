@@ -249,6 +249,66 @@ function guidelineBlockFor(aiGuideline?: string): string {
   return `\nAdditional writing guideline from the author:\n${sanitized}\nFollow this guideline consistently unless it conflicts with language accuracy or safety.`;
 }
 
+/**
+ * Authoring notes preview roughly 10% of the prose they describe, so the author
+ * can judge the plan before paying for generation. Sentence counts are clamped
+ * to keep previews useful for both tiny and very long stories.
+ */
+const SEED_LENGTH_RATIO = 0.1;
+const SYNOPSIS_SENTENCES_MIN = 3;
+const SYNOPSIS_SENTENCES_MAX = 10;
+const CHAPTER_SEED_SENTENCES_MIN = 2;
+const CHAPTER_SEED_SENTENCES_MAX = 6;
+
+function clampInt(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+/** Target sentence count for the whole-story synopsis (~10% of all sentence pairs). */
+function synopsisSentenceRange(totalSentences: number): { target: number; min: number; max: number } {
+  return {
+    target: clampInt(
+      Math.round(totalSentences * SEED_LENGTH_RATIO),
+      SYNOPSIS_SENTENCES_MIN,
+      SYNOPSIS_SENTENCES_MAX
+    ),
+    min: SYNOPSIS_SENTENCES_MIN,
+    max: SYNOPSIS_SENTENCES_MAX,
+  };
+}
+
+/** Target sentence count for one chapter seed (~10% of that chapter, never longer than the chapter). */
+function chapterSeedSentenceRange(targetSentences: number): { target: number; min: number; max: number } {
+  const chapterSentences = Math.max(1, targetSentences);
+  const min = Math.min(CHAPTER_SEED_SENTENCES_MIN, chapterSentences);
+  const max = Math.min(CHAPTER_SEED_SENTENCES_MAX, chapterSentences);
+  return {
+    target: clampInt(Math.round(chapterSentences * SEED_LENGTH_RATIO), min, max),
+    min,
+    max,
+  };
+}
+
+/** Prompt phrase for the synopsis length, e.g. "4 sentences (min 3, max 10; about 10% …)". */
+function synopsisLengthHint(totalSentences: number): string {
+  const { target, min, max } = synopsisSentenceRange(totalSentences);
+  return `${target} sentences (min ${min}, max ${max}; about 10% of the story's ${totalSentences} sentence pairs)`;
+}
+
+/** Prompt phrase for a chapter seed length. */
+function chapterSeedLengthHint(targetSentences: number): string {
+  const { target, min, max } = chapterSeedSentenceRange(targetSentences);
+  return `${target} sentences (min ${min}, max ${max}; about 10% of the chapter's ${Math.max(1, targetSentences)} sentence pairs)`;
+}
+
+/**
+ * Generic version for prompts that cover several chapters with different targets:
+ * the chapter list below already states each chapter's sentence count.
+ */
+function chapterSeedLengthRule(): string {
+  return `about 10% of that chapter's sentence count (typically ${CHAPTER_SEED_SENTENCES_MIN}–${CHAPTER_SEED_SENTENCES_MAX} sentences, and never more sentences than the chapter itself)`;
+}
+
 /** Coerces the AI character array into a clean cast (drops nameless entries). */
 function sanitizeCharactersFromRaw(raw: unknown): CharacterSpec[] {
   if (!Array.isArray(raw)) return [];
@@ -290,6 +350,9 @@ class OpenAIService implements IAIService {
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
     const levelGuidance = LEVEL_GUIDANCE[level] ?? LEVEL_GUIDANCE.intermediate;
     const N = chapterSpecs.length;
+    const totalSentences = chapterSpecs.reduce((sum, spec) => sum + spec.targetSentences, 0);
+    const averageChapterSentences = Math.max(1, Math.round(totalSentences / Math.max(N, 1)));
+    const chapterSeedHint = chapterSeedLengthHint(averageChapterSentences);
     const providedTitleLang1 = storyTitle?.lang1?.trim() ?? '';
     const providedTitleLang2 = storyTitle?.lang2?.trim() ?? '';
 
@@ -325,7 +388,7 @@ Return a JSON object with exactly this structure — no extra text or markdown:
         "lang1": "<short chapter title in ${nativeName}>",
         "lang2": "<short chapter title in ${learningName}>"
       },
-      "seed": "<brief chapter premise in English — internal authoring note, never shown to readers>",
+      "seed": "<what happens in this chapter, in English — internal authoring note, never shown to readers; ${chapterSeedHint} covering concrete events>",
       "sentences": [
         { "lang1": "<sentence in ${nativeName}>", "lang2": "<sentence in ${learningName}>" }
       ]
@@ -339,8 +402,8 @@ Rules:
 - Give the story a short, reader-facing title (2–8 words) expressed in both languages
 - If an author-provided title is given below, use it verbatim for lang1 and translate it faithfully for lang2
 - Give every chapter a short, reader-facing title (2–6 words) expressed in both languages
-- "seed" is an internal authoring note used for later regeneration — it is NOT shown to readers; keep it brief and in English
-- If a chapter has a provided seed, use it as the premise; if blank, invent a coherent one
+- "seed" is an internal authoring note used for later regeneration — it is NOT shown to readers; write ${chapterSeedLengthRule()}, describing concrete events rather than a one-line teaser
+- If a chapter has a provided seed, keep its content and only expand it when it is shorter than the length guidance above; if blank, invent a coherent one
 - The story must flow naturally across all chapters
 - lang1 is always ${nativeName}, lang2 is always ${learningName}
 - Each sentence pair must express the same meaning in both languages
@@ -418,6 +481,7 @@ Rules:
     const nativeName = LANGUAGE_NAMES[nativeLanguage] ?? nativeLanguage;
     const learningName = LANGUAGE_NAMES[learningLanguage] ?? learningLanguage;
     const levelGuidance = LEVEL_GUIDANCE[level] ?? LEVEL_GUIDANCE.intermediate;
+    const chapterSeedHint = chapterSeedLengthHint(targetSentences);
 
     const contextSummary = allChapters
       .map((c, i) => `Chapter ${i + 1} (${i === chapterIndex ? 'TARGET — regenerate this' : 'context only'}): ${c.seed}`)
@@ -438,14 +502,14 @@ If the change affects story coherence in other chapters, you may also return upd
 Return a JSON object with exactly this structure — no extra text:
 {
   "chapters": [
-    { "index": <0-based chapter index>, "title": { "lang1": "<short title in ${nativeName}>", "lang2": "<short title in ${learningName}>" }, "seed": "<updated premise in English>", "sentences": [{ "lang1": "...", "lang2": "..." }] }
+    { "index": <0-based chapter index>, "title": { "lang1": "<short title in ${nativeName}>", "lang2": "<short title in ${learningName}>" }, "seed": "<updated premise in English; ${chapterSeedHint} covering concrete events>", "sentences": [{ "lang1": "...", "lang2": "..." }] }
   ]
 }
 
 Rules:
 - Always include the TARGET chapter (index ${chapterIndex}) with exactly ${targetSentences} sentences
 - Give the chapter a short, reader-facing title (2–6 words) in both languages
-- "seed" is an internal authoring note (never shown to readers) — keep it brief and in English
+- "seed" is an internal authoring note (never shown to readers) — write ${chapterSeedHint}, covering concrete events and staying faithful to the new seed above
 - Only include other chapters if coherence truly requires changes; minimize collateral edits
 - lang1 is always ${nativeName}, lang2 is always ${learningName}
 - Each sentence pair must express the same meaning
@@ -545,6 +609,10 @@ Rules:
     const nativeName = languageName(options.nativeLanguage);
     const learningName = languageName(options.learningLanguage);
     const N = options.chapterSpecs.length;
+    const totalSentences = options.chapterSpecs.reduce((sum, spec) => sum + spec.targetSentences, 0);
+    const averageChapterSentences = Math.max(1, Math.round(totalSentences / Math.max(N, 1)));
+    const synopsisHint = synopsisLengthHint(totalSentences);
+    const chapterSeedHint = chapterSeedLengthHint(averageChapterSentences);
     const isAdjustment = !!options.feedback?.trim() || !!options.previousOutline;
 
     const chapterList = options.chapterSpecs
@@ -568,8 +636,8 @@ Return a JSON object with exactly this structure — no extra text or markdown:
 {
   "title": { "lang1": "<story title in ${nativeName}>", "lang2": "<story title in ${learningName}>" },
   "synopsis": {
-    "lang1": "<2 to 4 sentences summarising the whole story arc in ${nativeName}>",
-    "lang2": "<the same summary in ${learningName}>"
+    "lang1": "<${synopsisHint} summarising the whole story arc in ${nativeName}>",
+    "lang2": "<the same synopsis translated into ${learningName}; ${synopsisHint}>",
   },
   "characters": [
     { "name": "<name>", "role": "<role>", "description": "<in English>", "appearance": "<in English>" }
@@ -577,19 +645,19 @@ Return a JSON object with exactly this structure — no extra text or markdown:
   "chapters": [
     {
       "title": { "lang1": "<short chapter title in ${nativeName}>", "lang2": "<short title in ${learningName}>" },
-      "seed": "<what happens in this chapter, in English, 1-2 sentences>"
+      "seed": "<what happens in this chapter, in English — ${chapterSeedHint} covering concrete events>"
     }
   ]
 }
 
 Rules:
 - Return exactly ${N} chapter objects in the "chapters" array
-- The synopsis summarises the WHOLE arc (beginning, turn, resolution), not a single chapter
-- Chapter seeds are internal authoring notes in English; each must contain concrete events
+- The synopsis summarises the WHOLE arc (beginning, turn, resolution), not a single chapter, and must be ${synopsisHint}, naming concrete events
+- Chapter seeds are internal authoring notes in English; each must be ${chapterSeedLengthRule()}, describing concrete events (setting, who does what, the turn) rather than a one-line teaser
 - Every chapter must advance the arc and connect to the next one
 - Give the story and every chapter a short, reader-facing title (2–6 words) in both languages
 - If an author-provided title is given below, use it verbatim for lang1 and translate it faithfully for lang2
-- If a chapter premise is provided below, use it; if blank, invent a coherent one
+- If a chapter premise is provided below, keep its content and only expand it when it is shorter than the length guidance above; if blank, invent a coherent one
 - Characters: if a cast is provided below use exactly those characters (same names) and fill in missing details; if not, invent a coherent cast and return it
 - lang1 is always ${nativeName}, lang2 is always ${learningName}`;
 
@@ -655,6 +723,7 @@ Author feedback:\n${options.feedback?.trim() || '(no specific feedback — impro
     const nativeName = languageName(options.nativeLanguage);
     const learningName = languageName(options.learningLanguage);
     const total = options.previousRecaps.length;
+    const chapterSeedHint = chapterSeedLengthHint(options.chapterSpec.targetSentences);
 
     const storySoFar = options.previousRecaps
       .map((recap, i) => (recap.trim() ? `Chapter ${i + 1}: ${recap.trim()}` : ''))
@@ -673,7 +742,7 @@ ${guidelineBlockFor(options.aiGuideline)}
 Return a JSON object with exactly this structure — no extra text or markdown:
 {
   "title": { "lang1": "<short chapter title in ${nativeName}>", "lang2": "<short chapter title in ${learningName}>" },
-  "seed": "<what happens in this chapter, in English, 1-2 sentences>",
+  "seed": "<what happens in this chapter, in English — ${chapterSeedHint} covering concrete events>",
   "recap": "<one sentence in English summarising what happens in THIS chapter>",
   "sentences": [ { "lang1": "<sentence in ${nativeName}>", "lang2": "<sentence in ${learningName}>" } ]
 }
@@ -685,7 +754,7 @@ Rules:
 - lang1 is always ${nativeName}, lang2 is always ${learningName}
 - Each sentence pair must express the same meaning in both languages
 - Apply the level guidance consistently
-- "seed" and "recap" are internal authoring notes — never shown to readers`;
+- "seed" and "recap" are internal authoring notes — never shown to readers; the seed must be ${chapterSeedHint}, covering concrete events and staying faithful to this chapter's premise`;
 
     const userContent = [
       `Story synopsis: ${synopsisLine}`,

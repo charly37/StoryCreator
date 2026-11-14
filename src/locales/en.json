@@ -22,7 +22,9 @@
     "loading": "Loading...",
     "or": "or",
     "language": "Language",
-    "switchLanguage": "Switch language"
+    "switchLanguage": "Switch language",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
   },
   "about": {
     "title": "About StoryCreator",
@@ -260,19 +262,21 @@
       "pending": "Pending"
     },
     "validation": {
-      "title": "Quality checks",
-      "hint": "Optional. The chapters are already written — checks only add findings you can act on.",
+      "title": "Quality checks (optional)",
+      "hint": "Checks never change your text — they only add findings per chapter. Skip: nothing runs. Basic: free checks for empty chapters, wrong sentence counts, duplicates, identical translations and length mismatches. AI review: adds one AI call per chapter to also check meaning, language mixing, level fit and continuity with the synopsis.",
       "none": "Skip checks",
       "basic": "Basic checks (free)",
       "aiReview": "AI review ({{count}} calls)",
       "reviewModel": "Model for the review",
       "thinking": "Thinking level",
-      "costHint": "Basic checks are free. AI review makes one extra call per chapter with {{model}}."
+      "costHint": "Basic checks are free. AI review makes one extra call per chapter with {{model}}.",
+      "findingsTitle": "Where the findings appear",
+      "findingsHint": "Each affected chapter gets a « N findings » chip. When the checks finish you move to the next step — open the review page from there. Every chapter lists its findings above the sentences, with a feedback field above them: click « Use findings as feedback », adjust the text if you want, then « Regenerate Chapter » so the AI rewrites that chapter — or fix the sentences by hand. Nothing is blocked: you can publish with findings still open."
     },
     "done": {
       "title": "Your story is ready",
       "summary": "{{chapters}} chapters · {{sentences}} sentences",
-      "issues": "{{count}} findings to review",
+      "issues": "{{count}} findings to review — open the review page to read them and fix them with AI.",
       "review": "Open the review page",
       "preview": "Preview as a reader",
       "publish": "Publish",
@@ -372,7 +376,8 @@
     "chapterSeed": "Chapter premise (authoring only)",
     "chapterSeedHint": "Not shown to readers. Used as the premise when regenerating.",
     "chapterFeedback": "Chapter feedback",
-    "chapterFeedbackPlaceholder": "Describe what to change in this chapter",
+    "chapterFeedbackPlaceholder": "Describe what to change in this chapter — or paste its quality findings",
+    "useFindingsAsFeedback": "Use findings as feedback",
     "chapterSentences": "{{count}} sentences",
     "targetSentences": "Target sentences",
     "generatingBanner": "Generation in progress… The page will refresh automatically when done.",

@@ -488,6 +488,8 @@ router.post('/:id/regenerate-chapter', requireAuth, requireCreatePermission, asy
             }
             // Keep only valid pairs; never pad with empty strings (fails required validation)
             target.sentences = sanitizeSentences(r.sentences, target.targetSentences);
+            // Previous quality findings describe the old prose — drop them after a rewrite.
+            target.issues = [];
           }
         }
         story.generating = false;

@@ -231,6 +231,17 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
     }
   };
 
+  /** Appends a chapter's quality findings to its feedback field (no duplicates). */
+  const appendFindingsToFeedback = (chapterIndex: number, issues: string[]) => {
+    const findings = issues.map((issue) => `- ${issue}`).join('\n');
+    if (!findings) return;
+    setChapterFeedbacks((prev) => {
+      const existing = prev[chapterIndex]?.trim() ?? '';
+      if (existing.includes(findings)) return prev;
+      return { ...prev, [chapterIndex]: existing ? `${existing}\n${findings}` : findings };
+    });
+  };
+
   const handleRegenerateChapter = async (chapterIndex: number) => {
     if (!story || !id) return;
     setRegeneratingChapter(chapterIndex);
@@ -354,7 +365,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
 
   if (error && !story) {
     return (
-      <Box sx={{ pt: 12, pb: 6 }}>
+      <Box sx={{ pt: { xs: 9, sm: 12 }, pb: 6 }}>
         <Container maxWidth="md">
           <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/my-stories')} sx={{ mb: 2 }}>
             {t('common.myStories')}
@@ -368,19 +379,19 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   if (!story) return null;
 
   return (
-    <Box sx={{ pt: 10, pb: 8, bgcolor: 'background.default', minHeight: '100vh' }}>
+    <Box sx={{ pt: { xs: 9, md: 10 }, pb: 8, bgcolor: 'background.default', minHeight: '100vh' }}>
       <Container maxWidth="md">
 
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 3 }}>
           <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/my-stories')}>
             {t('common.myStories')}
           </Button>
-          <Typography variant="h5" sx={{ fontWeight: 700, ml: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, ml: { xs: 0, sm: 2 }, mr: 'auto' }}>
             <RateReviewIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'primary.main' }} />
             {t('review.title')}
           </Typography>
           <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
-            <span style={{ marginLeft: 'auto' }}>
+            <span>
               <Button
                 variant="outlined"
                 startIcon={<ContentCopyIcon />}
@@ -402,7 +413,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
         )}
 
         {/* ── Editable story metadata ── */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
             {t('editor.storyDetails')}
           </Typography>
@@ -415,14 +426,14 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
           />
 
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
-            <FormControl sx={{ minWidth: 180, flex: 1 }}>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 180 }, flex: 1 }}>
               <InputLabel>{t('editor.nativeLanguage')}</InputLabel>
               <Select value={nativeLanguage} label={t('editor.nativeLanguage')}
                 onChange={(e) => setNativeLanguage(e.target.value)} disabled={busy}>
                 {LANGUAGES.map((l) => <MenuItem key={l.code} value={l.code}>{l.name} — {l.nativeName}</MenuItem>)}
               </Select>
             </FormControl>
-            <FormControl sx={{ minWidth: 180, flex: 1 }}>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 180 }, flex: 1 }}>
               <InputLabel>{t('editor.learningLanguage')}</InputLabel>
               <Select value={learningLanguage} label={t('editor.learningLanguage')}
                 onChange={(e) => setLearningLanguage(e.target.value)} disabled={busy}>
@@ -432,7 +443,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
-            <FormControl sx={{ minWidth: 160 }}>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 160 } }}>
               <InputLabel>{t('editor.level')}</InputLabel>
               <Select value={level} label={t('editor.level')}
                 onChange={(e) => setLevel(e.target.value as typeof level)} disabled={busy}>
@@ -440,7 +451,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
               </Select>
             </FormControl>
             <TextField label={t('editor.labels')} value={labelsInput}
-              onChange={(e) => setLabelsInput(e.target.value)} disabled={busy} sx={{ flex: 1, minWidth: 160 }}
+              onChange={(e) => setLabelsInput(e.target.value)} disabled={busy} sx={{ flex: 1, minWidth: { xs: '100%', sm: 160 } }}
               placeholder={t('editor.labelsPlaceholder')} />
           </Box>
 
@@ -469,7 +480,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
         </Paper>
 
         {/* ── Editable story characters ── */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <GroupsIcon color="secondary" fontSize="small" />
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -544,7 +555,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
         </Paper>
 
         {/* ── AI Generator Settings ── */}
-        <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+        <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <AutoAwesomeIcon color="secondary" fontSize="small" />
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -567,7 +578,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
             sx={{ mb: 2 }}
           />
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <FormControl sx={{ minWidth: 260 }}>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 260 } }}>
               <InputLabel>{t('editor.aiModel')}</InputLabel>
               <Select
                 value={aiModel}
@@ -638,7 +649,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
                   onChange={(e) => setChapterTargets((prev) => ({ ...prev, [ci]: Math.min(100, Math.max(1, parseInt(e.target.value, 10) || 12)) }))}
                   disabled={busy}
                   slotProps={{ htmlInput: { min: 1, max: 100 } }}
-                  sx={{ width: 140 }}
+                  sx={{ width: { xs: '100%', sm: 140 } }}
                 />
               </Box>
 
@@ -679,6 +690,15 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
                       </li>
                     ))}
                   </Box>
+                  <Button
+                    size="small"
+                    variant="text"
+                    sx={{ mt: 0.5 }}
+                    disabled={busy}
+                    onClick={() => appendFindingsToFeedback(ci, chapter.issues ?? [])}
+                  >
+                    {t('review.useFindingsAsFeedback')}
+                  </Button>
                 </Alert>
               )}
 
@@ -701,7 +721,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
               ))}
 
               {/* Insert / delete this chapter */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, gap: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', mt: 2, gap: 1 }}>
                 <Button
                   size="small"
                   color="error"
@@ -761,17 +781,20 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
         )}
 
         {/* ── Action buttons ── */}
-        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
-            <span style={{ marginRight: 'auto' }}>
-              <Button variant="outlined" color="warning"
-                startIcon={regeneratingAll ? <CircularProgress size={16} /> : <RestartAltIcon />}
-                onClick={() => setRegenerateAllOpen(true)}
-                disabled={busy || !user.canCreateStories}>
-                {regeneratingAll ? t('review.regeneratingAll') : t('review.regenerateAll')}
-              </Button>
-            </span>
-          </Tooltip>
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: { xs: 'stretch', sm: 'flex-end' }, flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap' }}>
+          <Box sx={{ mr: { sm: 'auto' }, width: { xs: '100%', sm: 'auto' } }}>
+            <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+              <span style={{ display: 'block', width: '100%' }}>
+                <Button variant="outlined" color="warning"
+                  startIcon={regeneratingAll ? <CircularProgress size={16} /> : <RestartAltIcon />}
+                  onClick={() => setRegenerateAllOpen(true)}
+                  disabled={busy || !user.canCreateStories}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}>
+                  {regeneratingAll ? t('review.regeneratingAll') : t('review.regenerateAll')}
+                </Button>
+              </span>
+            </Tooltip>
+          </Box>
           <Button variant="outlined"
             startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
             onClick={handleSaveMetadata}
@@ -792,7 +815,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
       </Container>
 
       {/* Full regeneration confirmation */}
-      <Dialog open={regenerateAllOpen} onClose={() => setRegenerateAllOpen(false)}>
+      <Dialog open={regenerateAllOpen} onClose={() => setRegenerateAllOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{t('review.regenerateAllConfirmTitle')}</DialogTitle>
         <DialogContent>
           <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mb: 2 }}>{t('review.regenerateAllWarning')}</Alert>
@@ -807,7 +830,7 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
       </Dialog>
 
       {/* Delete chapter confirmation */}
-      <Dialog open={deleteChapterIndex !== null} onClose={() => setDeleteChapterIndex(null)}>
+      <Dialog open={deleteChapterIndex !== null} onClose={() => setDeleteChapterIndex(null)} fullWidth maxWidth="xs">
         <DialogTitle>{t('review.deleteChapterConfirmTitle', { n: (deleteChapterIndex ?? 0) + 1 })}</DialogTitle>
         <DialogContent>
           <DialogContentText>{t('review.deleteChapterConfirmBody')}</DialogContentText>

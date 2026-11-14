@@ -168,7 +168,7 @@ const ApiKeysSection: React.FC<{ canCreate: boolean }> = ({ canCreate }) => {
   const atLimit = keys.length >= maxKeys;
 
   return (
-    <Paper elevation={2} sx={{ p: 3, mt: 3 }}>
+    <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mt: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <KeyIcon color="primary" />
         <Typography variant="h6" sx={{ fontWeight: 700 }}>{t('profile.apiKeys.title')}</Typography>
@@ -218,9 +218,10 @@ const ApiKeysSection: React.FC<{ canCreate: boolean }> = ({ canCreate }) => {
                 >
                   {key.prefix}…
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                   {t('profile.apiKeys.created')}: {formatDate(key.createdAt)}
-                  {' · '}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                   {t('profile.apiKeys.lastUsed')}: {formatDate(key.lastUsedAt)}
                 </Typography>
               </Box>
@@ -309,7 +310,7 @@ const ApiKeysSection: React.FC<{ canCreate: boolean }> = ({ canCreate }) => {
         <DialogTitle>{t('profile.apiKeys.revealTitle')}</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>{t('profile.apiKeys.revealWarning')}</Alert>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1, alignItems: { xs: 'stretch', sm: 'center' } }}>
             <TextField
               value={newKey ?? ''}
               fullWidth
@@ -324,7 +325,7 @@ const ApiKeysSection: React.FC<{ canCreate: boolean }> = ({ canCreate }) => {
               variant="outlined"
               startIcon={<ContentCopyIcon />}
               onClick={handleCopy}
-              sx={{ whiteSpace: 'nowrap' }}
+              sx={{ whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
             >
               {copied ? t('profile.apiKeys.copied') : t('profile.apiKeys.copy')}
             </Button>
@@ -337,7 +338,7 @@ const ApiKeysSection: React.FC<{ canCreate: boolean }> = ({ canCreate }) => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!deleteTarget} onClose={() => !deleting && setDeleteTarget(null)}>
+      <Dialog open={!!deleteTarget} onClose={() => !deleting && setDeleteTarget(null)} fullWidth maxWidth="xs">
         <DialogTitle>{t('profile.apiKeys.revokeTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
