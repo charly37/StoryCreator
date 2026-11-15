@@ -11,6 +11,7 @@ import connectDB from './config/database';
 import { logger } from './config/logger';
 import authRoutes from './routes/auth';
 import storyRoutes from './routes/stories';
+import storyAudioRoutes from './routes/storyAudio';
 import apiKeyRoutes from './routes/apiKeys';
 import ttsRoutes from './routes/tts';
 import publicApiRoutes from './routes/publicApi';
@@ -89,6 +90,9 @@ app.use(
 );
 
 app.use('/api/auth', authRoutes);
+// Must precede the stories router: /api/stories/:id/audio would otherwise be
+// routed by the generic story handlers first.
+app.use('/api/stories/:id/audio', storyAudioRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/keys', apiKeyRoutes);
 app.use('/api/tts-requests', ttsRoutes);

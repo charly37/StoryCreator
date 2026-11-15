@@ -37,12 +37,24 @@ function isTtsLanguage(value: unknown): value is TtsLanguage {
 }
 
 /** Never exposes the raw Mongoose document. */
-function serializeRequest(doc: { _id: unknown; storyId: unknown; lang: string; status: string; requestedAt: Date }) {
+function serializeRequest(doc: {
+  _id: unknown;
+  storyId: unknown;
+  lang: string;
+  status: string;
+  phase?: string;
+  progress?: { done?: number; total?: number };
+  error?: string;
+  requestedAt: Date;
+}) {
   return {
     id: String(doc._id),
     storyId: String(doc.storyId),
     lang: doc.lang,
     status: doc.status,
+    phase: doc.phase ?? '',
+    progress: { done: doc.progress?.done ?? 0, total: doc.progress?.total ?? 0 },
+    error: doc.error ?? '',
     requestedAt: doc.requestedAt,
   };
 }
@@ -56,11 +68,17 @@ async function upsertRequest(storyId: string, lang: TtsLanguage, requestedBy: st
   const update = {
     $set: {
       status: 'queued' as const,
+      phase: 'synthesize' as const,
       requestedBy: new mongoose.Types.ObjectId(requestedBy),
       requestedAt: new Date(),
       error: '',
+      // A fresh request is a fresh set of attempts; otherwise a previously failed
+      // job would be re-queued and immediately marked failed again.
+      attempts: 0,
     },
-    $setOnInsert: { attempts: 0 },
+    // The previous run's manifest and progress describe older text; the worker
+    // rebuilds them. Clips themselves stay cached on disk by content hash.
+    $unset: { clips: '', storyHash: '', progress: '', startedAt: '', finishedAt: '' },
   };
 
   try {
@@ -153,7 +171,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const requests = await TtsRequest.find({
       storyId: { $in: ids.map((id) => new mongoose.Types.ObjectId(id)) },
       requestedBy: new mongoose.Types.ObjectId(req.session.userId as string),
-    }).select('storyId lang status requestedAt');
+    }).select('storyId lang status phase progress error requestedAt');
 
     res.json({ data: requests.map(serializeRequest) });
   } catch (error) {

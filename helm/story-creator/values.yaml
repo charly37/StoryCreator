@@ -73,20 +73,42 @@ storyCreatorAgent:
     - "--sentences-per-chapter"
     - "8"
 
+# Directory on the k3s node holding generated narration audio (clips + renders).
+# The app mounts it read-only; the TTS worker mounts it read-write.
+# The directory must exist on the node before `helm upgrade`, because the app mounts
+# it with `type: Directory` (same convention as PortugueseLearning).
+audio:
+  hostPath: /home/ubuntu/StoryCreator/audio
+  mountPath: /app/audio
+
 # Text-to-speech queue worker (TtsWorker/TtsWorker.py), shipped in the same
 # `storycreator-scripts` image as the story agent and started via a command override.
-# Step 1: it watches the `ttsrequests` collection and logs queued requests. It does
-# not generate audio and never writes to the database yet.
-# Requires `mongodb-uri` in the story-creator-secrets secret.
+# Synthesizes one clip per sentence, then assembles the lang1 / lang2 / bilingual
+# renders. Requires `mongodb-uri` and `text-to-speech-api-key` in the
+# story-creator-secrets secret.
+# Keep replicas at 1: the worker recovers crashed jobs by requeueing `processing`
+# documents on startup, and clips are content-addressed so a restart resumes cheaply.
 ttsWorker:
   enabled: false
-  # Seconds between polls of the queue.
-  pollInterval: 600
+  # Seconds between polls of the queue. Audio is user-triggered, so keep this small.
+  pollInterval: 5
+  # elevenlabs | fake (fake writes silence, so the pipeline can be tested for free).
+  provider: elevenlabs
+  # Provider speech speed. PortugueseLearning used 0.75 for word drills; narration
+  # reads better at natural speed. Drop to ~0.85 for learners.
+  speed: 1.0
+  # Attempts before a request is marked failed. Re-requesting from the UI resets it.
+  maxAttempts: 3
+  # Optional voice ID applied to every language; empty uses TtsWorker/voices.py.
+  voice: ""
   # Accepts pino-style or Python-style levels (info, warn, error, debug, ...).
   logLevel: info
   mongoSecret:
     name: story-creator-secrets
     key: mongodb-uri
+  textToSpeechSecret:
+    name: story-creator-secrets
+    key: text-to-speech-api-key
 
 resources:
   app:

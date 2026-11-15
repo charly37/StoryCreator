@@ -221,3 +221,25 @@ the public API. It requires the `storycreator-api-key` secret key above and the
 
 See [STORY_AGENT.md](STORY_AGENT.md) for the schedule, CLI options, local and
 Docker usage, manual job triggers and troubleshooting.
+
+### Narration audio worker (Deployment)
+
+The chart can also deploy `story-creator-tts-worker`, a long-running worker that
+turns a queued audio request into per-sentence clips and three playable renders.
+It is off by default (`ttsWorker.enabled`).
+
+It needs two things the app does not:
+
+- the **`text-to-speech-api-key`** secret key (ElevenLabs), and
+- a node directory for the `hostPath` volume, which must exist before
+  `helm upgrade` because the app mounts it with `type: Directory`:
+
+```bash
+mkdir -p /home/ubuntu/StoryCreator/audio
+
+kubectl -n story-creator patch secret story-creator-secrets --type merge \
+  -p '{"stringData":{"text-to-speech-api-key":"sk_..."}}'
+```
+
+See [TTS_WORKER.md](TTS_WORKER.md) for the pipeline, voice catalog, storage
+layout, `TTS_PROVIDER=fake` local testing and troubleshooting.

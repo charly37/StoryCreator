@@ -46,6 +46,13 @@ spec:
                 secretKeyRef:
                   name: story-creator-secrets
                   key: open-ai-key
+            - name: AUDIO_PATH
+              value: {{ .Values.audio.mountPath | default "/app/audio" | quote }}
+          volumeMounts:
+            # Read-only: only the TTS worker writes narration audio.
+            - name: audio
+              mountPath: {{ .Values.audio.mountPath | default "/app/audio" | quote }}
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /api/health
@@ -60,3 +67,9 @@ spec:
             periodSeconds: 10
           resources:
             {{- toYaml .Values.resources.app | nindent 12 }}
+      volumes:
+        # The directory must exist before `helm upgrade` (hostPath type: Directory).
+        - name: audio
+          hostPath:
+            path: {{ .Values.audio.hostPath | quote }}
+            type: Directory

@@ -38,14 +38,39 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.ttsWorker.mongoSecret.name | default "story-creator-secrets" }}
                   key: {{ .Values.ttsWorker.mongoSecret.key | default "mongodb-uri" }}
+            - name: TEXT_TO_SPEECH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.ttsWorker.textToSpeechSecret.name | default "story-creator-secrets" }}
+                  key: {{ .Values.ttsWorker.textToSpeechSecret.key | default "text-to-speech-api-key" }}
+            - name: AUDIO_PATH
+              value: {{ .Values.audio.mountPath | default "/app/audio" | quote }}
+            - name: TTS_PROVIDER
+              value: {{ .Values.ttsWorker.provider | default "elevenlabs" | quote }}
+            - name: TTS_SPEED
+              value: {{ .Values.ttsWorker.speed | default 1.0 | quote }}
+            - name: TTS_MAX_ATTEMPTS
+              value: {{ .Values.ttsWorker.maxAttempts | default 3 | quote }}
+            {{- if .Values.ttsWorker.voice }}
+            - name: TTS_VOICE
+              value: {{ .Values.ttsWorker.voice | quote }}
+            {{- end }}
             - name: POLL_INTERVAL
               value: {{ .Values.ttsWorker.pollInterval | default 5 | quote }}
             - name: LOG_LEVEL
               value: {{ .Values.ttsWorker.logLevel | default "info" | quote }}
+          volumeMounts:
+            - name: audio
+              mountPath: {{ .Values.audio.mountPath | default "/app/audio" | quote }}
           resources:
             {{- toYaml .Values.resources.ttsWorker | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+      volumes:
+        - name: audio
+          hostPath:
+            path: {{ .Values.audio.hostPath | quote }}
+            type: DirectoryOrCreate
 {{- end }}

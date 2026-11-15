@@ -134,21 +134,43 @@ Keys are revoked by hard delete; the raw secret is never persisted.
 ### `TtsRequest`
 
 Text-to-speech queue. One document per `(story, lang)` pair; the collection **is** the job queue
-(no external broker). Only the website writes to it — the worker is read-only in step 1.
+(no external broker). The website creates the document, the worker owns the pipeline fields.
 
 | Field | Type | Notes |
 |---|---|---|
 | `storyId` | ObjectId → Story | Indexed |
 | `lang` | Enum | `lang1` \| `lang2` — one voice track per language |
-| `status` | Enum | `queued` (only value produced today), `processing`, `done`, `failed` |
+| `status` | Enum | `queued` \| `processing` \| `done` \| `failed` |
+| `phase` | Enum | `synthesize` \| `render` \| `done` |
 | `requestedBy` | ObjectId → User | Indexed |
-| `attempts` | Number | Reserved for the worker |
+| `attempts` | Number | Incremented on every claim; capped by `TTS_MAX_ATTEMPTS` |
 | `error` | String | Empty while queued |
+| `storyHash` | String | sha256 over both language tracks, written at claim time |
+| `clips` | `[{ chapterIndex, sentenceIndex, key }]` | Per-sentence manifest of content-addressed clips |
+| `progress` | `{ done, total }` | Sentences synthesized so far |
+| `startedAt` / `finishedAt` | Date | |
 | `requestedAt` | Date | Used to order the queue (oldest first) |
 | `createdAt` / `updatedAt` | Date | Managed by Mongoose `timestamps` |
 
 Indexes: `{ storyId, lang }` **unique** (makes `POST` an idempotent upsert and doubles as
-"regenerate" once synthesis exists) and `{ status, requestedAt }` (worker poll order).
+"regenerate") and `{ status, requestedAt }` (worker poll order).
+
+### `TtsRender`
+
+Derived, disposable audio artifacts — one row per story version and variant. Re-rendering a changed
+story inserts new rows rather than overwriting, so the API can serve the newest row per variant and
+stale audio falls out of the UI by itself.
+
+| Field | Type | Notes |
+|---|---|---|
+| `storyId` | ObjectId → Story | Indexed |
+| `storyHash` | String | Version of the story text the render was built from |
+| `variant` | Enum | `lang1` \| `lang2` \| `bilingual` |
+| `key` | String | Path relative to `AUDIO_PATH` |
+| `durationMs` / `sizeBytes` | Number | Measured during assembly |
+| `createdAt` / `updatedAt` | Date | |
+
+Index: `{ storyId, storyHash, variant }` **unique** (the worker upserts on it).
 
 ---
 
@@ -289,6 +311,14 @@ runs `TtsWorker/TtsWorker.py` from the same `charly37/storycreator-scripts` imag
 `command:` override. A Deployment rather than a CronJob is deliberate: audio is demand-driven, so
 the worker must pick up a request within seconds, not at the next schedule tick.
 
-Step 1 of this feature is read-only — the worker polls for `status: "queued"`, logs each request
-once, and never writes. Claiming, heartbeats, synthesis, file storage and playback come next. See
-[TTS_WORKER.md](TTS_WORKER.md).
+The worker synthesizes **one clip per sentence** (content-addressed at
+`clips/{voiceId}/{sha256(text)}.mp3`, so re-runs and resumes are free) and assembles three renders
+with pydub: `lang1`, `lang2`, and `bilingual`, which interleaves the pair sentence by sentence with
+the native language first. Clips are normalized to −16 LUFS and the mix is peak-normalized, following
+`PortugueseLearning/vocal_lesson_creator/combine_mp3.py`. Files live on a `hostPath` volume that the
+app mounts read-only and the worker mounts read-write; delivery is the gated
+`GET /api/stories/:id/audio/:variant` route, so a draft's audio stays author-only.
+
+Recovery is intentionally minimal: no heartbeat, no lease, no sweeper. On startup the worker requeues
+documents left in `processing`, and because clips are content-addressed a restart resumes at the first
+missing sentence. That is only safe with `replicas: 1`. See [TTS_WORKER.md](TTS_WORKER.md).

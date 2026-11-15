@@ -433,13 +433,13 @@ List the current user's keys, newest first.
 
 ## Text-to-Speech Requests — `/api/tts-requests`
 
-Queue for narrated audio. Step 1 only records the request; the Python worker described in
-[TTS_WORKER.md](TTS_WORKER.md) watches the collection and logs what is waiting. No audio is produced
-yet.
+Queue for narrated audio. The Python worker described in [TTS_WORKER.md](TTS_WORKER.md) synthesizes
+one clip per sentence and assembles three renders — `lang1`, `lang2` and a sentence-interleaved
+`bilingual` version.
 
 One document exists per **(story, language)** pair, so a bilingual story queues two entries (`lang1`
-and `lang2`). Posting the same pair again re-queues the existing document instead of creating a
-duplicate.
+and `lang2`). Posting the same pair again re-queues the existing document and resets its attempts
+instead of creating a duplicate.
 
 ### `POST /api/tts-requests`
 
@@ -473,12 +473,67 @@ duplicate.
 **Response `200`**
 
 ```json
-{ "data": [{ "id": "...", "storyId": "...", "lang": "lang1", "status": "queued", "requestedAt": "..." }] }
+{
+  "data": [
+    {
+      "id": "...",
+      "storyId": "...",
+      "lang": "lang1",
+      "status": "processing",
+      "phase": "synthesize",
+      "progress": { "done": 12, "total": 40 },
+      "error": "",
+      "requestedAt": "..."
+    }
+  ]
+}
 ```
 
-`status` is `queued` in this step; `processing`, `done` and `failed` become reachable once the
-worker starts synthesizing. Returns `400` with `INVALID_STORY_ID` or `TOO_MANY_IDS` for malformed
-input.
+`status` moves `queued` → `processing` → `done`, or `failed` on a terminal error. `phase` is
+`synthesize`, `render` or `done`. A quota failure puts the request back to `queued` with
+`error: "QUOTA_EXCEEDED"` instead of burning an attempt.
+
+Returns `400` with `INVALID_STORY_ID` or `TOO_MANY_IDS` for malformed input.
+
+## Story Audio — `/api/stories/:id/audio`
+
+Playback endpoints for the renders. Both apply the **same visibility rule as `GET /api/stories/:id`**:
+a draft's audio is author-only, a published story's audio is readable by anyone.
+
+### `GET /api/stories/:id/audio`
+
+Lists the newest render of each variant for the story.
+
+**Response `200`**
+
+```json
+{
+  "storyId": "...",
+  "variants": [
+    {
+      "variant": "lang1",
+      "durationMs": 312400,
+      "sizeBytes": 5012233,
+      "createdAt": "...",
+      "url": "/api/stories/.../audio/lang1"
+    }
+  ]
+}
+```
+
+`variants` is empty until the worker finishes; it is not an error.
+
+### `GET /api/stories/:id/audio/:variant`
+
+Streams the audio file. `variant` is `lang1`, `lang2` or `bilingual`. Supports `ETag`,
+`Last-Modified` and **HTTP Range** (206), so seeking works in an `<audio>` element.
+
+| Status | Description |
+|---|---|
+| `200` / `206` | Audio bytes (`audio/mpeg`) |
+| `400` | `INVALID_VARIANT` or `INVALID_STORY_ID` |
+| `403` | Draft belonging to another user |
+| `404` | `AUDIO_NOT_READY` (nothing rendered yet) or `AUDIO_MISSING` (row exists, file gone) |
 
 ## Health Check
 

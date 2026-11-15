@@ -7,8 +7,9 @@ RUN addgroup -g 1000 appuser && \
 
 WORKDIR /app
 
-# CA certificates are required for HTTPS calls to the StoryCreator API and OpenAI
-RUN apk add --no-cache ca-certificates
+# CA certificates are required for HTTPS calls to the StoryCreator API and OpenAI.
+# ffmpeg is required by pydub to decode provider MP3s and re-encode the renders.
+RUN apk add --no-cache ca-certificates ffmpeg
 
 # Create virtual environment (as root) and use it
 RUN python -m venv /opt/venv
@@ -31,7 +32,7 @@ USER appuser
 
 # Copy application code (with correct ownership)
 COPY --chown=appuser:appuser DialectHubAgent/StoryCreatorAgent.py .
-COPY --chown=appuser:appuser TtsWorker/TtsWorker.py .
+COPY --chown=appuser:appuser TtsWorker/*.py .
 
 # Entrypoint — CLI flags can be appended after the image name
 ENTRYPOINT ["python", "-u", "StoryCreatorAgent.py"]

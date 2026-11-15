@@ -1,2 +1,9 @@
 # TtsWorker/TtsWorker.py
 pymongo==4.19.0
+elevenlabs==2.77.0
+pydub>=0.25.1
+pyloudnorm>=0.2.0
+numpy>=2.5.4
+# pydub imports `audioop`, removed from the stdlib in Python 3.13+.
+# See pydub issue #839.
+audioop-lts
