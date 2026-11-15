@@ -186,8 +186,11 @@ Deployment.
 ## Deploying
 
 ```bash
-# The app mounts the directory with type: Directory, so it must exist first.
-mkdir -p /home/ubuntu/StoryCreator/audio
+# Create the hostPath on the NODE (not your laptop), owned by the uid the pods run as.
+# Without the chown the mount succeeds and the worker fails on its first write.
+sudo mkdir -p /home/ubuntu/StoryCreator/audio
+sudo chown -R 1000:1000 /home/ubuntu/StoryCreator/audio
+sudo chmod 775 /home/ubuntu/StoryCreator/audio
 
 kubectl -n story-creator patch secret story-creator-secrets --type merge \
   -p '{"stringData":{"text-to-speech-api-key":"sk_..."}}'
@@ -215,6 +218,9 @@ kubectl -n story-creator logs deploy/story-creator-tts-worker -f
 
 | Symptom | Cause |
 |---|---|
+| `MountVolume.SetUp failed for volume "audio" : hostPath type check failed` | The directory does not exist **on the node**. `sudo mkdir -p <audio.hostPath>` there — creating it locally has no effect |
+| Starts, then fails on the first write with `Permission denied` | The hostPath is owned by root. `sudo chown -R 1000:1000 <audio.hostPath>` |
+| `AUDIO_PATH ... is not writable by uid 1000` | Same as above; the worker probes write access on startup and prints the fix |
 | `TEXT_TO_SPEECH_API_KEY is not set` | Secret key missing, or `ttsWorker.provider` left at `elevenlabs` without a key |
 | Request stuck in `processing` | The pod died mid-run; restart it (or let the Deployment restart it) — startup requeues orphans |
 | Request `failed` with `Max attempts reached` | Three consecutive failures; re-request from the UI to reset `attempts` |

@@ -481,6 +481,24 @@ def dry_run(ctx: Context) -> int:
     return 0
 
 
+def ensure_audio_dir(path: Path) -> None:
+    """Create the audio root and fail with an actionable message if it is not writable.
+
+    hostPath directories are created by kubelet as root, while this container runs as
+    uid 1000, so a missing `chown` only surfaces on the first write. Probe it up front.
+    """
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".write-probe"
+        probe.write_text("", encoding="utf-8")
+        probe.unlink()
+    except OSError as exc:
+        raise TtsError(
+            f"AUDIO_PATH {path} is not writable by uid {os.getuid()}: {exc}. "
+            "On the node run: sudo mkdir -p <path> && sudo chown -R 1000:1000 <path>"
+        ) from exc
+
+
 def connect(mongo_uri: str) -> tuple[MongoClient, Database]:
     client: MongoClient = MongoClient(mongo_uri, serverSelectionTimeoutMS=10_000)
     client.admin.command("ping")
@@ -509,6 +527,7 @@ def run(args: argparse.Namespace) -> int:
             return dry_run(ctx)
 
         audio_dir.mkdir(parents=True, exist_ok=True)
+        ensure_audio_dir(audio_dir)
         bootstrap(ctx)
         log.info(
             "Watching %s from %s (poll %.1fs, max attempts %d)",

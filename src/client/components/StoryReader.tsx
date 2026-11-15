@@ -87,6 +87,8 @@ interface SwipeGesture {
   pointerId: number;
   x: number;
   y: number;
+  lastX: number;
+  lastY: number;
   time: number;
 }
 
@@ -280,6 +282,10 @@ const StoryReader: React.FC<StoryReaderProps> = ({
   // scrolling, pinch-zoom and long-press selection keep working natively.
   const handleGestureStart = (event: React.PointerEvent<HTMLElement>) => {
     if (!isTouch || !event.isPrimary || event.pointerType === 'mouse') return;
+    // Leave the screen edges to the OS: Android's back gesture and iOS' edge-swipe-back
+    // would otherwise hijack "swipe right to go back one sentence".
+    const EDGE_GUARD_PX = 24;
+    if (event.clientX <= EDGE_GUARD_PX || event.clientX >= window.innerWidth - EDGE_GUARD_PX) return;
     const target = event.target as HTMLElement | null;
     // Let taps on in-card controls (e.g. the translation eye) behave normally.
     if (target?.closest('button, a, input, textarea, select, [role="button"]')) return;
@@ -287,6 +293,8 @@ const StoryReader: React.FC<StoryReaderProps> = ({
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
+      lastX: event.clientX,
+      lastY: event.clientY,
       time: Date.now(),
     };
   };
@@ -297,7 +305,7 @@ const StoryReader: React.FC<StoryReaderProps> = ({
     const SWIPE_MAX_MS = 800;
     const TAP_MAX_MS = 400;
 
-    const finishGesture = (endX: number, endY: number) => {
+    const finishGesture = (endX: number, endY: number, allowTap: boolean) => {
       const gesture = gestureRef.current;
       gestureRef.current = null;
       if (!gesture) return;
@@ -317,7 +325,7 @@ const StoryReader: React.FC<StoryReaderProps> = ({
       }
 
       // Tap: barely any movement, short duration -> toggle the current translation.
-      if (absX <= TAP_MAX_PX && absY <= TAP_MAX_PX && elapsed < TAP_MAX_MS) {
+      if (allowTap && absX <= TAP_MAX_PX && absY <= TAP_MAX_PX && elapsed < TAP_MAX_MS) {
         setRevealed((prev) => {
           const next = new Set(prev);
           next.has(currentIndex) ? next.delete(currentIndex) : next.add(currentIndex);
@@ -326,20 +334,36 @@ const StoryReader: React.FC<StoryReaderProps> = ({
       }
     };
 
-    const handlePointerUp = (event: PointerEvent) => {
-      if (gestureRef.current && event.pointerId === gestureRef.current.pointerId) {
-        finishGesture(event.clientX, event.clientY);
+    const handlePointerMove = (event: PointerEvent) => {
+      const gesture = gestureRef.current;
+      if (gesture && event.pointerId === gesture.pointerId) {
+        gesture.lastX = event.clientX;
+        gesture.lastY = event.clientY;
       }
     };
 
-    const handlePointerCancel = () => {
-      gestureRef.current = null;
+    const handlePointerUp = (event: PointerEvent) => {
+      if (gestureRef.current && event.pointerId === gestureRef.current.pointerId) {
+        finishGesture(event.clientX, event.clientY, true);
+      }
+    };
+
+    // Browsers that still claim the touch (e.g. a horizontal drag turned into a pan)
+    // fire pointercancel instead of pointerup; use the last known position so the
+    // swipe still registers. Taps are not inferred from a cancelled gesture.
+    const handlePointerCancel = (event: PointerEvent) => {
+      const gesture = gestureRef.current;
+      if (gesture && event.pointerId === gesture.pointerId) {
+        finishGesture(gesture.lastX, gesture.lastY, false);
+      }
     };
 
     // Listen on the window so the gesture resolves even when the finger lifts outside the card.
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
     window.addEventListener('pointerup', handlePointerUp);
     window.addEventListener('pointercancel', handlePointerCancel);
     return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerCancel);
     };
@@ -525,7 +549,15 @@ const StoryReader: React.FC<StoryReaderProps> = ({
           <Paper
             elevation={2}
             onPointerDown={handleGestureStart}
-            sx={{ p: 3, mb: 2, minHeight: 140 }}
+            sx={{
+              p: 3,
+              mb: 2,
+              minHeight: 140,
+              // Claim horizontal drags for the swipe handler while leaving vertical
+              // panning and pinch-zoom to the browser (without this the browser pan
+              // cancels the pointer sequence and swipes are never seen).
+              touchAction: 'pan-y pinch-zoom',
+            }}
           >
             {/* Chapter heading shown at the first sentence of each chapter */}
             {sentence.isFirstInChapter && (

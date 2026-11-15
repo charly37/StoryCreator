@@ -231,11 +231,12 @@ It is off by default (`ttsWorker.enabled`).
 It needs two things the app does not:
 
 - the **`text-to-speech-api-key`** secret key (ElevenLabs), and
-- a node directory for the `hostPath` volume, which must exist before
-  `helm upgrade` because the app mounts it with `type: Directory`:
+- a node directory for the `hostPath` volume, owned by the uid the pods run as
+  (`1000`) — otherwise the mount succeeds and the worker fails on its first write:
 
 ```bash
-mkdir -p /home/ubuntu/StoryCreator/audio
+sudo mkdir -p /home/ubuntu/StoryCreator/audio
+sudo chown -R 1000:1000 /home/ubuntu/StoryCreator/audio
 
 kubectl -n story-creator patch secret story-creator-secrets --type merge \
   -p '{"stringData":{"text-to-speech-api-key":"sk_..."}}'

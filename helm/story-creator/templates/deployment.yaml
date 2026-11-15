@@ -68,8 +68,10 @@ spec:
           resources:
             {{- toYaml .Values.resources.app | nindent 12 }}
       volumes:
-        # The directory must exist before `helm upgrade` (hostPath type: Directory).
+        # DirectoryOrCreate so a missing audio directory degrades to "no audio yet"
+        # instead of blocking the whole app. The worker owns writing into it; see
+        # docs/TTS_WORKER.md for the ownership requirement.
         - name: audio
           hostPath:
             path: {{ .Values.audio.hostPath | quote }}
-            type: Directory
+            type: DirectoryOrCreate

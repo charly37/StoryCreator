@@ -75,8 +75,8 @@ storyCreatorAgent:
 
 # Directory on the k3s node holding generated narration audio (clips + renders).
 # The app mounts it read-only; the TTS worker mounts it read-write.
-# The directory must exist on the node before `helm upgrade`, because the app mounts
-# it with `type: Directory` (same convention as PortugueseLearning).
+# Create it on the node and give it the pod uid, otherwise the mount succeeds but the
+# worker cannot write: sudo mkdir -p <hostPath> && sudo chown -R 1000:1000 <hostPath>
 audio:
   hostPath: /home/ubuntu/StoryCreator/audio
   mountPath: /app/audio

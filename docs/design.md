@@ -202,7 +202,7 @@ src/client/
 
 ### Responsive / mobile conventions
 
-The UI is CSS-only responsive (`sx` objects); there are **no `useMediaQuery` hooks** and no
+The UI is CSS-only responsive (`sx` objects); there are **no `useMediaQuery` hooks for layout** and no
 JS-driven layout switches. Breakpoints are MUI defaults: `sm` (600 px) and `md` (900 px).
 
 - **Navigation (`Header.tsx`)**: a single `navItems` array feeds both the desktop `Button` cluster
@@ -222,8 +222,16 @@ JS-driven layout switches. Breakpoints are MUI defaults: `sm` (600 px) and `md` 
   allowed media query is `useTouchInput()` (`src/client/utils/useTouchInput.ts`, `(any-pointer: coarse)`).
   `StoryReader` uses it to offer gestures on phones/tablets and keyboard hints on desktop: a horizontal
   swipe ≥ 50 px (1.5:1 axis dominance, < 800 ms) changes sentence, a tap (≤ 10 px, < 400 ms) toggles the
-  translation. Gestures never call `preventDefault`, so scrolling, pinch-zoom and text selection keep
-  working; mouse input, the arrow keys and the Previous/Next buttons are unaffected.
+  translation. Mouse input, the arrow keys and the Previous/Next buttons are unaffected.
+- **Gesture surface**: the sentence card sets `touchAction: 'pan-y pinch-zoom'`. Without it Android claims
+  every horizontal drag for scrolling and fires `pointercancel`, so `pointerup` never arrives and swipes
+  are silently dropped. Gestures still never call `preventDefault`, so vertical scrolling and pinch-zoom
+  keep working. The handler also treats `pointercancel` as an end-of-gesture (using the last
+  `pointermove` position, tap disabled) and ignores gestures starting within 24 px of a screen edge so the
+  Android back-gesture / iOS edge-swipe-back don't hijack "swipe right = previous sentence".
+- **Testing gestures**: synthetic `PointerEvent`s do **not** reproduce browser touch-action arbitration —
+  verify with real touch input (Chrome DevTools device mode, or CDP `Emulation.setTouchEmulationEnabled`
+  + `Input.dispatchTouchEvent`).
 
 Verify changes at 360–375 px: `document.body.scrollWidth` must not exceed `window.innerWidth`, and repeat
 the check in `fr` (French strings are 15–25 % longer).
