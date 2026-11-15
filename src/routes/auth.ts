@@ -142,7 +142,7 @@ router.post('/update-language', async (req: Request, res: Response) => {
     const user = await User.findByIdAndUpdate(
       req.session.userId,
       { uiLanguage },
-      { new: true }
+      { returnDocument: 'after' }
     ).select('-password');
 
     if (!user) {

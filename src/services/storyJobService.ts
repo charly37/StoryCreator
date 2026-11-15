@@ -48,7 +48,7 @@ export async function beginJob(storyId: string, fields: Partial<JobFields>): Pro
   const story = await Story.findOneAndUpdate(
     { _id: storyId, generating: { $ne: true } },
     { $set: { ...fields, generating: true, generatingSince: new Date(), generationError: '' } },
-    { new: true }
+    { returnDocument: 'after' }
   );
   if (!story) {
     const exists = await Story.exists({ _id: storyId });

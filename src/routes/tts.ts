@@ -82,11 +82,14 @@ async function upsertRequest(storyId: string, lang: TtsLanguage, requestedBy: st
   };
 
   try {
-    return await TtsRequest.findOneAndUpdate(filter, update, { upsert: true, new: true });
+    return await TtsRequest.findOneAndUpdate(filter, update, {
+      upsert: true,
+      returnDocument: 'after',
+    });
   } catch (error) {
     // Duplicate key: another request for the same story+language won the race.
     if ((error as { code?: number }).code === 11000) {
-      return TtsRequest.findOneAndUpdate(filter, update, { new: true });
+      return TtsRequest.findOneAndUpdate(filter, update, { returnDocument: 'after' });
     }
     throw error;
   }

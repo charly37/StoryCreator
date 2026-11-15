@@ -42,7 +42,7 @@ export async function startStoryGeneration(
   const story = await Story.findOneAndUpdate(
     { _id: storyId, generating: { $ne: true } },
     { $set: { generating: true, generationError: '' } },
-    { new: true }
+    { returnDocument: 'after' }
   );
   if (!story) {
     const exists = await Story.exists({ _id: storyId });
