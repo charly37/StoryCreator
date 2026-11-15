@@ -120,7 +120,7 @@ which is handy for testing.
 | `TTS_MAX_ATTEMPTS` | no | `3` | Attempts before a request is marked failed |
 | `TTS_API_DELAY` | no | `0.5` | Seconds between provider calls |
 | `POLL_INTERVAL` | no | `5` | Seconds to wait when the queue is empty |
-| `LOG_LEVEL` | no | `info` | Accepts pino-style or Python-style names |
+| `LOG_LEVEL` | no | `info` | Accepts pino-style or Python-style names. `pymongo`/`elevenlabs`/`httpx` are pinned to WARNING so `debug` does not dump driver traffic |
 
 ---
 

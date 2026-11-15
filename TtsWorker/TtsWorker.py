@@ -90,6 +90,12 @@ logging.basicConfig(
 )
 log = logging.getLogger("tts-worker")
 
+# The SDKs log every connection, heartbeat and command reply at DEBUG, which buries
+# our own records and dumps whole story documents into the log. Keep them at WARNING
+# regardless of LOG_LEVEL.
+for _noisy in ("pymongo", "elevenlabs", "httpx", "urllib3"):
+    logging.getLogger(_noisy).setLevel(max(logging.WARNING, _log_level()))
+
 
 def _one_line(text: Any, limit: int = 500) -> str:
     """Collapse whitespace so one record stays one log line.
@@ -174,6 +180,15 @@ def bootstrap(ctx: Context) -> None:
     if requeued.modified_count:
         log.warning("Requeued %d orphaned processing request(s)", requeued.modified_count)
 
+    # Documents written before the queue tracked attempts would otherwise be invisible
+    # to the claim filter, because `{attempts: {$lt: n}}` does not match a missing field.
+    normalised = ctx.requests.update_many(
+        {"attempts": {"$exists": False}},
+        {"$set": {"attempts": 0, "error": ""}},
+    )
+    if normalised.modified_count:
+        log.warning("Defaulted attempts on %d request(s)", normalised.modified_count)
+
     failed = ctx.requests.update_many(
         {"status": "queued", "attempts": {"$gte": ctx.args.max_attempts}},
         {"$set": {"status": "failed", "error": "Max attempts reached without completing"}},
@@ -184,7 +199,11 @@ def bootstrap(ctx: Context) -> None:
 
 def claim(ctx: Context) -> dict | None:
     return ctx.requests.find_one_and_update(
-        {"status": "queued", "attempts": {"$lt": ctx.args.max_attempts}},
+        {
+            "status": "queued",
+            # `$lt` alone would never match a document with no attempts field.
+            "$or": [{"attempts": {"$lt": ctx.args.max_attempts}}, {"attempts": {"$exists": False}}],
+        },
         {
             "$set": {"status": "processing", "phase": "synthesize", "startedAt": _now(), "error": ""},
             "$inc": {"attempts": 1},
