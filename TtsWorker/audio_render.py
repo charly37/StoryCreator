@@ -27,6 +27,12 @@ TARGET_LUFS = -16.0
 # BS.1770 needs enough material to integrate; shorter clips fall back to RMS.
 MIN_LUFS_MS = 400
 
+# Everything is normalized to one format before concatenation. pydub's
+# `AudioSegment.silent()` defaults to 11025 Hz, so gaps generated without an explicit
+# frame_rate would rely on implicit resampling during append.
+SAMPLE_RATE = 44100
+CHANNELS = 1
+
 SENTENCE_GAP_MS = 250
 LANGUAGE_GAP_MS = 700
 CHAPTER_GAP_MS = 1200
@@ -59,7 +65,10 @@ def normalize_lufs(segment: Any) -> Any:
 def load_clip(path: Path) -> Any:
     from pydub import AudioSegment
 
-    return normalize_lufs(AudioSegment.from_mp3(str(path)))
+    clip = AudioSegment.from_mp3(str(path))
+    # Providers are not guaranteed to agree on rate/channel count; fixes the mix.
+    clip = clip.set_frame_rate(SAMPLE_RATE).set_channels(CHANNELS)
+    return normalize_lufs(clip)
 
 
 def gap_between(previous: dict, current: dict) -> int:
@@ -82,16 +91,24 @@ def build_render(segments: Sequence[dict], output_path: Path) -> tuple[int, int]
     if not segments:
         raise ValueError("Cannot build a render from zero segments")
 
-    combined = AudioSegment.silent(duration=0)
+    combined = None
     previous: dict | None = None
     for segment in segments:
         clip = load_clip(Path(segment["path"]))
-        if previous is not None:
-            combined += AudioSegment.silent(duration=gap_between(previous, segment))
-        combined += clip
+        if combined is None:
+            combined = clip
+        else:
+            combined += AudioSegment.silent(
+                duration=gap_between(previous, segment), frame_rate=SAMPLE_RATE
+            )
+            combined += clip
         previous = segment
 
-    combined = effects.normalize(combined, headroom=0.1)
+    try:
+        combined = effects.normalize(combined, headroom=0.1)
+    except ValueError:
+        # pydub refuses to peak-normalize a segment with no audio data at all.
+        log.warning("Render has no measurable audio; skipping peak normalization")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     combined.export(str(output_path), format="mp3")

@@ -61,6 +61,7 @@ DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_API_DELAY = 0.5
 PROGRESS_EVERY = 5
 QUOTA_PAUSE_SECONDS = 900.0
+MAX_RECONCILE_PER_RUN = 20
 
 REQUESTS = "ttsrequests"
 RENDERS = "ttsrenders"
@@ -404,6 +405,65 @@ def maybe_compose_bilingual(ctx: Context, request: dict, story_hash_value: str) 
     )
 
 
+def reconcile_renders(ctx: Context) -> None:
+    """Compose bilingual renders a previous run left unfinished.
+
+    A request is marked `done` before the bilingual pass runs, so a crash in between
+    leaves both monologues present with no `bilingual` row — and neither request will
+    ever be claimed again. This makes that state self-healing.
+    """
+    groups = ctx.renders.aggregate(
+        [
+            {"$match": {"variant": {"$in": ["lang1", "lang2"]}}},
+            {
+                "$group": {
+                    "_id": {"storyId": "$storyId", "storyHash": "$storyHash"},
+                    "variants": {"$addToSet": "$variant"},
+                }
+            },
+            {"$match": {"variants": {"$all": ["lang1", "lang2"]}}},
+        ]
+    )
+
+    repaired = 0
+    for group in groups:
+        if repaired >= MAX_RECONCILE_PER_RUN:
+            log.warning("Reconcile limit reached; the rest will be picked up next start")
+            break
+
+        story_id = group["_id"]["storyId"]
+        story_hash_value = group["_id"]["storyHash"]
+        if ctx.renders.find_one(
+            {"storyId": story_id, "storyHash": story_hash_value, "variant": "bilingual"}
+        ):
+            continue
+
+        requests = {
+            request["lang"]: request
+            for request in ctx.requests.find(
+                {"storyId": story_id, "storyHash": story_hash_value, "status": "done"}
+            )
+            if request.get("clips")
+        }
+        lang1, lang2 = requests.get("lang1"), requests.get("lang2")
+        if not (lang1 and lang2):
+            continue
+
+        log.warning("Recomposing missing bilingual render for story %s", story_id)
+        segments = bilingual_segments(lang1["clips"], lang2["clips"])
+        write_render(
+            ctx,
+            lang1,
+            story_hash_value,
+            "bilingual",
+            [{**segment, "path": ctx.audio_dir / segment["key"]} for segment in segments],
+        )
+        repaired += 1
+
+    if repaired:
+        log.info("Recomposed %d bilingual render(s)", repaired)
+
+
 def process_request(ctx: Context, request: dict) -> None:
     story = ctx.stories.find_one(
         {"_id": request["storyId"]},
@@ -548,6 +608,7 @@ def run(args: argparse.Namespace) -> int:
         audio_dir.mkdir(parents=True, exist_ok=True)
         ensure_audio_dir(audio_dir)
         bootstrap(ctx)
+        reconcile_renders(ctx)
         log.info(
             "Watching %s from %s (poll %.1fs, max attempts %d)",
             REQUESTS,
