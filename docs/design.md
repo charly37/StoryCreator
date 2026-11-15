@@ -131,6 +131,25 @@ Indexes: `{ nativeLanguage, learningLanguage, published }` (compound for browse 
 
 Keys are revoked by hard delete; the raw secret is never persisted.
 
+### `TtsRequest`
+
+Text-to-speech queue. One document per `(story, lang)` pair; the collection **is** the job queue
+(no external broker). Only the website writes to it — the worker is read-only in step 1.
+
+| Field | Type | Notes |
+|---|---|---|
+| `storyId` | ObjectId → Story | Indexed |
+| `lang` | Enum | `lang1` \| `lang2` — one voice track per language |
+| `status` | Enum | `queued` (only value produced today), `processing`, `done`, `failed` |
+| `requestedBy` | ObjectId → User | Indexed |
+| `attempts` | Number | Reserved for the worker |
+| `error` | String | Empty while queued |
+| `requestedAt` | Date | Used to order the queue (oldest first) |
+| `createdAt` / `updatedAt` | Date | Managed by Mongoose `timestamps` |
+
+Indexes: `{ storyId, lang }` **unique** (makes `POST` an idempotent upsert and doubles as
+"regenerate" once synthesis exists) and `{ status, requestedAt }` (worker poll order).
+
 ---
 
 ## Frontend Structure
@@ -257,3 +276,19 @@ paid generations.
 The agent is shipped in `charly37/storycreator-scripts` (built from
 `pythonDockerBaseImage/Dockerfile`). Configuration lives under
 `storyCreatorAgent.*` in the Helm chart. See [STORY_AGENT.md](STORY_AGENT.md).
+
+## Audio Requests
+
+Narrated audio is queued in MongoDB rather than through a message broker: the `ttsrequests`
+collection holds one document per `(story, language)`, and the author submits a request from the
+My Stories list or the Review page (`POST /api/tts-requests`). Both entry points require author
+ownership plus `canCreateStories`.
+
+A long-running `Deployment` (`<release>-tts-worker`, disabled by default via `ttsWorker.enabled`)
+runs `TtsWorker/TtsWorker.py` from the same `charly37/storycreator-scripts` image, started with a
+`command:` override. A Deployment rather than a CronJob is deliberate: audio is demand-driven, so
+the worker must pick up a request within seconds, not at the next schedule tick.
+
+Step 1 of this feature is read-only — the worker polls for `status: "queued"`, logs each request
+once, and never writes. Claiming, heartbeats, synthesis, file storage and playback come next. See
+[TTS_WORKER.md](TTS_WORKER.md).

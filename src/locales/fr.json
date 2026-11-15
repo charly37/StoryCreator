@@ -17,6 +17,7 @@
     "edit": "Modifier",
     "clone": "Cloner",
     "cloneError": "Échec du clonage de l'histoire.",
+    "requestAudio": "Demander l'audio",
     "publish": "Publier",
     "unpublish": "Dépublier",
     "loading": "Chargement...",
@@ -25,6 +26,17 @@
     "switchLanguage": "Changer de langue",
     "openMenu": "Ouvrir le menu",
     "closeMenu": "Fermer le menu"
+  },
+  "audio": {
+    "requesting": "Demande en cours…",
+    "requested": "Audio demandé",
+    "requestFailed": "Impossible de mettre la demande audio en file d'attente.",
+    "status": {
+      "queued": "Audio en attente",
+      "processing": "Audio en cours",
+      "done": "Audio prêt",
+      "failed": "Audio échoué"
+    }
   },
   "about": {
     "title": "À propos de StoryCreator",

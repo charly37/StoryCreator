@@ -1,0 +1,51 @@
+{{- if .Values.ttsWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-tts-worker
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "story-creator.labels" . | nindent 4 }}
+spec:
+  # One replica: the worker is read-only in step 1 and does not claim jobs, so two
+  # pods would report the same request twice. Raise this once claiming lands.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-tts-worker
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-tts-worker
+        {{- include "story-creator.selectorLabels" . | nindent 8 }}
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: tts-worker
+          image: "{{ .Values.image.scripts.repository }}:{{ .Values.image.scripts.tag | default .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.scripts.pullPolicy }}
+          # Overrides the image ENTRYPOINT (StoryCreatorAgent.py) shared with the CronJob.
+          command: ["python", "-u", "TtsWorker.py"]
+          env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.ttsWorker.mongoSecret.name | default "story-creator-secrets" }}
+                  key: {{ .Values.ttsWorker.mongoSecret.key | default "mongodb-uri" }}
+            - name: POLL_INTERVAL
+              value: {{ .Values.ttsWorker.pollInterval | default 5 | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.ttsWorker.logLevel | default "info" | quote }}
+          resources:
+            {{- toYaml .Values.resources.ttsWorker | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+{{- end }}

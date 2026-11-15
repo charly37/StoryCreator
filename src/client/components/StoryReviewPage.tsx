@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Paper, Button, CircularProgress,
-  Alert, TextField, IconButton, Tooltip, Divider, Snackbar,
+  Alert, TextField, IconButton, Tooltip, Divider, Snackbar, Chip,
   Select, MenuItem, FormControl, InputLabel,
   Accordion, AccordionSummary, AccordionDetails,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
@@ -19,10 +19,17 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import GroupsIcon from '@mui/icons-material/Groups';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES, getLanguageName } from '../utils/languages';
 import { AI_MODELS, DEFAULT_AI_MODEL, effortForRequest } from '../utils/aiModels';
 import { cloneStory } from '../utils/cloneStory';
+import {
+  fetchTtsRequests,
+  requestAudio,
+  summarizeStoryAudio,
+  TtsRequestStatus,
+} from '../utils/ttsRequests';
 import { AppUser } from '../App';
 import AiEffortSelect from './AiEffortSelect';
 
@@ -81,6 +88,8 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState('');
   const [cloning, setCloning] = useState(false);
+  const [requestingAudio, setRequestingAudio] = useState(false);
+  const [audioStatus, setAudioStatus] = useState<TtsRequestStatus | null>(null);
 
   // Editable metadata fields
   const [titleLang1, setTitleLang1] = useState('');
@@ -110,18 +119,26 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const [deleteChapterIndex, setDeleteChapterIndex] = useState<number | null>(null);
   const [deletingChapter, setDeletingChapter] = useState<number | null>(null);
 
+  const loadAudioStatus = useCallback(async () => {
+    if (!id) return;
+    const result = await fetchTtsRequests([id]);
+    if (!result.ok) return;
+    setAudioStatus(summarizeStoryAudio(result.data));
+  }, [id]);
+
   const fetchStory = useCallback(async () => {
     if (!id) return;
     try {
       const res = await fetch(`/api/stories/${id}`);
       if (!res.ok) throw new Error('error');
       setStory(await res.json());
+      void loadAudioStatus();
     } catch {
       setError('Failed to load story.');
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, loadAudioStatus]);
 
   useEffect(() => { fetchStory(); }, [fetchStory]);
 
@@ -140,6 +157,24 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
       return;
     }
     navigate(`/editor/${result.id}`);
+  };
+
+  const handleRequestAudio = async () => {
+    if (!id) return;
+    setRequestingAudio(true);
+    setError('');
+    const result = await requestAudio(id);
+    setRequestingAudio(false);
+    if (!result.ok) {
+      setError(
+        result.code === 'CREATOR_ACCESS_REQUIRED'
+          ? t('editor.noCreatorAccessError')
+          : result.message || t('audio.requestFailed')
+      );
+      return;
+    }
+    setAudioStatus('queued');
+    setSnackbar(t('audio.requested'));
   };
 
   // Populate editable fields once when the story first loads
@@ -390,6 +425,15 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
             <RateReviewIcon sx={{ verticalAlign: 'middle', mr: 1, color: 'primary.main' }} />
             {t('review.title')}
           </Typography>
+          {audioStatus && (
+            <Chip
+              icon={<RecordVoiceOverIcon fontSize="small" />}
+              label={t(`audio.status.${audioStatus}`)}
+              color={audioStatus === 'queued' || audioStatus === 'processing' ? 'info' : 'default'}
+              size="small"
+              variant="outlined"
+            />
+          )}
           <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
             <span>
               <Button
@@ -795,6 +839,17 @@ const StoryReviewPage: React.FC<{ user: AppUser }> = ({ user }) => {
               </span>
             </Tooltip>
           </Box>
+          <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+            <span>
+              <Button variant="outlined"
+                startIcon={requestingAudio ? <CircularProgress size={16} /> : <RecordVoiceOverIcon />}
+                onClick={handleRequestAudio}
+                disabled={busy || !user.canCreateStories}
+              >
+                {requestingAudio ? t('audio.requesting') : t('common.requestAudio')}
+              </Button>
+            </span>
+          </Tooltip>
           <Button variant="outlined"
             startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
             onClick={handleSaveMetadata}

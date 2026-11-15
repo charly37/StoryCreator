@@ -20,13 +20,18 @@ ENV PYTHONUNBUFFERED=1
 # Install dependencies
 COPY pythonDockerBaseImage/requirements.txt base-requirements.txt
 COPY DialectHubAgent/requirements.txt agent-requirements.txt
-RUN pip install --no-cache-dir -r base-requirements.txt -r agent-requirements.txt
+COPY TtsWorker/requirements.txt tts-worker-requirements.txt
+RUN pip install --no-cache-dir \
+    -r base-requirements.txt \
+    -r agent-requirements.txt \
+    -r tts-worker-requirements.txt
 
 # Switch to non-root user
 USER appuser
 
 # Copy application code (with correct ownership)
 COPY --chown=appuser:appuser DialectHubAgent/StoryCreatorAgent.py .
+COPY --chown=appuser:appuser TtsWorker/TtsWorker.py .
 
 # Entrypoint — CLI flags can be appended after the image name
 ENTRYPOINT ["python", "-u", "StoryCreatorAgent.py"]

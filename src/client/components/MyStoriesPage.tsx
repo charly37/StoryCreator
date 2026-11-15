@@ -11,12 +11,20 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RateReviewIcon from '@mui/icons-material/RateReview';
+import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
 import { getAIModelLabel } from '../utils/aiModels';
 import { formatSeedPreview } from '../utils/seedPreview';
 import { formatRelativeDate } from '../utils/relativeDate';
 import { cloneStory } from '../utils/cloneStory';
+import {
+  fetchTtsRequests,
+  requestAudio,
+  summarizeStoryAudio,
+  TtsRequestStatus,
+  TtsRequestSummary,
+} from '../utils/ttsRequests';
 import { AppUser } from '../App';
 
 interface StoryCard {
@@ -59,19 +67,39 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
   const [deleteTarget, setDeleteTarget] = useState<StoryCard | null>(null);
   const [snackbar, setSnackbar] = useState('');
   const [cloningId, setCloningId] = useState<string | null>(null);
+  const [requestingId, setRequestingId] = useState<string | null>(null);
+  /** Summarised audio request status per story id. */
+  const [audioStatus, setAudioStatus] = useState<Record<string, TtsRequestStatus>>({});
+
+  const loadAudioStatus = useCallback(async (storyIds: string[]) => {
+    const result = await fetchTtsRequests(storyIds);
+    if (!result.ok) return;
+    const grouped: Record<string, TtsRequestSummary[]> = {};
+    result.data.forEach((request) => {
+      (grouped[request.storyId] ??= []).push(request);
+    });
+    const next: Record<string, TtsRequestStatus> = {};
+    Object.entries(grouped).forEach(([storyId, requests]) => {
+      const status = summarizeStoryAudio(requests);
+      if (status) next[storyId] = status;
+    });
+    setAudioStatus(next);
+  }, []);
 
   const fetchStories = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/stories/mine');
       if (!res.ok) throw new Error('Failed to fetch');
-      setStories(await res.json());
+      const data: StoryCard[] = await res.json();
+      setStories(data);
+      void loadAudioStatus(data.map((story) => story._id));
     } catch {
       setError('Failed to load stories.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadAudioStatus]);
 
   useEffect(() => { fetchStories(); }, [fetchStories]);
 
@@ -110,6 +138,25 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
       navigate(`/editor/${result.id}`);
     } finally {
       setCloningId(null);
+    }
+  };
+
+  const handleRequestAudio = async (story: StoryCard) => {
+    setRequestingId(story._id);
+    try {
+      const result = await requestAudio(story._id);
+      if (!result.ok) {
+        setError(
+          result.code === 'CREATOR_ACCESS_REQUIRED'
+            ? t('editor.noCreatorAccessError')
+            : result.message || t('audio.requestFailed')
+        );
+        return;
+      }
+      setAudioStatus((prev) => ({ ...prev, [story._id]: 'queued' }));
+      setSnackbar(t('audio.requested'));
+    } finally {
+      setRequestingId(null);
     }
   };
 
@@ -271,6 +318,15 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                       variant="outlined"
                     />
                   )}
+                  {audioStatus[story._id] && (
+                    <Chip
+                      icon={<RecordVoiceOverIcon fontSize="small" />}
+                      label={t(`audio.status.${audioStatus[story._id]}`)}
+                      color={audioStatus[story._id] === 'queued' || audioStatus[story._id] === 'processing' ? 'info' : 'default'}
+                      size="small"
+                      variant="outlined"
+                    />
+                  )}
                 </Box>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   {story.title.lang1 || (story.generating ? t('myStories.untitledGenerating') : t('myStories.untitled'))}
@@ -328,6 +384,22 @@ const MyStoriesPage: React.FC<{ user: AppUser }> = ({ user }) => {
                 >
                   {story.published ? t('common.unpublish') : t('common.publish')}
                 </Button>
+                <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
+                  <span>
+                    <Button
+                      size="small" startIcon={<RecordVoiceOverIcon />}
+                      onClick={() => handleRequestAudio(story)}
+                      disabled={
+                        !user.canCreateStories ||
+                        story.sentenceCount === 0 ||
+                        story.generating ||
+                        requestingId === story._id
+                      }
+                    >
+                      {requestingId === story._id ? t('audio.requesting') : t('common.requestAudio')}
+                    </Button>
+                  </span>
+                </Tooltip>
                 <Tooltip title={user.canCreateStories ? '' : t('creatorAccess.tooltip')}>
                   <span>
                     <Button

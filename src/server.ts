@@ -12,6 +12,7 @@ import { logger } from './config/logger';
 import authRoutes from './routes/auth';
 import storyRoutes from './routes/stories';
 import apiKeyRoutes from './routes/apiKeys';
+import ttsRoutes from './routes/tts';
 import publicApiRoutes from './routes/publicApi';
 import { requireApiKey } from './middleware/requireApiKey';
 
@@ -90,6 +91,7 @@ app.use(
 app.use('/api/auth', authRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/keys', apiKeyRoutes);
+app.use('/api/tts-requests', ttsRoutes);
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok' });

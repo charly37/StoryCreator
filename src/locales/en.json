@@ -17,6 +17,7 @@
     "edit": "Edit",
     "clone": "Clone",
     "cloneError": "Failed to clone story.",
+    "requestAudio": "Request audio",
     "publish": "Publish",
     "unpublish": "Unpublish",
     "loading": "Loading...",
@@ -25,6 +26,17 @@
     "switchLanguage": "Switch language",
     "openMenu": "Open menu",
     "closeMenu": "Close menu"
+  },
+  "audio": {
+    "requesting": "Requesting…",
+    "requested": "Audio requested",
+    "requestFailed": "Could not queue the audio request.",
+    "status": {
+      "queued": "Audio queued",
+      "processing": "Audio in progress",
+      "done": "Audio ready",
+      "failed": "Audio failed"
+    }
   },
   "about": {
     "title": "About StoryCreator",

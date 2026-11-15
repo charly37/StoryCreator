@@ -73,6 +73,21 @@ storyCreatorAgent:
     - "--sentences-per-chapter"
     - "8"
 
+# Text-to-speech queue worker (TtsWorker/TtsWorker.py), shipped in the same
+# `storycreator-scripts` image as the story agent and started via a command override.
+# Step 1: it watches the `ttsrequests` collection and logs queued requests. It does
+# not generate audio and never writes to the database yet.
+# Requires `mongodb-uri` in the story-creator-secrets secret.
+ttsWorker:
+  enabled: false
+  # Seconds between polls of the queue.
+  pollInterval: 600
+  # Accepts pino-style or Python-style levels (info, warn, error, debug, ...).
+  logLevel: info
+  mongoSecret:
+    name: story-creator-secrets
+    key: mongodb-uri
+
 resources:
   app:
     requests:
@@ -82,6 +97,13 @@ resources:
       memory: "512Mi"
       cpu: "500m"
   storyCreatorAgent:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+  ttsWorker:
     requests:
       memory: "64Mi"
       cpu: "50m"

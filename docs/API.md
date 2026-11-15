@@ -431,6 +431,55 @@ List the current user's keys, newest first.
 
 *Auth required. Owner only.* Revoke a key by deleting it. Returns `204` on success, or `404` when the id is invalid or belongs to another user.
 
+## Text-to-Speech Requests — `/api/tts-requests`
+
+Queue for narrated audio. Step 1 only records the request; the Python worker described in
+[TTS_WORKER.md](TTS_WORKER.md) watches the collection and logs what is waiting. No audio is produced
+yet.
+
+One document exists per **(story, language)** pair, so a bilingual story queues two entries (`lang1`
+and `lang2`). Posting the same pair again re-queues the existing document instead of creating a
+duplicate.
+
+### `POST /api/tts-requests`
+
+*Auth required. Creator access required.*
+
+**Body**
+
+```json
+{ "storyId": "66f1c2...", "languages": ["lang1", "lang2"] }
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `storyId` | yes | Must be a story owned by the caller |
+| `languages` | no | Non-empty subset of `lang1`, `lang2`; defaults to both |
+
+**Responses**
+
+| Status | Description |
+|---|---|
+| `202` | Queued; returns `{ message, requests: [{ id, storyId, lang, status, requestedAt }] }` |
+| `400` | `INVALID_STORY_ID`, `INVALID_LANGUAGES`, or `NO_CHAPTERS` (story has no sentences) |
+| `401` | Authentication required |
+| `403` | Not the author, or `CREATOR_ACCESS_REQUIRED` |
+| `404` | Story not found |
+
+### `GET /api/tts-requests?storyIds=a,b,c`
+
+*Auth required.* Batched status lookup for the caller's own requests. At most 50 ids per call.
+
+**Response `200`**
+
+```json
+{ "data": [{ "id": "...", "storyId": "...", "lang": "lang1", "status": "queued", "requestedAt": "..." }] }
+```
+
+`status` is `queued` in this step; `processing`, `done` and `failed` become reachable once the
+worker starts synthesizing. Returns `400` with `INVALID_STORY_ID` or `TOO_MANY_IDS` for malformed
+input.
+
 ## Health Check
 
 ### `GET /api/health`
