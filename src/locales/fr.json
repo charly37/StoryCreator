@@ -137,6 +137,12 @@
     "hideAll": "Masquer toutes les traductions",
     "learningLabel": "Apprentissage",
     "nativeLabel": "Natif",
+    "audio": {
+      "title": "Écouter",
+      "bilingual": "Bilingue",
+      "download": "Télécharger",
+      "unsupported": "Votre navigateur ne peut pas lire cet audio."
+    },
     "kbSentenceNav": "phrase précédente / suivante",
     "kbTranslation": "masquer / afficher la traduction",
     "swipeSentenceNav": "glissez à gauche ou à droite pour changer de phrase",

@@ -137,6 +137,12 @@
     "hideAll": "Hide all translations",
     "learningLabel": "Learning",
     "nativeLabel": "Native",
+    "audio": {
+      "title": "Listen",
+      "bilingual": "Bilingual",
+      "download": "Download",
+      "unsupported": "Your browser cannot play this audio."
+    },
     "kbSentenceNav": "previous / next sentence",
     "kbTranslation": "hide / show translation",
     "swipeSentenceNav": "swipe left or right to change sentence",

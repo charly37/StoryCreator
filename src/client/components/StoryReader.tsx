@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Paper, Button, Chip, CircularProgress,
   Alert, LinearProgress, IconButton, Tooltip, Divider, Menu, MenuItem,
+  ToggleButton, ToggleButtonGroup,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -15,6 +16,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import SwipeIcon from '@mui/icons-material/Swipe';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
+import DownloadIcon from '@mui/icons-material/Download';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { useTranslation } from 'react-i18next';
 import { getLanguageName } from '../utils/languages';
 import { getAIModelLabel } from '../utils/aiModels';
@@ -23,6 +26,20 @@ import { formatRelativeDate } from '../utils/relativeDate';
 import { cloneStory } from '../utils/cloneStory';
 import { getChapterContext, getChapterStartIndex, getStoryPercent } from '../utils/readingProgress';
 import { useTouchInput } from '../utils/useTouchInput';
+import {
+  downloadName,
+  fetchStoryAudio,
+  formatDuration,
+  formatSize,
+  pickDefaultVariant,
+  StoryAudioVariant,
+  TtsVariant,
+} from '../utils/storyAudio';
+import {
+  fetchTtsRequests,
+  summarizeStoryAudio,
+  TtsRequestStatus,
+} from '../utils/ttsRequests';
 
 export interface Sentence {
   lang1: string;
@@ -140,6 +157,10 @@ const StoryReader: React.FC<StoryReaderProps> = ({
   const [cloning, setCloning] = useState(false);
   const [actionError, setActionError] = useState('');
   const [chapterMenuAnchor, setChapterMenuAnchor] = useState<HTMLElement | null>(null);
+  // Narrated audio is served separately from the story payload.
+  const [audioVariants, setAudioVariants] = useState<StoryAudioVariant[]>([]);
+  const [audioVariant, setAudioVariant] = useState<TtsVariant | null>(null);
+  const [audioStatus, setAudioStatus] = useState<TtsRequestStatus | null>(null);
 
   useEffect(() => {
     if (!storyId) return;
@@ -155,6 +176,38 @@ const StoryReader: React.FC<StoryReaderProps> = ({
       .catch((err) => setError(err.message === 'not-found' ? 'not-found' : 'error'))
       .finally(() => setLoading(false));
   }, [storyId]);
+
+  const loadAudio = useCallback(async () => {
+    if (!storyId) return;
+    const [audio, requests] = await Promise.all([
+      fetchStoryAudio(storyId),
+      fetchTtsRequests([storyId]),
+    ]);
+    setAudioStatus(summarizeStoryAudio(requests.data));
+    if (audio.ok && audio.variants.length > 0) {
+      setAudioVariants(audio.variants);
+      setAudioVariant((current) =>
+        current && audio.variants.some((item) => item.variant === current)
+          ? current
+          : pickDefaultVariant(audio.variants)
+      );
+    }
+  }, [storyId]);
+
+  useEffect(() => {
+    void loadAudio();
+  }, [loadAudio]);
+
+  // Poll only while a request is still in flight, so the player appears shortly after
+  // the worker finishes. Same 5s cadence as the review and wizard pages.
+  useEffect(() => {
+    if (audioVariants.length > 0) return;
+    if (audioStatus !== 'queued' && audioStatus !== 'processing') return;
+    const interval = setInterval(() => {
+      void loadAudio();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [audioVariants.length, audioStatus, loadAudio]);
 
   // Derived values must be computed before the early returns below so that every
   // hook is called in the same order on each render.
@@ -188,6 +241,19 @@ const StoryReader: React.FC<StoryReaderProps> = ({
   const chapterHeadingTitle = chapterTitleLang2 || chapterTitleLang1;
   const chapterHeadingTranslation =
     chapterTitleLang1 && chapterTitleLang1 !== chapterHeadingTitle ? chapterTitleLang1 : '';
+
+  // Playback state: the selector swaps the element's src, so only the active render
+  // and its URL are needed.
+  const activeAudio = audioVariants.find((item) => item.variant === audioVariant) ?? null;
+  const audioSrc = activeAudio?.url ?? '';
+  const audioVariantLabel = (variant: TtsVariant) =>
+    variant === 'bilingual'
+      ? t('reader.audio.bilingual')
+      : getLanguageName(
+          variant === 'lang1'
+            ? (story?.nativeLanguage ?? '')
+            : (story?.learningLanguage ?? '')
+        );
 
   const toggleReveal = (index: number) => {
     setRevealed((prev) => {
@@ -236,7 +302,9 @@ const StoryReader: React.FC<StoryReaderProps> = ({
       const target = event.target as HTMLElement | null;
       if (
         target &&
-        (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+        (target.isContentEditable ||
+          // AUDIO keeps its own arrow-key handling (seeking) when focused.
+          ['INPUT', 'TEXTAREA', 'SELECT', 'AUDIO'].includes(target.tagName))
       ) {
         return;
       }
@@ -287,8 +355,9 @@ const StoryReader: React.FC<StoryReaderProps> = ({
     const EDGE_GUARD_PX = 24;
     if (event.clientX <= EDGE_GUARD_PX || event.clientX >= window.innerWidth - EDGE_GUARD_PX) return;
     const target = event.target as HTMLElement | null;
-    // Let taps on in-card controls (e.g. the translation eye) behave normally.
-    if (target?.closest('button, a, input, textarea, select, [role="button"]')) return;
+    // Let taps on in-card controls (e.g. the translation eye) behave normally. Native
+    // audio controls and sliders have their own gesture handling.
+    if (target?.closest('button, a, input, textarea, select, [role="button"], audio, [role="slider"]')) return;
     gestureRef.current = {
       pointerId: event.pointerId,
       x: event.clientX,
@@ -543,6 +612,90 @@ const StoryReader: React.FC<StoryReaderProps> = ({
             })}
           </Menu>
         </Box>
+
+        {/* Audio player — native controls plus a download, mirroring the podcast page */}
+        {activeAudio && audioVariant && (
+          <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+              <VolumeUpIcon sx={{ color: 'primary.main' }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, mr: 'auto' }}>
+                {t('reader.audio.title')}
+              </Typography>
+              {activeAudio.durationMs > 0 && (
+                <Chip label={formatDuration(activeAudio.durationMs)} size="small" variant="outlined" />
+              )}
+              {activeAudio.sizeBytes > 0 && (
+                <Chip label={formatSize(activeAudio.sizeBytes)} size="small" variant="outlined" />
+              )}
+            </Box>
+
+            {audioVariants.length > 1 && (
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={audioVariant}
+                onChange={(_event, next: TtsVariant | null) => {
+                  if (next) setAudioVariant(next);
+                }}
+                sx={{ mb: 2, flexWrap: 'wrap' }}
+                aria-label={t('reader.audio.title')}
+              >
+                {audioVariants.map((option) => (
+                  <ToggleButton
+                    key={option.variant}
+                    value={option.variant}
+                    sx={{ px: 1.5, textTransform: 'none' }}
+                  >
+                    {audioVariantLabel(option.variant)}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            )}
+
+            {/* key: a new variant starts a fresh element, so playback restarts at 0 */}
+            <audio
+              key={audioSrc}
+              controls
+              preload="metadata"
+              src={audioSrc}
+              aria-label={t('reader.audio.title')}
+              style={{ width: '100%' }}
+            >
+              {t('reader.audio.unsupported')}
+            </audio>
+
+            <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                variant="contained"
+                color="secondary"
+                size="small"
+                startIcon={<DownloadIcon />}
+                component="a"
+                href={audioSrc}
+                download={downloadName(
+                  story.title?.lang1 || story.title?.lang2 || '',
+                  audioVariant,
+                  story._id
+                )}
+              >
+                {t('reader.audio.download')}
+              </Button>
+            </Box>
+          </Paper>
+        )}
+
+        {/* No audio yet: show progress for the author's pending request only */}
+        {!activeAudio && audioStatus && audioStatus !== 'done' && (
+          <Box sx={{ mb: 2 }}>
+            <Chip
+              icon={<VolumeUpIcon fontSize="small" />}
+              label={t(`audio.status.${audioStatus}`)}
+              size="small"
+              color={audioStatus === 'failed' ? 'error' : 'info'}
+              variant="outlined"
+            />
+          </Box>
+        )}
 
         {/* Sentence card */}
         {total > 0 && sentence && (
