@@ -49,7 +49,7 @@ spec:
             - name: TTS_PROVIDER
               value: {{ .Values.ttsWorker.provider | default "elevenlabs" | quote }}
             - name: TTS_SPEED
-              value: {{ .Values.ttsWorker.speed | default 1.0 | quote }}
+              value: {{ .Values.ttsWorker.speed | default 0.75 | quote }}
             - name: TTS_MAX_ATTEMPTS
               value: {{ .Values.ttsWorker.maxAttempts | default 3 | quote }}
             {{- if .Values.ttsWorker.voice }}

@@ -116,7 +116,7 @@ which is handy for testing.
 | `AUDIO_PATH` | no | `./audio` | Root for clips and renders |
 | `TTS_PROVIDER` | no | `elevenlabs` | `fake` writes silence and spends no credits |
 | `TTS_VOICE` | no | — | Voice override for every language |
-| `TTS_SPEED` | no | `1.0` | Provider speech speed |
+| `TTS_SPEED` | no | `0.75` | Provider speech speed (0.75 matches PortugueseLearning) |
 | `TTS_MAX_ATTEMPTS` | no | `3` | Attempts before a request is marked failed |
 | `TTS_API_DELAY` | no | `0.5` | Seconds between provider calls |
 | `POLL_INTERVAL` | no | `5` | Seconds to wait when the queue is empty |
@@ -206,7 +206,7 @@ kubectl -n story-creator logs deploy/story-creator-tts-worker -f
 | `ttsWorker.enabled` | `false` | Creates the Deployment |
 | `ttsWorker.pollInterval` | `5` | Keep small; audio is user-triggered |
 | `ttsWorker.provider` | `elevenlabs` | Set `fake` to smoke-test in-cluster |
-| `ttsWorker.speed` | `1.0` | ~0.85 is friendlier for learners |
+| `ttsWorker.speed` | `0.75` | Slower than natural pace; raise towards `1.0` for normal narration |
 | `ttsWorker.maxAttempts` | `3` | |
 | `ttsWorker.voice` | `""` | Overrides the catalog for every language |
 | `audio.hostPath` | `/home/ubuntu/StoryCreator/audio` | Must exist before `helm upgrade` |

@@ -23,7 +23,9 @@ log = logging.getLogger("tts-worker")
 
 DEFAULT_MODEL_ID = "eleven_flash_v2_5"
 DEFAULT_OUTPUT_FORMAT = "mp3_44100_128"
-DEFAULT_SPEED = 1.0
+# Slower than natural pace, matching PortugueseLearning's narration (speed=0.75):
+# learners parse the story better at reduced speed.
+DEFAULT_SPEED = 0.75
 
 
 class QuotaExceededError(RuntimeError):

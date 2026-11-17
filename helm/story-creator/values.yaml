@@ -58,9 +58,9 @@ ttsWorker:
   pollInterval: 5
   # elevenlabs | fake (fake writes silence, so the pipeline can be tested for free).
   provider: elevenlabs
-  # Provider speech speed. PortugueseLearning used 0.75 for word drills; narration
-  # reads better at natural speed. Drop to ~0.85 for learners.
-  speed: 1.0
+  # Provider speech speed. 0.75 matches PortugueseLearning and reads better for
+  # learners; raise towards 1.0 for natural pace.
+  speed: 0.75
   # Attempts before a request is marked failed. Re-requesting from the UI resets it.
   maxAttempts: 3
   # Optional voice ID applied to every language; empty uses TtsWorker/voices.py.

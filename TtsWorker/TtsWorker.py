@@ -27,7 +27,7 @@ Environment:
   TEXT_TO_SPEECH_API_KEY ElevenLabs key (required unless TTS_PROVIDER=fake)
   TTS_PROVIDER           elevenlabs (default) | fake
   TTS_VOICE              Override the voice ID for every language
-  TTS_SPEED              Provider speech speed (default: 1.0)
+  TTS_SPEED              Provider speech speed (default: 0.75)
   TTS_MAX_ATTEMPTS       Attempts before a request is marked failed (default: 3)
   POLL_INTERVAL          Seconds to wait when the queue is empty (default: 5)
   LOG_LEVEL              debug | info | warn | error | ... (default: INFO)
