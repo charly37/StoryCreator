@@ -36,8 +36,8 @@ flowchart LR
 | `helm/story-creator/templates/tts-worker-deployment.yaml` | Deployment (`<release>-tts-worker`) |
 | `helm/story-creator/values.yaml` | `audio.*`, `ttsWorker.*`, `resources.ttsWorker` |
 
-Unlike the [story agent](STORY_AGENT.md), this worker talks **directly to MongoDB** — it needs the
-whole queue, not one story, and it writes files to a shared volume.
+This worker talks **directly to MongoDB** — it needs the whole queue, not one story — and it writes
+files to a shared volume.
 
 ---
 
@@ -230,4 +230,4 @@ kubectl -n story-creator logs deploy/story-creator-tts-worker -f
 | Bilingual render never appears | Only one language was requested, or the other language's request is not `done` |
 | Audio sounds clipped or quiet | Look for the LUFS/mix log lines; a clip under 400 ms uses the RMS fallback |
 
-Related documentation: [API](API.md) · [Design](design.md) · [Story Agent](STORY_AGENT.md) · [Logging](LOGGING.md)
+Related documentation: [API](API.md) · [Design](design.md) · [Logging](LOGGING.md)

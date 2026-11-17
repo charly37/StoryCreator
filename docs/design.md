@@ -294,19 +294,6 @@ See [LOGGING.md](LOGGING.md) for the record schema, the complete list of logged
 events, the Helm `app.logLevel` setting, and the VictoriaLogs collector
 configuration (vlagent, Fluent Bit, Vector).
 
-## Story Automation
-
-`DialectHubAgent/StoryCreatorAgent.py` runs as a Kubernetes CronJob
-(`<release>-story-agent`) and creates stories through the public API rather than
-touching MongoDB. It asks an OpenAI agent for a random idea, `POST`s it to
-`/api/v1/stories`, and polls until generation completes. Kubernetes retries of a
-scheduled run reuse the Job name as the `Idempotency-Key`, avoiding duplicate
-paid generations.
-
-The agent is shipped in `charly37/storycreator-scripts` (built from
-`pythonDockerBaseImage/Dockerfile`). Configuration lives under
-`storyCreatorAgent.*` in the Helm chart. See [STORY_AGENT.md](STORY_AGENT.md).
-
 ## Audio Requests
 
 Narrated audio is queued in MongoDB rather than through a message broker: the `ttsrequests`
@@ -315,9 +302,9 @@ My Stories list or the Review page (`POST /api/tts-requests`). Both entry points
 ownership plus `canCreateStories`.
 
 A long-running `Deployment` (`<release>-tts-worker`, disabled by default via `ttsWorker.enabled`)
-runs `TtsWorker/TtsWorker.py` from the same `charly37/storycreator-scripts` image, started with a
-`command:` override. A Deployment rather than a CronJob is deliberate: audio is demand-driven, so
-the worker must pick up a request within seconds, not at the next schedule tick.
+runs `TtsWorker/TtsWorker.py` from the `charly37/storycreator-scripts` image (built from
+`pythonDockerBaseImage/Dockerfile`). A Deployment rather than a CronJob is deliberate: audio is
+demand-driven, so the worker must pick up a request within seconds, not at the next schedule tick.
 
 The worker synthesizes **one clip per sentence** (content-addressed at
 `clips/{voiceId}/{sha256(text)}.mp3`, so re-runs and resumes are free) and assembles three renders

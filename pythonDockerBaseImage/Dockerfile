@@ -1,4 +1,4 @@
-# Python services container — StoryCreator automation agents
+# Python services container — StoryCreator narration (TTS) worker
 FROM python:3.14-alpine
 
 # Create non-root user
@@ -7,7 +7,7 @@ RUN addgroup -g 1000 appuser && \
 
 WORKDIR /app
 
-# CA certificates are required for HTTPS calls to the StoryCreator API and OpenAI.
+# CA certificates are required for HTTPS calls to the speech provider.
 # ffmpeg is required by pydub to decode provider MP3s and re-encode the renders.
 RUN apk add --no-cache ca-certificates ffmpeg
 
@@ -20,19 +20,16 @@ ENV PYTHONUNBUFFERED=1
 
 # Install dependencies
 COPY pythonDockerBaseImage/requirements.txt base-requirements.txt
-COPY DialectHubAgent/requirements.txt agent-requirements.txt
 COPY TtsWorker/requirements.txt tts-worker-requirements.txt
 RUN pip install --no-cache-dir \
     -r base-requirements.txt \
-    -r agent-requirements.txt \
     -r tts-worker-requirements.txt
 
 # Switch to non-root user
 USER appuser
 
 # Copy application code (with correct ownership)
-COPY --chown=appuser:appuser DialectHubAgent/StoryCreatorAgent.py .
 COPY --chown=appuser:appuser TtsWorker/*.py .
 
 # Entrypoint — CLI flags can be appended after the image name
-ENTRYPOINT ["python", "-u", "StoryCreatorAgent.py"]
+ENTRYPOINT ["python", "-u", "TtsWorker.py"]

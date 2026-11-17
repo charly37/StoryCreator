@@ -11,7 +11,7 @@ This project follows a **lean README + detailed docs** pattern:
   - `LOGGING.md` - pino logging, `LOG_LEVEL`, VictoriaLogs collector configuration
   - `API.md` - Complete API reference (endpoints, payloads, response codes)
   - `PUBLIC_API.md` - Key-authenticated read/create API (`/api/v1`)
-  - `STORY_AGENT.md` - Scheduled story-generation agent, Docker image, Helm CronJob
+  - `TTS_WORKER.md` - Narration queue, ElevenLabs synthesis, renders, audio endpoints
   - `AUTHENTICATION_SETUP.md` - User auth implementation
   - `TODO.md` - Planned improvements and known issues
 
@@ -66,9 +66,8 @@ npm test             # MongoDB Memory Server + Playwright
 ### Deployment
 - Production: multi-stage `Dockerfile` (app image).
 - Deployed on k3s via Helm chart `helm/story-creator/`.
-- A second image, `charly37/storycreator-scripts`, is built from `pythonDockerBaseImage/Dockerfile` and packages `DialectHubAgent/StoryCreatorAgent.py`.
-- The chart renders a `storyCreatorAgent` CronJob (`<release>-story-agent`, default Mondays 08:00) that generates an idea and creates a story through `POST /api/v1/stories`. It requires `storycreator-api-key` (write-enabled key) and `open-ai-key` in the `story-creator-secrets` secret. Config lives under `storyCreatorAgent.*` in `values.yaml`.
-- The CronJob passes the Kubernetes `job-name` as `STORYCREATOR_IDEMPOTENCY_KEY`, so retries of one scheduled run reuse the same story instead of paying for a second AI generation.
+- A second image, `charly37/storycreator-scripts`, is built from `pythonDockerBaseImage/Dockerfile` and packages `TtsWorker/TtsWorker.py` (ffmpeg + `pymongo` + `elevenlabs` + `pydub`).
+- The chart can deploy `<release>-tts-worker`, a long-running Deployment (`ttsWorker.enabled`, default `false`) that drains the `ttsrequests` queue and writes clips and renders under the `audio.hostPath` volume. It needs `text-to-speech-api-key` alongside `mongodb-uri` in `story-creator-secrets`.
 - CI/CD: GitHub Actions builds and pushes both images (mirrors PortugueseLearning workflow).
 
 ## Project-Specific Conventions

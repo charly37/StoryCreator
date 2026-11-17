@@ -85,7 +85,7 @@ jobs:
           --build-arg APP_VERSION=$VERSION \
           -t ${{ vars.DOCKER_USERNAME }}/storycreator:$VERSION .
 
-        # Scripts image (DialectHub story agent CronJob)
+        # Scripts image (narration TTS worker)
         docker build \
           -f pythonDockerBaseImage/Dockerfile \
           -t ${{ vars.DOCKER_USERNAME }}/storycreator-scripts:$VERSION .
@@ -138,9 +138,9 @@ jobs:
           '' \
           "**App:** \`docker pull ${{ vars.DOCKER_USERNAME }}/storycreator:${{ github.event.inputs.version }}\`" \
           '' \
-          "**Story agent:** \`docker pull ${{ vars.DOCKER_USERNAME }}/storycreator-scripts:${{ github.event.inputs.version }}\`" \
+          "**TTS worker:** \`docker pull ${{ vars.DOCKER_USERNAME }}/storycreator-scripts:${{ github.event.inputs.version }}\`" \
           '' \
-          "[App on Docker Hub](https://hub.docker.com/r/${{ vars.DOCKER_USERNAME }}/storycreator/tags) · [Story agent on Docker Hub](https://hub.docker.com/r/${{ vars.DOCKER_USERNAME }}/storycreator-scripts/tags)" \
+          "[App on Docker Hub](https://hub.docker.com/r/${{ vars.DOCKER_USERNAME }}/storycreator/tags) · [TTS worker on Docker Hub](https://hub.docker.com/r/${{ vars.DOCKER_USERNAME }}/storycreator-scripts/tags)" \
           '' \
           '## Kubernetes Deployment' \
           '' \
@@ -150,11 +150,10 @@ jobs:
           '  --namespace=story-creator \' \
           "  --from-literal=mongodb-uri='<your-atlas-uri>' \\" \
           "  --from-literal=session-secret='<your-secret-key>' \\" \
-          "  --from-literal=open-ai-key='<your-openai-key>' \\" \
-          "  --from-literal=storycreator-api-key='<stc_live_ key with stories:write>'" \
+          "  --from-literal=open-ai-key='<your-openai-key>'" \
           '```' \
           '' \
-          'The scheduled story agent (CronJob) needs the write-enabled `storycreator-api-key`, created in the website under **Profile → API keys** with "Allow creating stories (uses AI)".' \
+          'Add `text-to-speech-api-key` to the same secret to enable narration.' \
           '' \
           'Then install or upgrade with Helm:' \
           '```bash' \

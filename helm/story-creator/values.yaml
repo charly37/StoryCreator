@@ -8,7 +8,7 @@ image:
   repository: charly37/storycreator
   tag: latest
   pullPolicy: IfNotPresent
-  # Image built from pythonDockerBaseImage/Dockerfile (DialectHubAgent scripts).
+  # Image built from pythonDockerBaseImage/Dockerfile (narration TTS worker).
   scripts:
     repository: charly37/storycreator-scripts
     # Empty means "use image.tag" (set both with --set image.tag=...)
@@ -37,42 +37,6 @@ certManager:
   # that were already created by the primary (prod) release.
   createIssuers: true
 
-# Scheduled agent that invents a story idea and creates it through the public API.
-# Requires `storycreator-api-key` in the story-creator-secrets secret. The key must
-# be created in Profile → API keys with "Allow creating stories (uses AI)" enabled.
-storyCreatorAgent:
-  enabled: true
-  # Mondays at 08:00 (cluster timezone)
-  schedule: "0 8 * * 1"
-  # Temporarily paused: story creation moved to the caller side while the change
-  # is validated. Set back to false (or set enabled: false to remove the CronJob
-  # entirely) once the external trigger is confirmed working.
-  suspend: true
-  startingDeadlineSeconds: 300
-  successfulJobsHistoryLimit: 3
-  failedJobsHistoryLimit: 3
-  backoffLimit: 2
-  # Must be greater than the agent's --timeout (default 900s)
-  activeDeadlineSeconds: 1200
-
-  # In-cluster API URL. Empty defaults to http://<release>-app (the chart Service).
-  apiUrl: ""
-
-  apiKeySecret:
-    name: story-creator-secrets
-    key: storycreator-api-key
-
-  # Arguments passed to StoryCreatorAgent.py.
-  # Add "--no-publish" to keep generated stories as drafts, or
-  # "--native-language", "fr" to target French learners.
-  args:
-    - "--level"
-    - "beginner"
-    - "--chapters"
-    - "3"
-    - "--sentences-per-chapter"
-    - "8"
-
 # Directory on the k3s node holding generated narration audio (clips + renders).
 # The app mounts it read-only; the TTS worker mounts it read-write.
 # Create it on the node and give it the pod uid, otherwise the mount succeeds but the
@@ -81,8 +45,8 @@ audio:
   hostPath: /home/ubuntu/StoryCreator/audio
   mountPath: /app/audio
 
-# Text-to-speech queue worker (TtsWorker/TtsWorker.py), shipped in the same
-# `storycreator-scripts` image as the story agent and started via a command override.
+# Text-to-speech queue worker (TtsWorker/TtsWorker.py), shipped in the
+# `storycreator-scripts` image.
 # Synthesizes one clip per sentence, then assembles the lang1 / lang2 / bilingual
 # renders. Requires `mongodb-uri` and `text-to-speech-api-key` in the
 # story-creator-secrets secret.
@@ -118,13 +82,6 @@ resources:
     limits:
       memory: "512Mi"
       cpu: "500m"
-  storyCreatorAgent:
-    requests:
-      memory: "64Mi"
-      cpu: "50m"
-    limits:
-      memory: "256Mi"
-      cpu: "250m"
   ttsWorker:
     requests:
       memory: "64Mi"

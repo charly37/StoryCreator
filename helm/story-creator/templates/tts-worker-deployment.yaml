@@ -30,7 +30,8 @@ spec:
         - name: tts-worker
           image: "{{ .Values.image.scripts.repository }}:{{ .Values.image.scripts.tag | default .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.scripts.pullPolicy }}
-          # Overrides the image ENTRYPOINT (StoryCreatorAgent.py) shared with the CronJob.
+          # The image already defaults to this; kept explicit so the Deployment does
+          # not depend on the image's ENTRYPOINT.
           command: ["python", "-u", "TtsWorker.py"]
           env:
             - name: MONGODB_URI

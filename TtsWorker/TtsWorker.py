@@ -291,6 +291,8 @@ def synthesize_clips(ctx: Context, request: dict, story: dict) -> list[dict]:
         language or "unknown",
         voice_id,
     )
+    # First sentence, so the log shows which text actually went to the provider.
+    log.info("  %s sample: %r", lang, _one_line(sentences[0]["text"])[:80])
 
     clips: list[dict] = []
     created = 0
@@ -396,13 +398,27 @@ def maybe_compose_bilingual(ctx: Context, request: dict, story_hash_value: str) 
     else:
         segments = bilingual_segments(sibling["clips"], request["clips"])
 
-    write_render(
-        ctx,
-        request,
-        story_hash_value,
-        "bilingual",
-        [{**segment, "path": ctx.audio_dir / segment["key"]} for segment in segments],
-    )
+    try:
+        write_render(
+            ctx,
+            request,
+            story_hash_value,
+            "bilingual",
+            [{**segment, "path": ctx.audio_dir / segment["key"]} for segment in segments],
+        )
+    except Exception as exc:  # noqa: BLE001 - the monologue already succeeded
+        # Best-effort: marking the whole request failed here would be wrong, and
+        # reconcile_renders retries the composition on the next start.
+        log.warning(
+            "Bilingual render failed for story %s (%s); left for reconciliation",
+            request["storyId"],
+            _one_line(exc),
+        )
+
+
+def clips_on_disk(clips: list[dict], audio_dir: Path) -> bool:
+    """True when every clip referenced by a manifest still exists."""
+    return bool(clips) and all((audio_dir / clip["key"]).exists() for clip in clips)
 
 
 def reconcile_renders(ctx: Context) -> None:
@@ -449,16 +465,31 @@ def reconcile_renders(ctx: Context) -> None:
         if not (lang1 and lang2):
             continue
 
+        # Render rows outlive the files: if the clips were pruned (or written on another
+        # node) recomposing would crash on the first missing file. Re-synthesising is the
+        # caller's job, via a fresh request.
+        if not (clips_on_disk(lang1["clips"], ctx.audio_dir) and clips_on_disk(lang2["clips"], ctx.audio_dir)):
+            log.warning(
+                "Skipping bilingual recompose for story %s: source clips are missing from %s "
+                "(re-request audio to rebuild)",
+                story_id,
+                ctx.audio_dir,
+            )
+            continue
+
         log.warning("Recomposing missing bilingual render for story %s", story_id)
-        segments = bilingual_segments(lang1["clips"], lang2["clips"])
-        write_render(
-            ctx,
-            lang1,
-            story_hash_value,
-            "bilingual",
-            [{**segment, "path": ctx.audio_dir / segment["key"]} for segment in segments],
-        )
-        repaired += 1
+        try:
+            segments = bilingual_segments(lang1["clips"], lang2["clips"])
+            write_render(
+                ctx,
+                lang1,
+                story_hash_value,
+                "bilingual",
+                [{**segment, "path": ctx.audio_dir / segment["key"]} for segment in segments],
+            )
+            repaired += 1
+        except Exception as exc:  # noqa: BLE001 - one bad story must not stop the worker
+            log.warning("Could not recompose bilingual render for story %s: %s", story_id, _one_line(exc))
 
     if repaired:
         log.info("Recomposed %d bilingual render(s)", repaired)
@@ -579,6 +610,15 @@ def ensure_audio_dir(path: Path) -> None:
 
 
 def connect(mongo_uri: str) -> tuple[MongoClient, Database]:
+    # A mis-keyed secret (e.g. the TTS key pasted into `mongodb-uri`) otherwise reaches
+    # pymongo, which treats a bare string as a hostname and echoes it in a DNS error.
+    if not mongo_uri.startswith(("mongodb://", "mongodb+srv://")):
+        raise TtsError(
+            "MONGODB_URI is not a MongoDB connection string (expected mongodb:// or "
+            "mongodb+srv://). Check that the secret key named 'mongodb-uri' holds the "
+            "Atlas URI and not another credential."
+        )
+
     client: MongoClient = MongoClient(mongo_uri, serverSelectionTimeoutMS=10_000)
     client.admin.command("ping")
     return client, client.get_default_database()
@@ -597,7 +637,11 @@ def run(args: argparse.Namespace) -> int:
         return 1
 
     audio_dir = Path(args.audio_dir)
-    client, db = connect(args.mongo_uri)
+    try:
+        client, db = connect(args.mongo_uri)
+    except TtsError as exc:
+        log.error("%s", exc)
+        return 1
     try:
         provider = build_provider(dry_run=args.dry_run)
         ctx = Context(db, audio_dir, provider, args)

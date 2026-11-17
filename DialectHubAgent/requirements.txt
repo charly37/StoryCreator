@@ -1,4 +1,0 @@
-# StoryCreatorAgent.py
-openai-agents==0.23.1
-openai==3.31.0
-httpx>=0.27,<1

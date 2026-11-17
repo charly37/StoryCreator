@@ -110,12 +110,36 @@ async function runStoryGeneration(
       effort ?? normalizeEffort(story.aiReasoningEffort)
     );
 
-    story.chapters = generated.chapters.map((chapter, index) => ({
-      title: chapter.title,
-      seed: chapterSpecs[index]?.seed?.trim() || chapter.seed,
-      targetSentences: chapterSpecs[index]?.targetSentences ?? chapter.sentences.length,
-      sentences: chapter.sentences,
-    }));
+    const mappedChapters = generated.chapters.map((chapter, index) => {
+      const mapped = {
+        title: chapter.title,
+        seed: chapterSpecs[index]?.seed?.trim() || chapter.seed,
+        targetSentences: chapterSpecs[index]?.targetSentences ?? chapter.sentences.length,
+        sentences: chapter.sentences,
+      };
+      // The same deterministic checks the staged validation stage runs, applied for
+      // free here: quick mode previously shipped whatever the model returned.
+      return { ...mapped, issues: evaluateChapter(mapped) };
+    });
+
+    const untranslated = mappedChapters.filter(isUntranslatedChapter);
+    if (untranslated.length > 0) {
+      story.chapters = mappedChapters;
+      story.generating = false;
+      story.aiCallCount = (story.aiCallCount ?? 0) + 1;
+      story.generationError =
+        `Generation returned ${untranslated.length} chapter(s) where both languages are identical, ` +
+        'so the story is not bilingual. Check the seed for language instructions, then regenerate.';
+      story.publishWhenReady = false;
+      await story.save();
+      storyLog.error(
+        { translated: mappedChapters.length - untranslated.length, total: mappedChapters.length },
+        'Generation produced chapters with identical sentences in both languages'
+      );
+      return;
+    }
+
+    story.chapters = mappedChapters;
 
     // Auto-populate the cast only when the author had not defined one.
     if (!hadCharacters && generated.characters.length > 0) {
@@ -458,6 +482,19 @@ async function runChapterGeneration(
   } catch (error) {
     await failJob(storyId, error);
   }
+}
+
+/**
+ * A chapter whose sentences are identical in both languages is not a translation —
+ * typically the seed asked the writer for the target language directly. One such
+ * sentence can be legitimate (a name, an exclamation); a whole chapter cannot.
+ */
+function isUntranslatedChapter(chapter: { sentences?: Array<{ lang1: string; lang2: string }> }): boolean {
+  const sentences = chapter.sentences ?? [];
+  if (sentences.length === 0) return false;
+  return sentences.every(
+    (sentence) => sentence.lang1.trim().toLowerCase() === sentence.lang2.trim().toLowerCase()
+  );
 }
 
 /**
