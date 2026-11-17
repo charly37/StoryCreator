@@ -53,7 +53,7 @@ audio:
 # Keep replicas at 1: the worker recovers crashed jobs by requeueing `processing`
 # documents on startup, and clips are content-addressed so a restart resumes cheaply.
 ttsWorker:
-  enabled: false
+  enabled: true
   # Seconds between polls of the queue. Audio is user-triggered, so keep this small.
   pollInterval: 5
   # elevenlabs | fake (fake writes silence, so the pipeline can be tested for free).
