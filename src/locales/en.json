@@ -137,6 +137,22 @@
     "hideAll": "Hide all translations",
     "learningLabel": "Learning",
     "nativeLabel": "Native",
+    "export": {
+      "title": "Export story",
+      "open": "Export",
+      "format": "Format",
+      "epub": "EPUB for Kindle",
+      "pdf": "Print / Save as PDF",
+      "edition": "Edition",
+      "bilingual": "Bilingual",
+      "learningOnly": "Learning language only",
+      "nativeOnly": "Native language only",
+      "downloadEpub": "Download EPUB",
+      "printPdf": "Open print dialog",
+      "contents": "Contents",
+      "popupBlocked": "Allow pop-ups to print or save this story as a PDF.",
+      "error": "Could not export this story. Please try again."
+    },
     "audio": {
       "title": "Listen",
       "bilingual": "Bilingual",

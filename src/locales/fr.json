@@ -137,6 +137,22 @@
     "hideAll": "Masquer toutes les traductions",
     "learningLabel": "Apprentissage",
     "nativeLabel": "Natif",
+    "export": {
+      "title": "Exporter l'histoire",
+      "open": "Exporter",
+      "format": "Format",
+      "epub": "EPUB pour Kindle",
+      "pdf": "Imprimer / Enregistrer en PDF",
+      "edition": "Édition",
+      "bilingual": "Bilingue",
+      "learningOnly": "Langue d'apprentissage uniquement",
+      "nativeOnly": "Langue maternelle uniquement",
+      "downloadEpub": "Télécharger l'EPUB",
+      "printPdf": "Ouvrir la fenêtre d'impression",
+      "contents": "Sommaire",
+      "popupBlocked": "Autorisez les fenêtres contextuelles pour imprimer ou enregistrer cette histoire en PDF.",
+      "error": "Impossible d'exporter cette histoire. Veuillez réessayer."
+    },
     "audio": {
       "title": "Écouter",
       "bilingual": "Bilingue",

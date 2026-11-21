@@ -377,9 +377,9 @@ Return a JSON object with exactly this structure — no extra text or markdown:
   "characters": [
     {
       "name": "<character name>",
-      "role": "<e.g. protagonist, mentor, rival>",
-      "description": "<background, personality and motivations, in English>",
-      "appearance": "<physical appearance and distinctive traits, in English>"
+      "role": "<character's role in ${nativeName}>",
+      "description": "<background, personality and motivations, in ${nativeName}>",
+      "appearance": "<physical appearance and distinctive traits, in ${nativeName}>"
     }
   ],
   "chapters": [
@@ -388,7 +388,7 @@ Return a JSON object with exactly this structure — no extra text or markdown:
         "lang1": "<short chapter title in ${nativeName}>",
         "lang2": "<short chapter title in ${learningName}>"
       },
-      "seed": "<what happens in this chapter, in English — internal authoring note, never shown to readers; ${chapterSeedHint} covering concrete events>",
+      "seed": "<what happens in this chapter, in ${nativeName} — internal authoring note, never shown to readers; ${chapterSeedHint} covering concrete events>",
       "sentences": [
         { "lang1": "<sentence in ${nativeName}>", "lang2": "<sentence in ${learningName}>" }
       ]
@@ -402,13 +402,13 @@ Rules:
 - Give the story a short, reader-facing title (2–8 words) expressed in both languages
 - If an author-provided title is given below, use it verbatim for lang1 and translate it faithfully for lang2
 - Give every chapter a short, reader-facing title (2–6 words) expressed in both languages
-- "seed" is an internal authoring note used for later regeneration — it is NOT shown to readers; write ${chapterSeedLengthRule()}, describing concrete events rather than a one-line teaser
-- If a chapter has a provided seed, keep its content and only expand it when it is shorter than the length guidance above; if blank, invent a coherent one
+- "seed" is an internal authoring note used for later regeneration — it is NOT shown to readers; write it in ${nativeName}, following ${chapterSeedLengthRule()}, and describe concrete events rather than a one-line teaser
+- If a chapter has a provided seed, preserve its meaning and write the resulting seed in ${nativeName}; only expand it when it is shorter than the length guidance above; if blank, invent a coherent one
 - The story must flow naturally across all chapters
 - lang1 is always ${nativeName}, lang2 is always ${learningName}
 - Each sentence pair must express the same meaning in both languages
 - Apply the level guidance consistently throughout
-- Characters: if a cast is provided below, use exactly those characters (same names) as the cast and keep them consistent across all chapters, filling in any missing details; if no cast is provided, invent a coherent cast and return it in the "characters" array`;
+- Characters: if a cast is provided below, use exactly those characters (same names) as the cast and keep them consistent across all chapters; preserve provided values and fill missing role, description, or appearance in ${nativeName}; if no cast is provided, invent a coherent cast and return it in the "characters" array`;
 
     const chapterList = chapterSpecs
       .map((c, i) => `Chapter ${i + 1} (${c.targetSentences} sentences): ${c.seed || '(AI decides)'}`)
@@ -502,14 +502,14 @@ If the change affects story coherence in other chapters, you may also return upd
 Return a JSON object with exactly this structure — no extra text:
 {
   "chapters": [
-    { "index": <0-based chapter index>, "title": { "lang1": "<short title in ${nativeName}>", "lang2": "<short title in ${learningName}>" }, "seed": "<updated premise in English; ${chapterSeedHint} covering concrete events>", "sentences": [{ "lang1": "...", "lang2": "..." }] }
+    { "index": <0-based chapter index>, "title": { "lang1": "<short title in ${nativeName}>", "lang2": "<short title in ${learningName}>" }, "seed": "<updated premise in ${nativeName}; ${chapterSeedHint} covering concrete events>", "sentences": [{ "lang1": "...", "lang2": "..." }] }
   ]
 }
 
 Rules:
 - Always include the TARGET chapter (index ${chapterIndex}) with exactly ${targetSentences} sentences
 - Give the chapter a short, reader-facing title (2–6 words) in both languages
-- "seed" is an internal authoring note (never shown to readers) — write ${chapterSeedHint}, covering concrete events and staying faithful to the new seed above
+- "seed" is an internal authoring note (never shown to readers) — write it in ${nativeName}, covering concrete events and staying faithful to the meaning of the new seed above
 - Only include other chapters if coherence truly requires changes; minimize collateral edits
 - lang1 is always ${nativeName}, lang2 is always ${learningName}
 - Each sentence pair must express the same meaning
@@ -640,12 +640,12 @@ Return a JSON object with exactly this structure — no extra text or markdown:
     "lang2": "<the same synopsis translated into ${learningName}; ${synopsisHint}>",
   },
   "characters": [
-    { "name": "<name>", "role": "<role>", "description": "<in English>", "appearance": "<in English>" }
+    { "name": "<name>", "role": "<role in ${nativeName}>", "description": "<in ${nativeName}>", "appearance": "<in ${nativeName}>" }
   ],
   "chapters": [
     {
       "title": { "lang1": "<short chapter title in ${nativeName}>", "lang2": "<short title in ${learningName}>" },
-      "seed": "<what happens in this chapter, in English — ${chapterSeedHint} covering concrete events>"
+      "seed": "<what happens in this chapter, in ${nativeName} — ${chapterSeedHint} covering concrete events>"
     }
   ]
 }
@@ -653,12 +653,12 @@ Return a JSON object with exactly this structure — no extra text or markdown:
 Rules:
 - Return exactly ${N} chapter objects in the "chapters" array
 - The synopsis summarises the WHOLE arc (beginning, turn, resolution), not a single chapter, and must be ${synopsisHint}, naming concrete events
-- Chapter seeds are internal authoring notes in English; each must be ${chapterSeedLengthRule()}, describing concrete events (setting, who does what, the turn) rather than a one-line teaser
+- Chapter seeds are internal authoring notes in ${nativeName}; each must be ${chapterSeedLengthRule()}, describing concrete events (setting, who does what, the turn) rather than a one-line teaser
 - Every chapter must advance the arc and connect to the next one
 - Give the story and every chapter a short, reader-facing title (2–6 words) in both languages
 - If an author-provided title is given below, use it verbatim for lang1 and translate it faithfully for lang2
-- If a chapter premise is provided below, keep its content and only expand it when it is shorter than the length guidance above; if blank, invent a coherent one
-- Characters: if a cast is provided below use exactly those characters (same names) and fill in missing details; if not, invent a coherent cast and return it
+- If a chapter premise is provided below, preserve its meaning and write the resulting seed in ${nativeName}; only expand it when it is shorter than the length guidance above; if blank, invent a coherent one
+- Characters: if a cast is provided below use exactly those characters (same names), preserve provided values, and fill missing role, description, or appearance in ${nativeName}; if not, invent a coherent cast and return it
 - lang1 is always ${nativeName}, lang2 is always ${learningName}`;
 
     const adjustmentBlock = isAdjustment
@@ -742,7 +742,7 @@ ${guidelineBlockFor(options.aiGuideline)}
 Return a JSON object with exactly this structure — no extra text or markdown:
 {
   "title": { "lang1": "<short chapter title in ${nativeName}>", "lang2": "<short chapter title in ${learningName}>" },
-  "seed": "<what happens in this chapter, in English — ${chapterSeedHint} covering concrete events>",
+  "seed": "<what happens in this chapter, in ${nativeName} — ${chapterSeedHint} covering concrete events>",
   "recap": "<one sentence in English summarising what happens in THIS chapter>",
   "sentences": [ { "lang1": "<sentence in ${nativeName}>", "lang2": "<sentence in ${learningName}>" } ]
 }
@@ -754,7 +754,7 @@ Rules:
 - lang1 is always ${nativeName}, lang2 is always ${learningName}
 - Each sentence pair must express the same meaning in both languages
 - Apply the level guidance consistently
-- "seed" and "recap" are internal authoring notes — never shown to readers; the seed must be ${chapterSeedHint}, covering concrete events and staying faithful to this chapter's premise`;
+- "seed" and "recap" are internal authoring notes — never shown to readers; write the seed in ${nativeName} and follow ${chapterSeedHint}, staying faithful to this chapter's premise; keep the recap in English for internal rolling context`;
 
     const userContent = [
       `Story synopsis: ${synopsisLine}`,
@@ -811,7 +811,7 @@ Check ONLY these things:
 - continuity: contradictions with the story synopsis
 
 Return a JSON object — no extra text:
-{ "issues": ["<issue in English, max 20 words, cite the sentence number>"] }
+  { "issues": ["<issue in ${nativeName}, max 20 words, cite the sentence number>"] }
 
 Rules:
 - Return an empty array when the chapter is fine

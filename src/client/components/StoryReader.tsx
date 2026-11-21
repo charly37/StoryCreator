@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Paper, Button, Chip, CircularProgress,
   Alert, LinearProgress, IconButton, Tooltip, Divider, Menu, MenuItem,
-  ToggleButton, ToggleButtonGroup,
+  ToggleButton, ToggleButtonGroup, Dialog, DialogTitle, DialogContent,
+  DialogActions, FormControl, InputLabel, Select,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -26,6 +27,13 @@ import { formatRelativeDate } from '../utils/relativeDate';
 import { cloneStory } from '../utils/cloneStory';
 import { getChapterContext, getChapterStartIndex, getStoryPercent } from '../utils/readingProgress';
 import { useTouchInput } from '../utils/useTouchInput';
+import {
+  createEpub,
+  openStoryPrintDocument,
+  projectStoryForExport,
+  storyExportFilename,
+  StoryExportEdition,
+} from '../utils/storyExport';
 import {
   downloadName,
   fetchStoryAudio,
@@ -161,6 +169,9 @@ const StoryReader: React.FC<StoryReaderProps> = ({
   const [audioVariants, setAudioVariants] = useState<StoryAudioVariant[]>([]);
   const [audioVariant, setAudioVariant] = useState<TtsVariant | null>(null);
   const [audioStatus, setAudioStatus] = useState<TtsRequestStatus | null>(null);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'epub' | 'pdf'>('epub');
+  const [exportEdition, setExportEdition] = useState<StoryExportEdition>('bilingual');
 
   useEffect(() => {
     if (!storyId) return;
@@ -286,6 +297,47 @@ const StoryReader: React.FC<StoryReaderProps> = ({
       return;
     }
     navigate(`/editor/${result.id}`);
+  };
+
+  const handleExport = () => {
+    if (!story) return;
+    try {
+      const book = projectStoryForExport(
+        story,
+        exportEdition,
+        (number) => t('reader.chapterN', { n: number }),
+        i18n.language
+      );
+      if (book.chapters.length === 0) return;
+
+      if (exportFormat === 'pdf') {
+        if (!openStoryPrintDocument(book)) {
+          setActionError(t('reader.export.popupBlocked'));
+          return;
+        }
+        setExportDialogOpen(false);
+        return;
+      }
+
+      const bytes = createEpub(book, story._id, new Date(), t('reader.export.contents'));
+      const epubBuffer = bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength
+      ) as ArrayBuffer;
+      const blob = new Blob([epubBuffer], { type: 'application/epub+zip' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = storyExportFilename(book.titles[0]?.text || '', exportEdition, 'epub');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setExportDialogOpen(false);
+      setActionError('');
+    } catch {
+      setActionError(t('reader.export.error'));
+    }
   };
 
   // Keyboard shortcuts: ← / → move between sentences, ↑ / ↓ hide / reveal the translation.
@@ -472,6 +524,17 @@ const StoryReader: React.FC<StoryReaderProps> = ({
           </Button>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {renderExtraActions?.(story)}
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={() => {
+                setActionError('');
+                setExportDialogOpen(true);
+              }}
+              disabled={flatSentences.length === 0}
+            >
+              {t('reader.export.open')}
+            </Button>
             {(allowClone || showDisabledClone) && (
               <Tooltip title={allowClone ? '' : t('creatorAccess.tooltip')}>
                 <span>
@@ -492,6 +555,50 @@ const StoryReader: React.FC<StoryReaderProps> = ({
         {actionError && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError('')}>{actionError}</Alert>
         )}
+
+        <Dialog
+          open={exportDialogOpen}
+          onClose={() => setExportDialogOpen(false)}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>{t('reader.export.title')}</DialogTitle>
+          <DialogContent>
+            <FormControl fullWidth sx={{ mt: 1, mb: 2 }}>
+              <InputLabel id="story-export-format-label">{t('reader.export.format')}</InputLabel>
+              <Select
+                labelId="story-export-format-label"
+                id="story-export-format"
+                value={exportFormat}
+                label={t('reader.export.format')}
+                onChange={(event) => setExportFormat(event.target.value as 'epub' | 'pdf')}
+              >
+                <MenuItem value="epub">{t('reader.export.epub')}</MenuItem>
+                <MenuItem value="pdf">{t('reader.export.pdf')}</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel id="story-export-edition-label">{t('reader.export.edition')}</InputLabel>
+              <Select
+                labelId="story-export-edition-label"
+                id="story-export-edition"
+                value={exportEdition}
+                label={t('reader.export.edition')}
+                onChange={(event) => setExportEdition(event.target.value as StoryExportEdition)}
+              >
+                <MenuItem value="bilingual">{t('reader.export.bilingual')}</MenuItem>
+                <MenuItem value="learning">{t('reader.export.learningOnly')}</MenuItem>
+                <MenuItem value="native">{t('reader.export.nativeOnly')}</MenuItem>
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setExportDialogOpen(false)}>{t('common.cancel')}</Button>
+            <Button variant="contained" onClick={handleExport}>
+              {t(exportFormat === 'epub' ? 'reader.export.downloadEpub' : 'reader.export.printPdf')}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Story header */}
         <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderLeft: '4px solid', borderColor: 'primary.main' }}>

@@ -10,6 +10,7 @@ import {
 import { createLogger } from '../config/logger';
 import { beginJob, failJob, finishJob, recountSentences } from './storyJobService';
 import { MAX_ISSUES, sanitizeIssues } from './storyInput';
+import { formatChapterValidationFinding } from '../shared/chapterValidationMessages';
 
 const log = createLogger('storyGeneration');
 
@@ -119,7 +120,7 @@ async function runStoryGeneration(
       };
       // The same deterministic checks the staged validation stage runs, applied for
       // free here: quick mode previously shipped whatever the model returned.
-      return { ...mapped, issues: evaluateChapter(mapped) };
+      return { ...mapped, issues: evaluateChapter(mapped, story.nativeLanguage) };
     });
 
     const untranslated = mappedChapters.filter(isUntranslatedChapter);
@@ -499,16 +500,20 @@ function isUntranslatedChapter(chapter: { sentences?: Array<{ lang1: string; lan
 
 /**
  * Stage 3 — free deterministic checks; used by both validation modes.
- * Issues are plain English strings stored on the chapter and rendered by the UI.
+ * Localized issue strings are stored on the chapter and rendered by the UI.
  */
-function evaluateChapter(chapter: IChapter): string[] {
+function evaluateChapter(chapter: IChapter, nativeLanguage: string): string[] {
   const sentences = chapter.sentences ?? [];
-  if (sentences.length === 0) return ['This chapter has no sentences yet.'];
+  if (sentences.length === 0) return [formatChapterValidationFinding({ type: 'empty' }, nativeLanguage)];
 
   const issues: string[] = [];
   const target = chapter.targetSentences ?? sentences.length;
   if (sentences.length !== target) {
-    issues.push(`Expected ${target} sentences but found ${sentences.length}.`);
+    issues.push(formatChapterValidationFinding({
+      type: 'countMismatch',
+      expected: target,
+      actual: sentences.length,
+    }, nativeLanguage));
   }
 
   const seen = new Map<string, number>();
@@ -518,13 +523,17 @@ function evaluateChapter(chapter: IChapter): string[] {
     const key = `${lang1.toLowerCase()}||${lang2.toLowerCase()}`;
     const previous = seen.get(key);
     if (previous !== undefined) {
-      issues.push(`Sentence ${index + 1} repeats sentence ${previous + 1}.`);
+      issues.push(formatChapterValidationFinding({
+        type: 'repeated',
+        current: index + 1,
+        previous: previous + 1,
+      }, nativeLanguage));
     } else {
       seen.set(key, index);
     }
 
     if (lang1.toLowerCase() === lang2.toLowerCase()) {
-      issues.push(`Sentence ${index + 1} is identical in both languages.`);
+      issues.push(formatChapterValidationFinding({ type: 'identical', sentence: index + 1 }, nativeLanguage));
       return;
     }
 
@@ -532,7 +541,7 @@ function evaluateChapter(chapter: IChapter): string[] {
       const longest = Math.max(lang1.length, lang2.length);
       const shortest = Math.min(lang1.length, lang2.length);
       if (longest > shortest * 4) {
-        issues.push(`Sentence ${index + 1} looks like a partial translation (length mismatch).`);
+        issues.push(formatChapterValidationFinding({ type: 'partialTranslation', sentence: index + 1 }, nativeLanguage));
       }
     }
   });
@@ -619,7 +628,7 @@ async function runValidation(
         lang2: sentence.lang2,
       }));
 
-      let issues = evaluateChapter(chapter);
+      let issues = evaluateChapter(chapter, story.nativeLanguage);
 
       if (mode === 'ai_review' && sentences.length > 0) {
         try {
