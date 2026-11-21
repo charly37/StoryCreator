@@ -52,7 +52,13 @@ from pymongo import MongoClient, ReturnDocument
 from pymongo.collection import Collection
 from pymongo.database import Database
 
-from audio_render import bilingual_segments, build_render, speech_segments
+from audio_render import (
+    RENDER_TEMP_DIR,
+    bilingual_segments,
+    build_render,
+    cleanup_stale_render_temps,
+    speech_segments,
+)
 from tts_provider import FakeProvider, QuotaExceededError, TtsError, build_provider
 from voices import voice_for
 
@@ -343,7 +349,9 @@ def write_render(
 ) -> None:
     key = render_key(request["storyId"], story_hash_value, variant)
     output_path = ctx.audio_dir / key
-    duration_ms, size_bytes = build_render(segments, output_path)
+    duration_ms, size_bytes = build_render(
+        segments, output_path, scratch_dir=ctx.audio_dir / RENDER_TEMP_DIR
+    )
 
     ctx.renders.update_one(
         {"storyId": request["storyId"], "storyHash": story_hash_value, "variant": variant},
@@ -651,6 +659,9 @@ def run(args: argparse.Namespace) -> int:
 
         audio_dir.mkdir(parents=True, exist_ok=True)
         ensure_audio_dir(audio_dir)
+        stale_temps = cleanup_stale_render_temps(audio_dir)
+        if stale_temps:
+            log.info("Removed %d stale render workspace(s)", stale_temps)
         bootstrap(ctx)
         reconcile_renders(ctx)
         log.info(

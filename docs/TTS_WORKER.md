@@ -88,13 +88,19 @@ Ported from `PortugueseLearning/vocal_lesson_creator/combine_mp3.py`:
 | Gap between sentences | 250 ms |
 | Gap at a language switch | 700 ms |
 | Gap at a chapter boundary | 1200 ms |
-| Encoding | pydub mp3 export (decode → mix → single encode) |
+| Encoding | Disk-backed PCM staging, then one ffmpeg MP3 encode at 128 kb/s |
 
 PortugueseLearning's 1300/2000 ms gaps are tuned for vocabulary recall drills and would make
 narration crawl, which is why they are shorter here.
 
 **Bilingual order** is native-first, per sentence: `s1.lang1, s1.lang2, s2.lang1, s2.lang2, …` — the
 same "familiar language first" convention as the vocabulary lessons.
+
+Render assembly decodes, normalizes, and writes one sentence clip at a time to a temporary WAV under
+`AUDIO_PATH/.tts-render-tmp`; ffmpeg then applies the final peak gain and encodes the MP3. This keeps
+decoded audio memory bounded by the largest individual clip instead of the full story. Scratch disk
+use grows with render duration (about 303 MiB per hour at 44.1 kHz mono 16-bit PCM). Temporary workspaces
+are removed after each render; workspaces older than 24 hours are cleaned at worker startup after a crash.
 
 ---
 
