@@ -93,10 +93,12 @@ restart, provider timeout — only regenerates the missing chapters.
 
 ## Chat-Style Outline Iteration
 
-Stage 1 supports direct editing plus a single free-text "adjust with AI" box, so each round of
-feedback is stateless. A conversational thread would let the author argue with the planner across
-turns without re-sending the whole plan. Needs a messages collection and a thread UI, which is why
-it was left out of the first version.
+**Partially delivered (2026-11-28).** Stage 1 now has a planning chat: the AI asks clarifying
+questions, proposes options and maintains a short `brief` of the author's confirmed intent, which
+the existing "Adjust with AI" action sends as `feedback`. The transcript is intentionally
+**client-side only**, so it is lost on reload; a persisted thread (messages collection + resume
+across devices) is still open. The automatic post-planning review costs one extra AI call per
+outline run.
 
 
 

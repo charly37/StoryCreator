@@ -80,6 +80,12 @@ export const MAX_SYNOPSIS_LENGTH = 4000;
 export const MAX_ISSUES = 10;
 export const MAX_ISSUE_LENGTH = 240;
 
+/** Rewrite-planning chat: the transcript lives client-side, so the server caps it. */
+export const MAX_OUTLINE_CHAT_MESSAGES = 20;
+export const MAX_OUTLINE_CHAT_MESSAGE_LENGTH = 2000;
+export const MAX_OUTLINE_CHAT_BRIEF_LENGTH = 1200;
+export const MAX_OUTLINE_FEEDBACK_LENGTH = 4000;
+
 export interface SanitizedSynopsis {
   lang1: string;
   lang2: string;
@@ -139,6 +145,30 @@ export function sanitizeIssues(input: unknown): string[] {
 
 export type ParsedGenerationMode = 'quick' | 'staged';
 export type ParsedValidationMode = '' | 'basic' | 'ai_review';
+
+export interface SanitizedChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * Transcript supplied by the client (the thread is not persisted server-side).
+ * Roles are whitelisted, blank entries dropped, each message capped, and only
+ * the most recent messages are kept so one request cannot grow without bound.
+ */
+export function sanitizeChatMessages(input: unknown): SanitizedChatMessage[] {
+  if (!Array.isArray(input)) return [];
+  const messages: SanitizedChatMessage[] = [];
+  for (const entry of input) {
+    if (!entry || typeof entry !== 'object') continue;
+    const raw = entry as { role?: unknown; content?: unknown };
+    const role = raw.role === 'assistant' ? 'assistant' : raw.role === 'user' ? 'user' : null;
+    const content = trimString(raw.content).slice(0, MAX_OUTLINE_CHAT_MESSAGE_LENGTH);
+    if (!role || !content) continue;
+    messages.push({ role, content });
+  }
+  return messages.slice(-MAX_OUTLINE_CHAT_MESSAGES);
+}
 
 /** Unknown/absent values fall back to 'quick' so the one-shot path stays the default. */
 export function sanitizeGenerationMode(input: unknown): ParsedGenerationMode {

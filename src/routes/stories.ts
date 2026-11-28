@@ -26,13 +26,16 @@ import {
 import {
   DEFAULT_SENTENCES_PER_CHAPTER,
   MAX_CHAPTERS_PER_STORY,
+  MAX_OUTLINE_FEEDBACK_LENGTH,
   sanitizeAIGuideline,
   sanitizeCharacters,
+  sanitizeChatMessages,
   sanitizeGenerationMode,
   sanitizeLabels,
   sanitizeSynopsis,
   sanitizeValidationMode,
 } from '../services/storyInput';
+import { replyToOutlineChat } from '../services/outlineChatService';
 
 const router = express.Router();
 
@@ -621,7 +624,10 @@ router.post('/:id/outline', requireAuth, requireCreatePermission, async (req: Re
       return res.status(400).json({ message: selection.message, code: 'INVALID_MODEL' });
     }
 
-    const feedback = typeof req.body?.feedback === 'string' ? req.body.feedback : undefined;
+    const feedback =
+      typeof req.body?.feedback === 'string'
+        ? req.body.feedback.trim().slice(0, MAX_OUTLINE_FEEDBACK_LENGTH) || undefined
+        : undefined;
     const result = await startOutlineGeneration(
       String(story._id),
       selection.model,
@@ -636,6 +642,60 @@ router.post('/:id/outline', requireAuth, requireCreatePermission, async (req: Re
     res.status(500).json({ message: 'Server error starting outline generation' });
   }
 });
+
+// POST /api/stories/:id/outline/chat — synchronous rewrite-planning discussion
+router.post(
+  '/:id/outline/chat',
+  requireAuth,
+  requireCreatePermission,
+  async (req: Request, res: Response) => {
+    try {
+      const story = await loadOwnedStory(req, res);
+      if (!story) return;
+      if (story.generationMode !== 'staged') {
+        return res.status(400).json({ message: 'This story is not in interactive mode', code: 'NOT_STAGED' });
+      }
+      if (story.generating) {
+        return res.status(409).json({ message: 'Story is already generating', code: 'STORY_GENERATING' });
+      }
+      const synopsis = story.outline?.synopsis;
+      if (!synopsis?.lang1?.trim() && !synopsis?.lang2?.trim()) {
+        return res.status(400).json({ message: 'Generate and review the outline first', code: 'OUTLINE_REQUIRED' });
+      }
+
+      const selection = resolveModelSelection(req.body?.model, req.body?.effort);
+      if (!selection.ok) {
+        return res.status(400).json({ message: selection.message, code: 'INVALID_MODEL' });
+      }
+
+      const mode = req.body?.mode === 'review' ? 'review' : 'chat';
+      const messages = sanitizeChatMessages(req.body?.messages);
+      if (mode === 'chat' && !messages.some((message) => message.role === 'user')) {
+        return res.status(400).json({
+          message: 'Send at least one message with content',
+          code: 'INVALID_MESSAGES',
+        });
+      }
+
+      // The reply follows the author's UI language, not the story languages.
+      const replyLanguage = req.body?.locale === 'fr' ? 'fr' : 'en';
+      const reply = await replyToOutlineChat(story, {
+        messages,
+        mode,
+        replyLanguage,
+        model: selection.model,
+        effort: selection.effort,
+      });
+
+      res.json(reply);
+    } catch (error) {
+      req.log.error({ err: error }, 'Error replying in outline chat');
+      res.status(502).json({
+        message: error instanceof Error ? error.message : 'The AI request failed',
+      });
+    }
+  }
+);
 
 // POST /api/stories/:id/generate-chapters — stage 2: write the approved outline
 router.post(

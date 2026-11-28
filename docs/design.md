@@ -54,7 +54,7 @@ External clients
 - The Review page (`StoryReviewPage`) allows editing metadata, chapter titles, premises and the cast, reviewing sentence output in read-only mode, regenerating a single chapter, regenerating the whole story, and publishing/unpublishing.
 
 - **Interactive staged mode (opt-in, website only).** Stories created with `generationMode: 'staged'` go through three explicit stages instead of one call:
-  1. **Outline** — planning only: bilingual synopsis, cast, chapter titles and premises. No prose, so it is cheap enough to iterate on; the author edits the fields directly or asks for changes in a free-text feedback box.
+  1. **Outline** — planning only: bilingual synopsis, cast, chapter titles and premises. No prose, so it is cheap enough to iterate on; the author edits the fields directly and discusses the next version with the AI in a chat. The chat is a planning partner: it asks clarifying questions, proposes concrete options, and maintains a short **brief** of the intent the author confirmed. “Adjust with AI” regenerates the plan from that brief (disabled until one exists). The transcript stays in the browser; the brief is what crosses to the server.
   2. **Chapters** — written one AI call per chapter, in order. Each call receives the synopsis plus the recaps of the chapters already written (bounded context — never the full text of earlier chapters).
   3. **Validation (optional)** — offered *after* the chapters exist, as a choice with its cost in AI calls: skip, deterministic checks (free), or one AI review call per chapter. Findings are stored per chapter in `chapters[].issues`.
   - `stage` tracks the position (`setup` → `outline` → `chapters` → `validation` → `ready`); `generating` still means "a job is running in this stage".
@@ -258,8 +258,9 @@ src/
   serializers/
     publicStory.ts    — Allow-list shaping for public story responses
   services/
-    aiService.ts      — OpenAI prompts (one-shot generate / regenerate; staged outline / chapter / review)
+    aiService.ts      — OpenAI prompts (one-shot generate / regenerate; staged outline / chapter / review / planning chat)
     storyGenerationService.ts — Job orchestration (one-shot + staged: outline, chapters, validation)
+    outlineChatService.ts — Synchronous rewrite-planning chat (context assembly, no job, aiCallCount)
     storyJobService.ts — Single-flight job guard, targeted writes, stall sweep, sentence recount
     apiKeyService.ts  — Hashing, generation, lookup, last-used tracking
   i18n.ts             — i18next config (client-side)

@@ -77,6 +77,39 @@ export interface GenerateOutlineOptions {
   feedback?: string;
 }
 
+export interface OutlineChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * A turn in the rewrite-planning chat. `brief` is the author's confirmed intent
+ * for the next version of the plan (empty until something is actually agreed).
+ */
+export interface OutlineChatReply {
+  reply: string;
+  brief: string;
+}
+
+export interface OutlineChatOptions {
+  seed: string;
+  nativeLanguage: string;
+  learningLanguage: string;
+  level: string;
+  aiGuideline?: string;
+  synopsis: { lang1: string; lang2: string };
+  characters: CharacterSpec[];
+  chapterSpecs: OutlineChapterSpec[];
+  messages: OutlineChatMessage[];
+  /** `review` asks for proactive suggestions and never fills the brief. */
+  mode: 'chat' | 'review';
+  /** Language of the assistant reply (UI language), as a language code. */
+  replyLanguage: string;
+  model?: string;
+  /** Explicit thinking level; omitted means the provider default. */
+  effort?: ReasoningEffort | '';
+}
+
 export interface GenerateChapterOptions {
   storySeed: string;
   synopsis: { lang1: string; lang2: string };
@@ -151,6 +184,7 @@ export interface IAIService {
   generateOutline(options: GenerateOutlineOptions): Promise<StoryOutline>;
   generateChapter(options: GenerateChapterOptions): Promise<ChapterDraft>;
   reviewChapter(options: ReviewChapterOptions): Promise<ChapterReview>;
+  chatAboutOutline(options: OutlineChatOptions): Promise<OutlineChatReply>;
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -841,6 +875,89 @@ Rules:
       : [];
 
     return { issues };
+  }
+
+  /**
+   * Rewrite-planning chat: a lightweight JSON call (never a job) that helps the
+   * author clarify what should change in the next version of the plan. The model
+   * maintains a short `brief` of confirmed intent; it never writes prose.
+   */
+  async chatAboutOutline(options: OutlineChatOptions): Promise<OutlineChatReply> {
+    const nativeName = languageName(options.nativeLanguage);
+    const learningName = languageName(options.learningLanguage);
+    const replyLangName = languageName(options.replyLanguage);
+
+    const chapterList = options.chapterSpecs
+      .map(
+        (chapter, i) =>
+          `Chapter ${i + 1} (${chapter.targetSentences} sentences): ` +
+          `"${chapter.title.lang1 || chapter.title.lang2 || '(untitled)'}" — ${chapter.seed || '(no premise yet)'}`
+      )
+      .join('\n');
+    const castList = characterLines(options.characters) || '(no cast defined)';
+    const transcript = options.messages.length
+      ? options.messages
+          .map((message) => `${message.role === 'user' ? 'Author' : 'Assistant'}: ${message.content}`)
+          .join('\n\n')
+      : '(no messages yet — start the discussion)';
+
+    const modeInstruction =
+      options.mode === 'review'
+        ? `This is a REVIEW request: the plan was just produced. Give 3 to 5 concrete improvement ideas (name the chapter and the reason) and 2 to 3 important questions whose answers would make the next version better. Set "brief" to an empty string — nothing has been agreed yet.`
+        : `This is a DISCUSSION: help the author decide what to change in the next version. Ask at most 3 targeted questions when the intent is unclear, and propose concrete options (which chapter, what change, why) instead of vague advice.`;
+
+    const systemPrompt = `You are the author's planning partner for the next version of a bilingual parallel-text story.
+You do NOT rewrite the story and you never claim the plan was already changed: the author applies changes by regenerating the plan afterwards.
+Your goal is to understand the author's real intent before the rewrite: ask clarifying questions, offer concrete options, and keep a short brief of what the author actually confirmed.
+
+Level: ${options.level}
+${levelGuidanceFor(options.level)}
+${guidelineBlockFor(options.aiGuideline)}
+
+${modeInstruction}
+
+Return a JSON object with exactly this structure — no extra text or markdown:
+{
+  "reply": "<the message shown to the author, in ${replyLangName}>",
+  "brief": "<the author's confirmed intent for the next version, or an empty string>"
+}
+
+Rules:
+- "reply" must be in ${replyLangName}
+- "brief" is a short bullet list (at most 8 lines, at most 900 characters) of the author's CONFIRMED intent: goals, tone/style constraints, and per-chapter changes. Include only what the author explicitly asked for or accepted; never include your own unaccepted suggestions.
+- Return "brief": "" when no change has been agreed yet (for example in a review request)
+- Never write story prose, sentences, or dialogue
+- The story languages stay ${nativeName} (lang1) and ${learningName} (lang2); the synopsis and chapter premises below are author-owned context, not text to rewrite`;
+
+    const userContent = [
+      `Story seed:\n${options.seed}`,
+      `Current synopsis:\n- lang1 (${nativeName}): ${options.synopsis.lang1 || '(empty)'}\n- lang2 (${learningName}): ${options.synopsis.lang2 || '(empty)'}`,
+      `Characters:\n${castList}`,
+      `Chapter plan:\n${chapterList}`,
+      `Conversation so far:\n${transcript}`,
+    ].join('\n\n');
+
+    const parsed = (await this.callJson({
+      selectionId: options.model,
+      effort: options.effort,
+      systemPrompt,
+      userContent,
+      timeoutMs: AI_CALL_TIMEOUT_MS,
+    })) as { reply?: unknown; brief?: unknown };
+
+    const reply = typeof parsed.reply === 'string' ? parsed.reply.trim() : '';
+    if (!reply) {
+      throw new Error('The AI returned an empty response; please retry.');
+    }
+    // A review only proposes ideas; the brief is only filled by the discussion.
+    const brief =
+      options.mode === 'review'
+        ? ''
+        : typeof parsed.brief === 'string'
+          ? parsed.brief.trim()
+          : '';
+
+    return { reply, brief };
   }
 }
 

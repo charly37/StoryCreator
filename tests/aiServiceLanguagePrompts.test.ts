@@ -18,7 +18,7 @@ test('visible AI-authored notes follow the FROM language', async () => {
       user: payload.messages.find(({ role }) => role === 'user')?.content ?? '',
     });
     return new Response(JSON.stringify({
-      choices: [{ finish_reason: 'stop', message: { content: '{}' } }],
+      choices: [{ finish_reason: 'stop', message: { content: '{"reply":"ok","brief":"brief"}' } }],
     }), { status: 200, headers: { 'content-type': 'application/json' } });
   };
 
@@ -58,13 +58,25 @@ test('visible AI-authored notes follow the FROM language', async () => {
       learningLanguage: 'pt',
       level: 'beginner',
     });
+    await aiService.chatAboutOutline({
+      seed: 'Une horloge oubliée sonne à minuit.',
+      nativeLanguage: 'fr',
+      learningLanguage: 'pt',
+      level: 'beginner',
+      synopsis: { lang1: 'Une horloge sonne.', lang2: 'Um relógio toca.' },
+      characters: [],
+      chapterSpecs: [{ title: { lang1: '', lang2: '' }, seed: '', targetSentences: 8 }],
+      messages: [{ role: 'user', content: 'Rends la fin plus joyeuse.' }],
+      mode: 'chat',
+      replyLanguage: 'fr',
+    });
   } finally {
     globalThis.fetch = originalFetch;
     if (originalApiKey === undefined) delete process.env.OPEN_AI_KEY;
     else process.env.OPEN_AI_KEY = originalApiKey;
   }
 
-  assert.equal(requests.length, 5);
+  assert.equal(requests.length, 6);
   assert.match(requests[0].system, /chapter seeds are internal authoring notes in French/i);
   assert.match(requests[0].system, /description.*in French/i);
   assert.match(requests[0].system, /appearance.*in French/i);
@@ -75,4 +87,7 @@ test('visible AI-authored notes follow the FROM language', async () => {
   assert.match(requests[2].system, /"seed".*in French/i);
   assert.match(requests[3].system, /updated premise in French/i);
   assert.match(requests[4].system, /issue in French/i);
+  assert.match(requests[5].system, /reply.*in French/i);
+  assert.match(requests[5].system, /confirmed intent/i);
+  assert.match(requests[5].user, /Rends la fin plus joyeuse/);
 });

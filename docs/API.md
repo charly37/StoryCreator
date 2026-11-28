@@ -347,9 +347,30 @@ Each endpoint returns `202` and runs in the background (`generating: true`). Whi
 *Auth + creator access + author.* Stage 1 — plan the story (bilingual synopsis, cast, chapter
 titles/premises). Writes no prose.
 
-**Body:** `{ model?, feedback? }` — `feedback` switches the call into "adjust the current plan".
+**Body:** `{ model?, effort?, feedback? }` — `feedback` switches the call into "adjust the current plan"
+and is capped at 4000 characters.
 
 Returns `400` when the seed is blank or the story has no chapters.
+
+### `POST /api/stories/:id/outline/chat`
+
+*Auth + creator access + author.* Synchronous **rewrite-planning discussion**. Unlike the stage
+endpoints below, it runs no job: `generating` stays `false` and there is no `202`.
+
+**Body:** `{ messages: [{ role: "user" | "assistant", content }], mode?: "chat" | "review", model?, effort?, locale? }`
+
+- The transcript lives **client-side only** (nothing is persisted); the server caps it at 20 messages
+  of 2000 characters each.
+- Returns `200 { reply, brief }`. `reply` is the message shown to the author, written in `locale`
+  (`en` fallback, `fr` supported). `brief` is a short structured summary of the **intent the author
+  actually confirmed** for the next version — empty until a change is agreed. The client sends it as
+  `feedback` when it calls `/outline`.
+- `mode: "review"` asks for proactive improvement ideas and questions after a plan is produced; it
+  always returns `brief: ""` because suggestions are not accepted changes.
+
+Returns `409 { code: "STORY_GENERATING" }` while a job runs, `400 { code: "OUTLINE_REQUIRED" }`
+before any outline exists, and `400 { code: "INVALID_MESSAGES" }` when `mode` is `chat` and no usable
+message is provided.
 
 ### `POST /api/stories/:id/generate-chapters`
 

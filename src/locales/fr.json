@@ -272,8 +272,7 @@
       "outlineModelHint": "Planifie l'histoire et sert de modèle par défaut pour la relecture facultative.",
       "thinking": "Niveau de réflexion",
       "createDraft": "Créer le brouillon et planifier le plan",
-      "yourLanguage": "votre langue",
-      "learningLanguageFallback": "langue d'apprentissage"
+      "yourLanguage": "votre langue"
     },
     "outline": {
       "title": "Plan de l'histoire",
@@ -281,8 +280,15 @@
       "empty": "Pas encore de plan — générez-en un pour obtenir un résumé et des prémisses de chapitres modifiables.",
       "synopsis": "Résumé de l'histoire ({{lang}})",
       "synopsisHint": "Toute l'intrigue en quelques phrases. Modifiez-le librement — les chapitres en découlent.",
-      "feedbackLabel": "Demander des changements à l'IA (facultatif)",
-      "feedbackPlaceholder": "ex. Rends la fin plus optimiste et ajoute un personnage rival au chapitre 2.",
+      "guidelineHint": "Consigne de style appliquée lors de la regénération de ce plan et lors de la rédaction des chapitres.",
+      "chatTitle": "Planifier la prochaine version avec l'IA",
+      "chatHint": "L'IA vous aide à clarifier ce qu'il faut changer et pose des questions quand votre intention n'est pas claire. Chaque message coûte un appel IA ; le brief ci-dessous est ce qui sera appliqué à la regénération.",
+      "chatEmpty": "Demandez à l'IA ce qui peut être amélioré, ou décrivez ce que vous voulez changer dans la prochaine version.",
+      "chatPlaceholder": "Répondez à l'IA ou décrivez ce que vous voulez changer…",
+      "chatSend": "Envoyer",
+      "chatThinking": "L'IA réfléchit…",
+      "briefLabel": "Brief pour la prochaine version",
+      "briefEmpty": "Discutez avec l'IA jusqu'à ce qu'un brief concret apparaisse ici. « Ajuster avec l'IA » reste désactivé jusque-là.",
       "generate": "Générer le plan",
       "adjust": "Ajuster avec l'IA",
       "approve": "Valider et écrire les chapitres",
@@ -326,6 +332,7 @@
       "outlineFailed": "Impossible de lancer la génération du plan.",
       "chaptersFailed": "Impossible de lancer la génération des chapitres.",
       "validationFailed": "Impossible de lancer les contrôles de qualité.",
+      "chatFailed": "L'IA n'a pas pu répondre. Veuillez réessayer.",
       "generic": "Une erreur est survenue. Veuillez réessayer."
     }
   },

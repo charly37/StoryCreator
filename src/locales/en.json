@@ -272,8 +272,7 @@
       "outlineModelHint": "Plans the story and is the default model for the optional quality review.",
       "thinking": "Thinking level",
       "createDraft": "Create draft and plan the outline",
-      "yourLanguage": "your language",
-      "learningLanguageFallback": "learning language"
+      "yourLanguage": "your language"
     },
     "outline": {
       "title": "Story outline",
@@ -281,8 +280,15 @@
       "empty": "No outline yet — generate one to get a synopsis and chapter premises you can edit.",
       "synopsis": "Story summary ({{lang}})",
       "synopsisHint": "The whole arc in a few sentences. Edit it freely — the chapters are written from this.",
-      "feedbackLabel": "Ask the AI for changes (optional)",
-      "feedbackPlaceholder": "e.g. Make the ending more hopeful and add a rival character in chapter 2.",
+      "guidelineHint": "Style guideline applied when regenerating this outline and when writing the chapters.",
+      "chatTitle": "Plan the next version with the AI",
+      "chatHint": "The AI helps you clarify what to change and asks questions when your intent is unclear. Each message uses one AI call; the brief below is what gets applied when you regenerate.",
+      "chatEmpty": "Ask the AI what could be improved, or describe what you want to change in the next version.",
+      "chatPlaceholder": "Answer the AI or describe what you want to change…",
+      "chatSend": "Send",
+      "chatThinking": "The AI is thinking…",
+      "briefLabel": "Brief for the next version",
+      "briefEmpty": "Discuss with the AI until a concrete brief appears here. « Adjust with AI » stays disabled until then.",
       "generate": "Generate outline",
       "adjust": "Adjust with AI",
       "approve": "Approve and write chapters",
@@ -326,6 +332,7 @@
       "outlineFailed": "Could not start the outline generation.",
       "chaptersFailed": "Could not start the chapter generation.",
       "validationFailed": "Could not start the quality checks.",
+      "chatFailed": "The AI could not answer. Please try again.",
       "generic": "Something went wrong. Please try again."
     }
   },

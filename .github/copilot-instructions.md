@@ -163,8 +163,10 @@ Express catch-all `app.get('/{*path}', ...)` serves `public/index.html` for all 
 - `POST /:id/generate-chapters` — Stage 2: write the approved outline one chapter at a time (sequential, rolling recaps). Sets `outline.approvedAt`.
 - `POST /:id/validate` — Stage 3 (optional). Body `{ mode: 'basic' | 'ai_review' | 'none', model?, effort? }`; findings go to `chapters[].issues`.
 - `POST /:id/reset-outline` — back to stage `outline`, clears `outline.approvedAt`, keeps prose.
+- `POST /:id/outline/chat` — **synchronous** rewrite-planning discussion; body `{ messages, mode?: 'chat'|'review', model?, effort?, locale? }` → `200 { reply, brief }`. Not a job (`409 STORY_GENERATING` while one runs, `400 OUTLINE_REQUIRED` before a plan exists). The transcript is client-side only; the AI-maintained `brief` is sent as `outline`'s `feedback` when regenerating (capped at 4000 chars). `mode: 'review'` always returns an empty brief.
 
-All four are `202` + fire-and-forget; progress is read from `GET /api/stories/:id` (`stage`, `jobProgress`, `generating`, `generationError`).
+All four stage endpoints are `202` + fire-and-forget; the chat route is the synchronous exception.
+Progress is read from `GET /api/stories/:id` (`stage`, `jobProgress`, `generating`, `generationError`).
 
 **Creator access**: story creation and all three AI endpoints sit behind the
 `requireCreatePermission` middleware in `src/routes/stories.ts`, which returns

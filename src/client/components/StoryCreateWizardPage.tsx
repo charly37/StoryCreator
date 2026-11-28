@@ -101,6 +101,14 @@ const MAX_CHAPTERS = 10;
 const MAX_CHARACTERS = 20;
 const POLL_INTERVAL_MS = 5000;
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/** Marks an outline job started in this tab so its AI review runs exactly once. */
+const autoReviewPendingKey = (storyId: string) => `storyCreator.wizardAutoReview.${storyId}`;
+
 const parseLabels = (value: string): string[] => {
   const seen = new Set<string>();
   return value
@@ -118,7 +126,7 @@ const parseLabels = (value: string): string[] => {
 const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) => {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const canCreate = !!user.canCreateStories;
 
   // --- setup form (step 1) ---
@@ -151,8 +159,13 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
   const [synopsisLang1, setSynopsisLang1] = useState('');
   const [synopsisLang2, setSynopsisLang2] = useState('');
   const [chapterEdits, setChapterEdits] = useState<ChapterEdits[]>([]);
-  const [feedback, setFeedback] = useState('');
+  // --- rewrite-planning chat (client-side only by design) ---
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
+  const [outlineBrief, setOutlineBrief] = useState('');
   const hydratedKey = useRef('');
+  const chatListRef = useRef<HTMLDivElement | null>(null);
 
   const fetchStory = useCallback(async () => {
     if (!id) return;
@@ -231,6 +244,26 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
   );
 
   const activeStep = !story ? 0 : stage === 'ready' ? 3 : stage === 'chapters' || stage === 'validation' ? 2 : 1;
+
+  // Keep the newest chat bubble visible.
+  useEffect(() => {
+    const list = chatListRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [chatMessages, chatBusy]);
+
+  // After an outline run started in this tab, ask the AI for suggestions once.
+  // Reloads never trigger a hidden AI call: the flag is consumed and session-scoped.
+  useEffect(() => {
+    if (!story || !id || story.generating || story.stage !== 'outline') return;
+    const key = autoReviewPendingKey(story._id);
+    if (!sessionStorage.getItem(key)) return;
+    sessionStorage.removeItem(key);
+    if (story.generationError) return;
+    setOutlineBrief('');
+    // Use the persisted synopsis, not the hydrated mirror: mirrors update a render later.
+    const synopsis = story.outline?.synopsis;
+    if (synopsis?.lang1?.trim() || synopsis?.lang2?.trim()) void requestAutoReview();
+  }, [story, id]);
 
   const request = async (url: string, init?: RequestInit) => {
     const res = await fetch(url, {
@@ -313,6 +346,8 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
       });
       if (!started.ok) {
         reportFailure(started.data, t('wizard.errors.outlineFailed'));
+      } else {
+        sessionStorage.setItem(autoReviewPendingKey(storyId), '1');
       }
       navigate(`/create/${storyId}`);
     } catch {
@@ -348,7 +383,7 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
   };
 
   const handleGenerateOutline = async (withFeedback: boolean) => {
-    if (!story) return;
+    if (!story || chatBusy) return;
     setBusy(true);
     setError('');
     try {
@@ -358,19 +393,76 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
         body: JSON.stringify({
           model: outlineAiModel,
           effort: effortForRequest(outlineAiModel, outlineEffort),
-          ...(withFeedback && feedback.trim() ? { feedback: feedback.trim() } : {}),
+          ...(withFeedback && outlineBrief.trim() ? { feedback: outlineBrief.trim() } : {}),
         }),
       });
       if (!res.ok) {
         reportFailure(res.data, t('wizard.errors.outlineFailed'));
         return;
       }
-      setFeedback('');
+      sessionStorage.setItem(autoReviewPendingKey(story._id), '1');
       await fetchStory();
     } catch {
       setError(t('wizard.errors.generic'));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const postChat = async (messages: ChatMessage[], mode: 'chat' | 'review') => {
+    if (!story) return null;
+    const res = await request(`/api/stories/${story._id}/outline/chat`, {
+      method: 'POST',
+      body: JSON.stringify({
+        messages,
+        mode,
+        model: outlineAiModel,
+        effort: effortForRequest(outlineAiModel, outlineEffort),
+        locale: i18n.language?.startsWith('fr') ? 'fr' : 'en',
+      }),
+    });
+    if (!res.ok) {
+      reportFailure(res.data, t('wizard.errors.chatFailed'));
+      return null;
+    }
+    return {
+      reply: typeof res.data.reply === 'string' ? res.data.reply : '',
+      brief: typeof res.data.brief === 'string' ? res.data.brief : '',
+    };
+  };
+
+  const requestAutoReview = async () => {
+    setChatBusy(true);
+    try {
+      const result = await postChat(chatMessages, 'review');
+      if (result?.reply) {
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: result.reply }]);
+      }
+    } catch {
+      setError(t('wizard.errors.generic'));
+    } finally {
+      setChatBusy(false);
+    }
+  };
+
+  const handleSendChat = async () => {
+    if (!story || chatBusy || busy || story.generating) return;
+    const content = chatInput.trim();
+    if (!content) return;
+    const next: ChatMessage[] = [...chatMessages, { role: 'user', content }];
+    setChatMessages(next);
+    setChatInput('');
+    setChatBusy(true);
+    setError('');
+    try {
+      const result = await postChat(next, 'chat');
+      if (!result) return;
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: result.reply }]);
+      setOutlineBrief(result.brief);
+    } catch {
+      setError(t('wizard.errors.generic'));
+    } finally {
+      setChatBusy(false);
     }
   };
 
@@ -434,6 +526,9 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
         reportFailure(res.data, t('wizard.errors.generic'));
         return;
       }
+      setChatMessages([]);
+      setChatInput('');
+      setOutlineBrief('');
       await fetchStory();
     } finally {
       setBusy(false);
@@ -792,18 +887,6 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
                 value={synopsisLang1}
                 onChange={(event) => setSynopsisLang1(event.target.value)}
                 helperText={t('wizard.outline.synopsisHint')}
-                sx={{ mb: 2 }}
-                disabled={busy}
-              />
-              <TextField
-                fullWidth
-                multiline
-                minRows={2}
-                label={t('wizard.outline.synopsis', {
-                  lang: getLanguageName(learningLanguage) || t('wizard.setup.learningLanguageFallback'),
-                })}
-                value={synopsisLang2}
-                onChange={(event) => setSynopsisLang2(event.target.value)}
                 sx={{ mb: 3 }}
                 disabled={busy}
               />
@@ -898,13 +981,117 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
                 fullWidth
                 multiline
                 minRows={2}
-                label={t('wizard.outline.feedbackLabel')}
-                placeholder={t('wizard.outline.feedbackPlaceholder')}
-                value={feedback}
-                onChange={(event) => setFeedback(event.target.value)}
+                label={t('editor.aiGuideline')}
+                placeholder={t('editor.aiGuidelinePlaceholder')}
+                helperText={t('wizard.outline.guidelineHint')}
+                value={aiGuideline}
+                onChange={(event) => setAiGuideline(event.target.value)}
                 sx={{ mb: 2 }}
                 disabled={busy}
               />
+
+              <Divider sx={{ my: 2 }} />
+
+              {hasSynopsis && (
+                <>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <AutoAwesomeIcon fontSize="small" color="primary" />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      {t('wizard.outline.chatTitle')}
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                    {t('wizard.outline.chatHint')}
+                  </Typography>
+
+              <Box
+                ref={chatListRef}
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  p: 2,
+                  mb: 2,
+                  maxHeight: { xs: 280, sm: 360 },
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.5,
+                  bgcolor: 'background.default',
+                }}
+              >
+                {chatMessages.length === 0 && !chatBusy ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {t('wizard.outline.chatEmpty')}
+                  </Typography>
+                ) : (
+                  chatMessages.map((message, index) => (
+                    <Box
+                      key={`${message.role}-${index}`}
+                      sx={{
+                        alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
+                        maxWidth: { xs: '92%', sm: '85%' },
+                        px: 1.5,
+                        py: 1,
+                        borderRadius: 2,
+                        bgcolor: message.role === 'user' ? 'primary.main' : 'background.paper',
+                        color: message.role === 'user' ? 'primary.contrastText' : 'text.primary',
+                        border: message.role === 'user' ? 'none' : '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {message.content}
+                      </Typography>
+                    </Box>
+                  ))
+                )}
+                {chatBusy && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={14} />
+                    <Typography variant="caption" color="text.secondary">
+                      {t('wizard.outline.chatThinking')}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 2 }}>
+                <TextField
+                  fullWidth
+                  multiline
+                  maxRows={4}
+                  placeholder={t('wizard.outline.chatPlaceholder')}
+                  value={chatInput}
+                  onChange={(event) => setChatInput(event.target.value)}
+                  disabled={busy || chatBusy || story.generating}
+                  slotProps={{ htmlInput: { 'aria-label': t('wizard.outline.chatPlaceholder') } }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={handleSendChat}
+                  disabled={busy || chatBusy || story.generating || !chatInput.trim()}
+                  startIcon={chatBusy ? <CircularProgress size={18} color="inherit" /> : <AutoAwesomeIcon />}
+                  sx={{ width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
+                >
+                  {t('wizard.outline.chatSend')}
+                </Button>
+              </Box>
+
+              <Box sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 2, p: 1.5, mb: 2 }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                  {t('wizard.outline.briefLabel')}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color={outlineBrief.trim() ? 'text.primary' : 'text.secondary'}
+                  sx={{ whiteSpace: 'pre-wrap' }}
+                >
+                  {outlineBrief.trim() || t('wizard.outline.briefEmpty')}
+                </Typography>
+              </Box>
+                </>
+              )}
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 {!hasSynopsis ? (
@@ -917,14 +1104,18 @@ const StoryCreateWizardPage: React.FC<StoryCreateWizardPageProps> = ({ user }) =
                     {t('wizard.outline.generate')}
                   </Button>
                 ) : (
-                  <Button
-                    variant="outlined"
-                    startIcon={<AutoAwesomeIcon />}
-                    onClick={() => handleGenerateOutline(true)}
-                    disabled={busy}
-                  >
-                    {t('wizard.outline.adjust')}
-                  </Button>
+                  <Tooltip title={outlineBrief.trim() ? '' : t('wizard.outline.briefEmpty')}>
+                    <span>
+                      <Button
+                        variant="outlined"
+                        startIcon={<AutoAwesomeIcon />}
+                        onClick={() => handleGenerateOutline(true)}
+                        disabled={busy || chatBusy || !outlineBrief.trim()}
+                      >
+                        {t('wizard.outline.adjust')}
+                      </Button>
+                    </span>
+                  </Tooltip>
                 )}
               </Box>
 
